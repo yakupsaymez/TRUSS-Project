@@ -1,0 +1,76 @@
+POST http://localhost:5000/api/users/register
+Content-Type: application/json
+
+{
+  "ad_soyad": "Yakup",
+  "email": "yakup@test.com",
+  "sifre": "123456"
+}
+
+### Kullanıcı Girişi (Login) Testi
+POST http://localhost:5000/api/users/login
+Content-Type: application/json
+
+{
+  "email": "yakup@test.com",
+  "sifre": "123456"
+}
+
+### Araç Ekleme Testi
+POST http://localhost:5000/api/araclar/ekle
+Content-Type: application/json
+
+{
+  "plaka": "06 ABC 123",
+  "marka": "Toyota",
+  "model": "Corolla",
+  "yil": 2020,
+  "kullanici_id": 1
+}
+
+### Yeni Kullanıcı Kaydı
+POST http://localhost:5000/api/users/register
+Content-Type: application/json
+
+{
+  "ad_soyad": "Yakup Test2",
+  "email": "yakup2@test.com",
+  "sifre": "65432"
+}
+
+### Test: Geçersiz Email Formatı
+POST http://localhost:5000/api/users/register
+Content-Type: application/json
+
+{
+  "ad_soyad": "Yakup Test",
+  "email": "yakup-at-test.com",
+  "sifre": "123456"
+}
+
+### Test: Kısa Şifre
+POST http://localhost:5000/api/users/register
+Content-Type: application/json
+
+{
+  "ad_soyad": "Yakup Test",
+  "email": "deneme@test.com",
+  "sifre": "123"
+}
+
+### Test: Gelecekten Gelen Araç
+POST http://localhost:5000/api/araclar/ekle
+Authorization: Bearer <SENIN_TOKENIN>
+Content-Type: application/json
+
+{
+  "plaka": "34ABC123",
+  "marka": "Tesla",
+  "model": "Model S",
+  "yil": 2099
+}
+
+### Test: Yetkisiz Silme
+DELETE http://localhost:5000/api/araclar/1
+# Authorization başlığı yok!
+

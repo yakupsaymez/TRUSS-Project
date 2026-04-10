@@ -1,0 +1,64 @@
+### GET request to example server
+GET https://examples.http-client.intellij.net/get
+    ?generated-in=IntelliJ IDEA
+
+###
+
+### 1. Başarılı Senaryo: Kullanıcının Araçlarını Getir
+GET http://localhost:5000/api/araclar/1
+Accept: application/json
+
+### 2. Hata Senaryosu: Geçersiz ID Formatı Testi
+GET http://localhost:5000/api/araclar/abc
+Accept: application/json
+
+### 3. DELETE Başarılı Senaryo: Aracı Sil
+DELETE http://localhost:5000/api/araclar/1
+Accept: application/json
+
+### 4. DELETE Hata Senaryosu: Geçersiz ID Formatı
+DELETE http://localhost:5000/api/araclar/abc
+Accept: application/json
+
+### 5. DELETE Hata Senaryosu: Var Olmayan Araç ID'si
+DELETE http://localhost:5000/api/araclar/9999
+Accept: application/json
+
+### 3. Başarılı Senaryo: Araç Silme (1 rakamı yerine veritabanındaki gerçek bir arac_id yaz)
+DELETE http://localhost:5000/api/araclar/1
+Accept: application/json
+
+### 4. Hata Senaryosu: Olmayan Aracı Silme Testi (Yukarıdaki testi 2. kez çalıştırdığında bu hatayı almalısın)
+# Beklenen: 404 Not Found "Araç bulunamadı.
+
+    ### 5. Başarılı Senaryo: Araç Güncelleme (1 rakamı yerine gerçek bir arac_id yaz)
+PUT http://localhost:5000/api/araclar/1
+Content-Type: application/json
+
+{
+  "plaka": "06 YKP 99",
+  "marka": "Honda",
+  "model": "Civic",
+  "yil": 2024
+}
+
+### 6. Başarılı Giriş ve Token Alma Testi
+POST http://localhost:5000/api/users/login
+Content-Type: application/json
+
+{
+  "email": "yakup@test.com",
+  "sifre": "123456"
+}
+
+### 7. Güvenli Araç Ekleme Testi (Token İle)
+POST http://localhost:5000/api/araclar/ekle
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJlbWFpbCI6Inlha3VwQHRlc3QuY29tIiwiaWF0IjoxNzc1Njc0NTMzLCJleHAiOjE3NzU2NzgxMzN9._q9bXfANiL7JlTGyL4bAEREwkYnOmb_EXwjPdZmPPbI (Buraya kendi geçerli token'ını yapıştır)
+
+{
+  "plaka": "34 TEST 123",
+  "marka": "Toyota",
+  "model": "Corolla",
+  "yil": 2023
+}
