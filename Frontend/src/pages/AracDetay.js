@@ -1,20 +1,29 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-    Bar,
-    BarChart,
+    Area,
+    AreaChart,
     CartesianGrid,
     Cell,
     Legend,
     Pie,
     PieChart,
+    PolarAngleAxis,
+    PolarGrid,
+    PolarRadiusAxis,
+    Radar,
+    RadarChart,
     ResponsiveContainer,
     Tooltip,
     XAxis,
     YAxis
 } from 'recharts';
+import toast from 'react-hot-toast';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import aracService from '../services/aracService';
 import bakimService from '../services/bakimService';
+import parcaService from '../services/parcaService';
 import yakitService from '../services/yakitService';
 
 const AracDetay = () => {
@@ -24,17 +33,26 @@ const AracDetay = () => {
     const [arac, setArac] = useState(null);
     const [bakimlar, setBakimlar] = useState([]);
     const [yakitlar, setYakitlar] = useState([]);
+    const [parcalar, setParcalar] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [bakimLoadError, setBakimLoadError] = useState(null);
-    const [yakitLoadError, setYakitLoadError] = useState(null);
     const [activeTab, setActiveTab] = useState('bakim');
-    const [searchTerm, setSearchTerm] = useState('');
 
     const [bakimFormError, setBakimFormError] = useState(null);
-    const [yakitFormError, setYakitFormError] = useState(null);
     const [isBakimSubmitting, setIsBakimSubmitting] = useState(false);
     const [isYakitSubmitting, setIsYakitSubmitting] = useState(false);
+    const [isParcaUpdating, setIsParcaUpdating] = useState(false);
+    const [sadeceKritikParcalar, setSadeceKritikParcalar] = useState(false);
+    const [isParcaModalOpen, setIsParcaModalOpen] = useState(false);
+    const [isParcaModalVisible, setIsParcaModalVisible] = useState(false);
+    const [isParcaEkleSubmitting, setIsParcaEkleSubmitting] = useState(false);
+    const parcaModalCloseTimerRef = useRef(null);
+    const [yeniParcaFormu, setYeniParcaFormu] = useState({
+        parca_adi: '',
+        degisim_araligi_km: '',
+        son_degisim_km: 0,
+        son_degisim_tarihi: ''
+    });
 
     const [bakimFormData, setBakimFormData] = useState({
         bakim_tipi: 'Periyodik Bakım',
@@ -63,6 +81,79 @@ const AracDetay = () => {
         []
     );
 
+    const parcaBilgileri = useMemo(() => ({
+        'Motor Yağı': {
+            aciklama: 'Motorun asinmasini onler, can damaridir.',
+            varsayilanKm: 10000
+        },
+        'Yağ Filtresi': {
+            aciklama: 'Yagdaki metal tozu ve kirleri tutar.',
+            varsayilanKm: 10000
+        },
+        'Hava Filtresi': {
+            aciklama: 'Motora giren havayi temizler, yakit tuketimini etkiler.',
+            varsayilanKm: 10000
+        },
+        'Polen Filtresi': {
+            aciklama: 'Kabin icine giren havayi temizler.',
+            varsayilanKm: 10000
+        },
+        'Yakıt Filtresi': {
+            aciklama: 'Enjektorleri ve motoru kirli yakittan korur.',
+            varsayilanKm: 30000
+        },
+        'Ön Fren Balataları': {
+            aciklama: 'Guvenli durus icin hayati onem tasir.',
+            varsayilanKm: 30000
+        },
+        'Arka Fren Balataları': {
+            aciklama: 'Guvenli durus icin hayati onem tasir.',
+            varsayilanKm: 30000
+        },
+        'Fren Diskleri': {
+            aciklama: 'Incelendiginde fren mesafesi uzar ve titreme yapar.',
+            varsayilanKm: 60000
+        },
+        'Fren Hidroliği': {
+            aciklama: 'Zamanla su tutar, kaynama noktasi duserse fren tutmaz.',
+            varsayilanKm: 40000
+        },
+        'Triger Kayışı': {
+            aciklama: 'Koparsa motor pistonlari ve subaplari birbirine girer, motor agir hasar alir.',
+            varsayilanKm: 80000
+        },
+        'V Kayışı': {
+            aciklama: 'Koparsa aku sarj olmaz, direksiyon sertlesir.',
+            varsayilanKm: 60000
+        },
+        Bujiler: {
+            aciklama: 'Eskiyince tekleme yapar, yakit artar.',
+            varsayilanKm: 40000
+        },
+        'Kızdırma Bujisi': {
+            aciklama: 'Soguk havalarda dizel motorun calismasini saglar.',
+            varsayilanKm: 80000
+        },
+        'Şanzıman Yağı': {
+            aciklama: 'Vites gecislerinin puruzsuz olmasini saglar.',
+            varsayilanKm: 60000
+        },
+        Antifriz: {
+            aciklama: 'Motorun donmasini ve paslanmasini engeller.',
+            varsayilanKm: null
+        },
+        'Akü': {
+            aciklama: 'Omru bitince arac mars basmaz.',
+            varsayilanKm: null
+        },
+        Lastikler: {
+            aciklama: 'Kavrama icin tek temas noktasidir.',
+            varsayilanKm: 50000
+        }
+    }), []);
+
+    const parcaSecenekleri = useMemo(() => Object.keys(parcaBilgileri), [parcaBilgileri]);
+
     const formatTarih = useCallback((tarih) => {
         if (!tarih) return '-';
         const date = new Date(tarih);
@@ -76,42 +167,16 @@ const AracDetay = () => {
         return `${sayi.toLocaleString('tr-TR')} TL`;
     }, []);
 
-    const formatSure = useCallback((tarih) => {
-        if (!tarih) return '-';
-
-        const hedefTarih = new Date(tarih);
-        if (Number.isNaN(hedefTarih.getTime())) return '-';
-
-        const saniye = Math.floor((Date.now() - hedefTarih.getTime()) / 1000);
-        const araliklar = [
-            { etiket: 'yıl', saniye: 60 * 60 * 24 * 365 },
-            { etiket: 'ay', saniye: 60 * 60 * 24 * 30 },
-            { etiket: 'gün', saniye: 60 * 60 * 24 },
-            { etiket: 'saat', saniye: 60 * 60 },
-            { etiket: 'dakika', saniye: 60 }
-        ];
-
-        for (const aralik of araliklar) {
-            const deger = Math.floor(saniye / aralik.saniye);
-            if (deger >= 1) {
-                return `${deger} ${aralik.etiket} önce`;
-            }
-        }
-
-        return 'az önce';
-    }, []);
-
     const fetchAracVeKayitlar = useCallback(async () => {
         try {
             setLoading(true);
             setError(null);
-            setBakimLoadError(null);
-            setYakitLoadError(null);
 
-            const [aracResult, bakimResult, yakitResult] = await Promise.allSettled([
+            const [aracResult, bakimResult, yakitResult, parcaResult] = await Promise.allSettled([
                 aracService.getAraclar(),
                 bakimService.getBakimlarByArac(id),
-                yakitService.getYakitlarByArac(id)
+                yakitService.getYakitlarByArac(id),
+                parcaService.getParcalarByArac(id)
             ]);
 
             if (aracResult.status === 'fulfilled') {
@@ -134,11 +199,7 @@ const AracDetay = () => {
                     : (bakimResult.value?.bakimlar || []);
                 setBakimlar(bakimListesi);
             } else {
-                setBakimLoadError(
-                    bakimResult.reason?.response?.data?.message ||
-                    bakimResult.reason?.message ||
-                    'Bakım kayıtları alınırken bir hata oluştu.'
-                );
+                // Bakım listesi hatası genel sayfayı düşürmemeli; mevcut veri korunur.
             }
 
             if (yakitResult.status === 'fulfilled') {
@@ -147,11 +208,16 @@ const AracDetay = () => {
                     : (yakitResult.value?.yakitlar || []);
                 setYakitlar(yakitListesi);
             } else {
-                setYakitLoadError(
-                    yakitResult.reason?.response?.data?.message ||
-                    yakitResult.reason?.message ||
-                    'Yakıt kayıtları alınırken bir hata oluştu.'
-                );
+                // Yakıt listesi hatası genel sayfayı düşürmemeli; mevcut veri korunur.
+            }
+
+            if (parcaResult.status === 'fulfilled') {
+                const parcaListesi = Array.isArray(parcaResult.value)
+                    ? parcaResult.value
+                    : (parcaResult.value?.parcalar || []);
+                setParcalar(parcaListesi);
+            } else {
+                setError((prev) => prev || 'Parça takip kayıtları alınırken bir hata oluştu.');
             }
         } finally {
             setLoading(false);
@@ -166,6 +232,12 @@ const AracDetay = () => {
         }
         fetchAracVeKayitlar();
     }, [fetchAracVeKayitlar, navigate]);
+
+    useEffect(() => () => {
+        if (parcaModalCloseTimerRef.current) {
+            clearTimeout(parcaModalCloseTimerRef.current);
+        }
+    }, []);
 
     const handleBakimInputChange = (e) => {
         const { name, value } = e.target;
@@ -183,7 +255,7 @@ const AracDetay = () => {
         setError(null);
 
         if (!bakimFormData.bakim_tipi || !bakimFormData.tarih || !bakimFormData.km || !bakimFormData.maliyet) {
-            setBakimFormError('Lütfen zorunlu alanları eksiksiz doldurun.');
+            toast.error('Lutfen zorunlu bakim alanlarini eksiksiz doldurun.');
             return;
         }
 
@@ -204,9 +276,10 @@ const AracDetay = () => {
                 maliyet: '',
                 notlar: ''
             });
+            toast.success('Bakim kaydi eklendi.');
             await fetchAracVeKayitlar();
         } catch (err) {
-            setBakimFormError(err?.response?.data?.message || err?.message || 'Bakım kaydı eklenirken bir hata oluştu.');
+            toast.error(err?.response?.data?.message || err?.message || 'Bakim kaydi eklenirken bir hata olustu.');
         } finally {
             setIsBakimSubmitting(false);
         }
@@ -214,11 +287,10 @@ const AracDetay = () => {
 
     const handleYakitEkle = async (e) => {
         e.preventDefault();
-        setYakitFormError(null);
         setError(null);
 
         if (!yakitFormData.tarih || !yakitFormData.yakit_tipi || !yakitFormData.litre || !yakitFormData.tutar || !yakitFormData.km) {
-            setYakitFormError('Lütfen zorunlu alanları eksiksiz doldurun.');
+            toast.error('Lutfen zorunlu yakit alanlarini eksiksiz doldurun.');
             return;
         }
 
@@ -241,9 +313,10 @@ const AracDetay = () => {
                 km: '',
                 notlar: ''
             });
+            toast.success('Yakit kaydi eklendi.');
             await fetchAracVeKayitlar();
         } catch (err) {
-            setYakitFormError(err?.response?.data?.message || err?.message || 'Yakıt kaydı eklenirken bir hata oluştu.');
+            toast.error(err?.response?.data?.message || err?.message || 'Yakit kaydi eklenirken bir hata olustu.');
         } finally {
             setIsYakitSubmitting(false);
         }
@@ -254,9 +327,10 @@ const AracDetay = () => {
         try {
             setError(null);
             await bakimService.bakimSil(bakimId);
+            toast.success('Bakim kaydi silindi.');
             await fetchAracVeKayitlar();
         } catch (err) {
-            setError(err?.response?.data?.message || err?.message || 'Bakım kaydı silinirken bir hata oluştu.');
+            toast.error(err?.response?.data?.message || err?.message || 'Bakim kaydi silinirken bir hata olustu.');
         }
     };
 
@@ -265,9 +339,96 @@ const AracDetay = () => {
         try {
             setError(null);
             await yakitService.yakitSil(yakitId);
+            toast.success('Yakit kaydi silindi.');
             await fetchAracVeKayitlar();
         } catch (err) {
-            setError(err?.response?.data?.message || err?.message || 'Yakıt kaydı silinirken bir hata oluştu.');
+            toast.error(err?.response?.data?.message || err?.message || 'Yakit kaydi silinirken bir hata olustu.');
+        }
+    };
+
+    const normalizeParcaAdi = useCallback((deger) => String(deger || '')
+        .trim()
+        .toLowerCase()
+        .replace(/ı/g, 'i')
+        .replace(/ğ/g, 'g')
+        .replace(/ş/g, 's')
+        .replace(/ü/g, 'u')
+        .replace(/ö/g, 'o')
+        .replace(/ç/g, 'c'), []);
+
+    const secilenParcaBilgisi = useMemo(() => {
+        const giris = normalizeParcaAdi(yeniParcaFormu.parca_adi);
+        if (!giris) return null;
+
+        const eslesenAnahtar = parcaSecenekleri.find((anahtar) => normalizeParcaAdi(anahtar) === giris)
+            || parcaSecenekleri.find((anahtar) => normalizeParcaAdi(anahtar).includes(giris));
+
+        if (!eslesenAnahtar) return null;
+        return { anahtar: eslesenAnahtar, ...parcaBilgileri[eslesenAnahtar] };
+    }, [normalizeParcaAdi, parcaBilgileri, parcaSecenekleri, yeniParcaFormu.parca_adi]);
+
+    const openYeniParcaModal = () => {
+        setYeniParcaFormu({
+            parca_adi: '',
+            degisim_araligi_km: '',
+            son_degisim_km: guncelKm,
+            son_degisim_tarihi: new Date().toISOString().slice(0, 10)
+        });
+        setIsParcaModalOpen(true);
+        setIsParcaModalVisible(true);
+    };
+
+    const closeYeniParcaModal = () => {
+        setIsParcaModalVisible(false);
+        parcaModalCloseTimerRef.current = setTimeout(() => setIsParcaModalOpen(false), 200);
+    };
+
+    const handleYeniParcaInputChange = (e) => {
+        const { name, value } = e.target;
+
+        setYeniParcaFormu((prev) => {
+            const next = { ...prev, [name]: value };
+
+            if (name === 'parca_adi') {
+                const normalized = normalizeParcaAdi(value);
+                const matched = parcaSecenekleri.find((anahtar) => normalizeParcaAdi(anahtar) === normalized)
+                    || parcaSecenekleri.find((anahtar) => normalizeParcaAdi(anahtar).includes(normalized));
+
+                if (matched) {
+                    const varsayilan = parcaBilgileri[matched]?.varsayilanKm;
+                    next.degisim_araligi_km = Number.isFinite(varsayilan) ? String(varsayilan) : '';
+                }
+            }
+
+            return next;
+        });
+    };
+
+    const handleYeniParcaEkle = async (e) => {
+        e.preventDefault();
+
+        if (!yeniParcaFormu.parca_adi) {
+            toast.error('Parca adi zorunludur.');
+            return;
+        }
+
+        try {
+            setIsParcaEkleSubmitting(true);
+            await parcaService.parcaEkle({
+                arac_id: Number(id),
+                parca_adi: yeniParcaFormu.parca_adi,
+                son_degisim_km: Number(yeniParcaFormu.son_degisim_km || guncelKm),
+                degisim_araligi_km: yeniParcaFormu.degisim_araligi_km === '' ? null : Number(yeniParcaFormu.degisim_araligi_km),
+                son_degisim_tarihi: yeniParcaFormu.son_degisim_tarihi || new Date().toISOString().slice(0, 10)
+            });
+
+            toast.success('Yeni parça takibe alındı! 🛠️');
+            closeYeniParcaModal();
+            await fetchAracVeKayitlar();
+        } catch (err) {
+            toast.error(err?.response?.data?.message || 'Parça eklenirken hata oluştu.');
+        } finally {
+            setIsParcaEkleSubmitting(false);
         }
     };
 
@@ -285,11 +446,67 @@ const AracDetay = () => {
         }, bakimlar[0]);
     }, [bakimlar]);
 
-    const filtrelenmisBakimlar = useMemo(() => {
-        const arama = searchTerm.trim().toLowerCase();
-        if (!arama) return bakimlar;
-        return bakimlar.filter((bakim) => String(bakim.bakim_tipi || '').toLowerCase().includes(arama));
-    }, [bakimlar, searchTerm]);
+    const guncelKm = useMemo(() => {
+        const kmDegerleri = [...bakimlar, ...yakitlar]
+            .map((kayit) => Number(kayit?.km))
+            .filter(Number.isFinite);
+        return kmDegerleri.length ? Math.max(...kmDegerleri) : 0;
+    }, [bakimlar, yakitlar]);
+
+    const bakimUyari = useMemo(() => {
+        const mesajlar = [];
+        let tip = null;
+
+        if (!sonBakim) {
+            mesajlar.push('Bu araca ait bakım kaydı bulunmuyor. Takibe başlamak için ilk bakımı ekleyin.');
+            tip = 'bilgi';
+        } else {
+            // Mevcut KM bazlı bakım kuralını aynen koruyoruz.
+            const periyodikBakimAraligi = 10000;
+            const sonBakimKm = Number(sonBakim.km) || 0;
+            const kalanKm = (sonBakimKm + periyodikBakimAraligi) - guncelKm;
+
+            if (kalanKm <= 0) {
+                mesajlar.push(`DİKKAT! Bakım zamanı ${Math.abs(kalanKm).toLocaleString('tr-TR')} KM geçmiş! Lütfen en kısa sürede bakım yaptırın.`);
+                tip = 'tehlike';
+            } else if (kalanKm <= 1500) {
+                mesajlar.push(`Uyarı: Bakım zamanı yaklaştı! Sonraki bakıma ortalama ${kalanKm.toLocaleString('tr-TR')} KM kaldı.`);
+                tip = 'uyari';
+            }
+        }
+
+        const bugun = new Date();
+        bugun.setHours(0, 0, 0, 0);
+        const MILLISECONDS_IN_DAY = 1000 * 60 * 60 * 24;
+        const EVRAK_ESIK_GUN = 15;
+
+        const evraklar = [
+            { etiket: 'Muayene', tarih: arac?.muayene_tarihi },
+            { etiket: 'Kasko', tarih: arac?.kasko_tarihi },
+            { etiket: 'Sigorta', tarih: arac?.sigorta_tarihi }
+        ];
+
+        evraklar.forEach((evrak) => {
+            if (!evrak.tarih) return;
+
+            const hedefTarih = new Date(evrak.tarih);
+            if (Number.isNaN(hedefTarih.getTime())) return;
+
+            hedefTarih.setHours(0, 0, 0, 0);
+            const kalanGun = Math.ceil((hedefTarih.getTime() - bugun.getTime()) / MILLISECONDS_IN_DAY);
+
+            if (kalanGun < 0) {
+                mesajlar.push(`DİKKAT! ${evrak.etiket} tarihi geçmiş.`);
+                tip = 'tehlike';
+            } else if (kalanGun <= EVRAK_ESIK_GUN) {
+                mesajlar.push(`Uyarı: ${evrak.etiket} bitimine ${kalanGun} gün kaldı.`);
+                if (tip !== 'tehlike') tip = 'uyari';
+            }
+        });
+
+        if (!mesajlar.length) return null;
+        return { tip: tip || 'bilgi', mesaj: mesajlar.join(' | ') };
+    }, [arac, guncelKm, sonBakim]);
 
     const yakitOzeti = useMemo(() => {
         const toplamTutar = yakitlar.reduce((toplam, yakit) => toplam + (Number(yakit.tutar) || 0), 0);
@@ -305,68 +522,380 @@ const AracDetay = () => {
         };
     }, [yakitlar]);
 
+    const parcaIlerlemeListesi = useMemo(() => {
+        const msGun = 1000 * 60 * 60 * 24;
+        const bugun = new Date();
+        bugun.setHours(0, 0, 0, 0);
+
+        return parcalar.map((parca) => {
+            const isim = String(parca.parca_adi || 'Parça');
+            const kmAralik = Number(parca.degisim_araligi_km);
+            const sonKm = Number(parca.son_degisim_km) || 0;
+            const kmBazli = Number.isFinite(kmAralik) && kmAralik > 0;
+
+            let oran = 0;
+            let kalanMetin = '-';
+
+            if (kmBazli) {
+                const kullanilanKm = Math.max(0, guncelKm - sonKm);
+                oran = Math.min((kullanilanKm / kmAralik) * 100, 100);
+                const kalanKm = Math.max(0, kmAralik - kullanilanKm);
+                kalanMetin = `${kalanKm.toLocaleString('tr-TR')} KM`;
+            } else {
+                const yilAraligi = isim === 'Akü' ? 4 : isim === 'Lastikler' ? 5 : 1;
+                const toplamGun = yilAraligi * 365;
+                const sonDegisimTarihi = new Date(parca.son_degisim_tarihi || bugun);
+                sonDegisimTarihi.setHours(0, 0, 0, 0);
+                const gecenGun = Math.max(0, Math.floor((bugun.getTime() - sonDegisimTarihi.getTime()) / msGun));
+                oran = Math.min((gecenGun / toplamGun) * 100, 100);
+                const kalanGun = Math.max(0, toplamGun - gecenGun);
+                kalanMetin = `${kalanGun} gun`;
+            }
+
+            return {
+                ...parca,
+                oran,
+                kalanMetin,
+                danger: oran >= 100,
+                warning: oran >= 80 && oran < 100
+            };
+        });
+    }, [guncelKm, parcalar]);
+
+    const gorunenParcalar = useMemo(() => {
+        if (!sadeceKritikParcalar) return parcaIlerlemeListesi;
+        return parcaIlerlemeListesi.filter((parca) => parca.oran >= 80);
+    }, [parcaIlerlemeListesi, sadeceKritikParcalar]);
+
+    const handleParcaDegistir = async (parca) => {
+        try {
+            setIsParcaUpdating(true);
+            await parcaService.parcaGuncelle(parca.parca_id, {
+                son_degisim_km: guncelKm,
+                son_degisim_tarihi: new Date().toISOString().slice(0, 10)
+            });
+            await fetchAracVeKayitlar();
+        } catch (err) {
+            setError(err?.response?.data?.message || err?.message || 'Parca guncellenemedi.');
+        } finally {
+            setIsParcaUpdating(false);
+        }
+    };
+
     const formatKmBasinaMaliyet = useCallback((deger) => {
         if (!deger || !Number.isFinite(deger)) return '-';
         return `${deger.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL / KM`;
     }, []);
 
-    const maliyetPieData = useMemo(
-        () => [
-            { name: 'Toplam Bakım Maliyeti', value: toplamBakimHarcama, color: '#10B981' },
-            { name: 'Toplam Yakıt Maliyeti', value: yakitOzeti.toplamTutar, color: '#3B82F6' }
-        ],
-        [toplamBakimHarcama, yakitOzeti.toplamTutar]
+    const formatKisaPara = useCallback((deger) => {
+        const sayi = Number(deger) || 0;
+        return `${sayi.toLocaleString('tr-TR')} TL`;
+    }, []);
+
+    const maliyetAnaliziData = useMemo(() => {
+        const digerGider = bakimlar.reduce((toplam, bakim) => {
+            const tip = String(bakim?.bakim_tipi || '').toLowerCase();
+            return tip.includes('diğer') || tip.includes('diger') ? toplam + (Number(bakim?.maliyet) || 0) : toplam;
+        }, 0);
+
+        const bakimGider = Math.max(0, toplamBakimHarcama - digerGider);
+        return [
+            { name: 'Bakım', value: bakimGider, color: '#34d399' },
+            { name: 'Yakıt', value: yakitOzeti.toplamTutar, color: '#f43f5e' },
+            { name: 'Diğer', value: digerGider, color: '#fbbf24' }
+        ];
+    }, [bakimlar, toplamBakimHarcama, yakitOzeti.toplamTutar]);
+
+    const toplamHarcama = useMemo(
+        () => maliyetAnaliziData.reduce((toplam, item) => toplam + (Number(item.value) || 0), 0),
+        [maliyetAnaliziData]
     );
 
-    const yakitTrendData = useMemo(() => {
-        return [...yakitlar]
-            .filter((item) => item?.tarih)
-            .sort((a, b) => new Date(a.tarih) - new Date(b.tarih))
-            .map((item) => ({
-                tarih: formatTarih(item.tarih),
-                tutar: Number(item.tutar) || 0,
-                litre: Number(item.litre) || 0
-            }));
-    }, [formatTarih, yakitlar]);
+    const tuketimTrendData = useMemo(() => {
+        const aylar = [];
+        const bugun = new Date();
+        const thisMonth = new Date(bugun.getFullYear(), bugun.getMonth(), 1);
+
+        for (let i = 5; i >= 0; i--) {
+            const ay = new Date(thisMonth.getFullYear(), thisMonth.getMonth() - i, 1);
+            const key = `${ay.getFullYear()}-${String(ay.getMonth() + 1).padStart(2, '0')}`;
+            aylar.push({
+                key,
+                ayEtiket: ay.toLocaleDateString('tr-TR', { month: 'short' }),
+                yakit: 0,
+                bakim: 0
+            });
+        }
+
+        const ayMap = new Map(aylar.map((a) => [a.key, a]));
+
+        yakitlar.forEach((yakit) => {
+            const tarih = new Date(yakit?.tarih);
+            if (Number.isNaN(tarih.getTime())) return;
+            const key = `${tarih.getFullYear()}-${String(tarih.getMonth() + 1).padStart(2, '0')}`;
+            const mevcut = ayMap.get(key);
+            if (mevcut) mevcut.yakit += Number(yakit?.tutar) || 0;
+        });
+
+        bakimlar.forEach((bakim) => {
+            const tarih = new Date(bakim?.tarih);
+            if (Number.isNaN(tarih.getTime())) return;
+            const key = `${tarih.getFullYear()}-${String(tarih.getMonth() + 1).padStart(2, '0')}`;
+            const mevcut = ayMap.get(key);
+            if (mevcut) mevcut.bakim += Number(bakim?.maliyet) || 0;
+        });
+
+        return aylar;
+    }, [bakimlar, yakitlar]);
+
+    const aracSaglikRadarData = useMemo(() => {
+        const kategoriler = [
+            { etiket: 'Lastik', anahtarlar: ['lastik'] },
+            { etiket: 'Motor', anahtarlar: ['motor', 'triger', 'buji'] },
+            { etiket: 'Fren', anahtarlar: ['fren'] },
+            { etiket: 'Yağ', anahtarlar: ['yağ', 'yag'] },
+            { etiket: 'Filtre', anahtarlar: ['filtre'] }
+        ];
+
+        return kategoriler.map((kategori) => {
+            const eslesen = parcaIlerlemeListesi.filter((parca) => {
+                const ad = normalizeParcaAdi(parca?.parca_adi);
+                return kategori.anahtarlar.some((anahtar) => ad.includes(normalizeParcaAdi(anahtar)));
+            });
+
+            if (!eslesen.length) return { konu: kategori.etiket, skor: 85 };
+
+            const ortalamaOran = eslesen.reduce((toplam, parca) => toplam + (Number(parca?.oran) || 0), 0) / eslesen.length;
+            const skor = Math.max(0, Math.min(100, Math.round(100 - ortalamaOran)));
+            return { konu: kategori.etiket, skor };
+        });
+    }, [normalizeParcaAdi, parcaIlerlemeListesi]);
+
+    const genelSaglikPuani = useMemo(() => {
+        if (!aracSaglikRadarData.length) return 85;
+        const toplam = aracSaglikRadarData.reduce((sum, item) => sum + item.skor, 0);
+        return Math.round(toplam / aracSaglikRadarData.length);
+    }, [aracSaglikRadarData]);
+
+    const yillikTahminiGider = useMemo(() => {
+        if (!tuketimTrendData.length) return 0;
+        const altiAylikToplam = tuketimTrendData.reduce((toplam, ay) => toplam + ay.yakit + ay.bakim, 0);
+        const aylikOrtalama = altiAylikToplam / 6;
+        return Math.round(aylikOrtalama * 12);
+    }, [tuketimTrendData]);
+
+    const kmBasinaToplamMaliyet = useMemo(() => {
+        if (!guncelKm || guncelKm <= 0) return 0;
+        return (toplamBakimHarcama + yakitOzeti.toplamTutar) / guncelKm;
+    }, [guncelKm, toplamBakimHarcama, yakitOzeti.toplamTutar]);
+
+    const parcaSiklikData = useMemo(() => {
+        const kaynakMetinler = bakimlar.map((bakim) => normalizeParcaAdi(`${bakim?.bakim_tipi || ''} ${bakim?.notlar || ''}`));
+
+        return parcaIlerlemeListesi.map((parca) => {
+            const parcaAdiNormalized = normalizeParcaAdi(parca?.parca_adi);
+            const degisimSayisi = kaynakMetinler.filter((metin) => metin.includes(parcaAdiNormalized)).length;
+            return {
+                parcaAdi: parca?.parca_adi || 'Parça',
+                degisimSayisi,
+                durumSkoru: Math.max(0, Math.round(100 - (Number(parca?.oran) || 0)))
+            };
+        })
+            .sort((a, b) => {
+                if (b.degisimSayisi !== a.degisimSayisi) return b.degisimSayisi - a.degisimSayisi;
+                return a.durumSkoru - b.durumSkoru;
+            })
+            .slice(0, 3);
+    }, [bakimlar, normalizeParcaAdi, parcaIlerlemeListesi]);
 
     const pieTooltipFormatter = useCallback((value) => formatPara(value), [formatPara]);
-    const barTooltipFormatter = useCallback((value, name) => [name === 'tutar' ? formatPara(value) : value, name === 'tutar' ? 'Tutar' : 'Litre'], [formatPara]);
+    const areaTooltipFormatter = useCallback((value, name) => [formatPara(value), name === 'yakit' ? 'Yakıt' : 'Bakım'], [formatPara]);
+    const radarTooltipFormatter = useCallback((value) => [`${value} / 100`, 'Skor'], []);
+
+    const exportPDF = useCallback(() => {
+        const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+        const safeText = (metin) => String(metin || '')
+            .replace(/İ/g, 'I')
+            .replace(/ı/g, 'i')
+            .replace(/Ş/g, 'S')
+            .replace(/ş/g, 's')
+            .replace(/Ğ/g, 'G')
+            .replace(/ğ/g, 'g')
+            .replace(/Ü/g, 'U')
+            .replace(/ü/g, 'u')
+            .replace(/Ö/g, 'O')
+            .replace(/ö/g, 'o')
+            .replace(/Ç/g, 'C')
+            .replace(/ç/g, 'c');
+
+        const plaka = safeText(arac?.plaka || '-');
+        const marka = safeText(arac?.marka || '-');
+        const model = safeText(arac?.model || '-');
+        const warningText = safeText(bakimUyari?.mesaj || 'Aktif uyari bulunmuyor.');
+        const kmDurumu = sonBakim
+            ? `Son bakim: ${safeText(sonBakim.km)} KM | Guncel KM: ${safeText(guncelKm)}`
+            : `Bakim kaydi yok | Guncel KM: ${safeText(guncelKm)}`;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.text('ABTS Arac Raporu', 14, 16);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.text(`Rapor Tarihi: ${safeText(new Date().toLocaleDateString('tr-TR'))}`, 14, 23);
+        doc.text(`Plaka: ${plaka} | Marka: ${marka} | Model: ${model}`, 14, 29);
+        doc.text(`KM Durumu: ${kmDurumu}`, 14, 35);
+        doc.text(`Uyarilar: ${warningText}`, 14, 41, { maxWidth: 182 });
+
+        const bakimRows = bakimlar.length
+            ? bakimlar.map((bakim) => [
+                safeText(formatTarih(bakim.tarih)),
+                safeText(bakim.bakim_tipi || '-'),
+                safeText(bakim.km || '-'),
+                safeText(formatPara(bakim.maliyet)),
+                safeText(bakim.notlar || '-')
+            ])
+            : [['-', '-', '-', '-', '-']];
+
+        autoTable(doc, {
+            startY: 48,
+            head: [['Bakim Tarihi', 'Bakim Tipi', 'KM', 'Maliyet', 'Notlar']],
+            body: bakimRows,
+            theme: 'grid',
+            headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255] },
+            styles: { font: 'helvetica', fontSize: 9 }
+        });
+
+        const finalY = doc.lastAutoTable?.finalY ? doc.lastAutoTable.finalY + 8 : 120;
+        const yakitRows = yakitlar.length
+            ? yakitlar.map((yakit) => [
+                safeText(formatTarih(yakit.tarih)),
+                safeText(yakit.yakit_tipi || '-'),
+                safeText(yakit.litre || '-'),
+                safeText(formatPara(yakit.tutar)),
+                safeText(yakit.km || '-'),
+                safeText(yakit.notlar || '-')
+            ])
+            : [['-', '-', '-', '-', '-', '-']];
+
+        autoTable(doc, {
+            startY: finalY,
+            head: [['Yakit Tarihi', 'Yakit Tipi', 'Litre', 'Tutar', 'KM', 'Notlar']],
+            body: yakitRows,
+            theme: 'grid',
+            headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255] },
+            styles: { font: 'helvetica', fontSize: 9 }
+        });
+
+        doc.save(`ABTS_${plaka || 'arac'}_rapor.pdf`);
+    }, [arac, bakimUyari?.mesaj, bakimlar, formatPara, formatTarih, guncelKm, sonBakim, yakitlar]);
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <nav className="bg-white border-b border-gray-200 shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-                    <h1 className="text-lg sm:text-xl font-semibold text-gray-800">ABTS - Bakım ve Yakıt Takip Paneli</h1>
-                    <button
-                        onClick={() => navigate('/dashboard')}
-                        className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-md transition-colors duration-200"
+        <div className="min-h-screen" style={{ color: 'var(--text-main)' }}>
+            <div className="flex items-center justify-end gap-2 mb-4">
+                <button
+                    onClick={exportPDF}
+                    className="neo-btn bg-indigo-500 hover:bg-indigo-400 text-white px-4 py-2 shadow-md"
+                >
+                    PDF Raporu İndir
+                </button>
+                <button
+                    onClick={() => navigate('/dashboard')}
+                    className="neo-btn bg-emerald-400 hover:bg-emerald-300 text-slate-950 px-4 py-2 shadow-md"
+                >
+                    Geri Dön
+                </button>
+            </div>
+            <main className="space-y-6">
+                {bakimUyari && (
+                    <div
+                        className={`rounded-lg border p-4 shadow-sm flex items-start gap-3 ${bakimUyari.tip === 'tehlike'
+                            ? 'bg-red-950/45 border-red-300/55 text-red-200 shadow-md'
+                            : bakimUyari.tip === 'uyari'
+                                ? 'bg-amber-950/40 border-amber-300/55 text-amber-200 shadow-md'
+                                : 'bg-indigo-950/40 border-indigo-300/55 text-indigo-200'
+                            }`}
                     >
-                        Geri Dön
-                    </button>
-                </div>
-            </nav>
-
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
-                {loading && <div className="bg-white shadow-md rounded-lg p-8 text-center"><p className="text-gray-700 text-lg font-medium">Araç detayları yükleniyor...</p></div>}
-                {!loading && error && <div className="bg-red-50 border border-red-200 text-red-700 shadow-md rounded-lg p-4 text-center">{error}</div>}
+                        <div className="mt-0.5">
+                            {bakimUyari.tip === 'tehlike' && (
+                                <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.72-1.36 3.485 0l6.518 11.591c.75 1.334-.213 2.99-1.742 2.99H3.48c-1.53 0-2.493-1.656-1.743-2.99L8.257 3.1zM11 7a1 1 0 10-2 0v4a1 1 0 102 0V7zm-1 7a1.25 1.25 0 100-2.5A1.25 1.25 0 0010 14z" clipRule="evenodd" />
+                                </svg>
+                            )}
+                            {bakimUyari.tip === 'uyari' && (
+                                <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fillRule="evenodd" d="M18 10A8 8 0 114.293 4.293 8 8 0 0118 10zm-8-3a1 1 0 00-1 1v2a1 1 0 102 0V8a1 1 0 00-1-1zm0 7a1.25 1.25 0 100-2.5A1.25 1.25 0 0010 14z" clipRule="evenodd" />
+                                </svg>
+                            )}
+                            {bakimUyari.tip === 'bilgi' && (
+                                <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fillRule="evenodd" d="M18 10A8 8 0 112 10a8 8 0 0116 0zm-8-4a1 1 0 100 2 1 1 0 000-2zm1 8a1 1 0 10-2 0 1 1 0 002 0V9a1 1 0 10-2 0v5z" clipRule="evenodd" />
+                                </svg>
+                            )}
+                        </div>
+                        <p className="text-sm sm:text-base font-medium">{bakimUyari.mesaj}</p>
+                    </div>
+                )}
+                {loading && (
+                    <div className="glass-card p-6 sm:p-8 space-y-4">
+                        <div className="rounded-xl border border-white/15 p-4">
+                            <div className="skeleton-block h-6 w-48 rounded mb-4" />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {Array.from({ length: 6 }).map((_, i) => (
+                                    <div key={`detay-skel-info-${i}`} className="rounded-lg border border-white/15 p-4">
+                                        <div className="skeleton-block h-3 w-20 rounded mb-2" />
+                                        <div className="skeleton-block h-5 w-28 rounded" />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="rounded-xl border border-white/15 p-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                                {Array.from({ length: 4 }).map((_, i) => (
+                                    <div key={`detay-skel-tab-${i}`} className="skeleton-block h-10 rounded-md" />
+                                ))}
+                            </div>
+                        </div>
+                        <div className="rounded-xl border border-white/15 p-4">
+                            <div className="skeleton-block h-6 w-52 rounded mb-4" />
+                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                <div className="skeleton-block h-64 rounded-xl" />
+                                <div className="skeleton-block h-64 rounded-xl" />
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {!loading && error && <div className="bg-red-950/45 border border-red-300/55 text-red-200 shadow-md rounded-lg p-4 text-center">{error}</div>}
 
                 {!loading && !error && (
                     <>
-                        <section className="bg-white shadow-md rounded-lg border border-blue-100 p-6">
-                            <h2 className="text-lg font-semibold text-gray-800 mb-4">Araç Bilgileri</h2>
+                        <section className="glass-card p-6">
+                            <h2 className="text-xl font-bold text-slate-50 mb-4 tracking-wide">Araç Bilgileri</h2>
                             {arac ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                    <div className="bg-gray-50 rounded-md p-4">
-                                        <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">Plaka</p>
-                                        <p className="text-base font-semibold text-gray-800">{arac.plaka || '-'}</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    <div className="bg-transparent border border-white/20 rounded-xl p-4">
+                                        <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">Plaka</p>
+                                        <p className="text-base font-semibold text-slate-100">{arac.plaka || '-'}</p>
                                     </div>
-                                    <div className="bg-gray-50 rounded-md p-4">
-                                        <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">Marka</p>
-                                        <p className="text-base font-semibold text-gray-800">{arac.marka || '-'}</p>
+                                    <div className="bg-transparent border border-white/20 rounded-xl p-4">
+                                        <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">Marka</p>
+                                        <p className="text-base font-semibold text-slate-100">{arac.marka || '-'}</p>
                                     </div>
-                                    <div className="bg-gray-50 rounded-md p-4">
-                                        <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">Model</p>
-                                        <p className="text-base font-semibold text-gray-800">{arac.model || '-'}</p>
+                                    <div className="bg-transparent border border-white/20 rounded-xl p-4">
+                                        <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">Model</p>
+                                        <p className="text-base font-semibold text-slate-100">{arac.model || '-'}</p>
+                                    </div>
+                                    <div className="bg-transparent border border-white/20 rounded-xl p-4">
+                                        <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">Muayene Tarihi</p>
+                                        <p className="text-base font-semibold text-slate-100">{formatTarih(arac.muayene_tarihi)}</p>
+                                    </div>
+                                    <div className="bg-transparent border border-white/20 rounded-xl p-4">
+                                        <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">Kasko Tarihi</p>
+                                        <p className="text-base font-semibold text-slate-100">{formatTarih(arac.kasko_tarihi)}</p>
+                                    </div>
+                                    <div className="bg-transparent border border-white/20 rounded-xl p-4">
+                                        <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">Sigorta Tarihi</p>
+                                        <p className="text-base font-semibold text-slate-100">{formatTarih(arac.sigorta_tarihi)}</p>
                                     </div>
                                 </div>
                             ) : (
@@ -374,48 +903,50 @@ const AracDetay = () => {
                             )}
                         </section>
 
-                        <section className="bg-white shadow-md rounded-lg border border-gray-200 p-2 sm:p-3">
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                <button type="button" onClick={() => setActiveTab('bakim')} className={`rounded-md px-4 py-2 font-medium transition-colors duration-200 ${activeTab === 'bakim' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Bakım Kayıtları</button>
-                                <button type="button" onClick={() => setActiveTab('yakit')} className={`rounded-md px-4 py-2 font-medium transition-colors duration-200 ${activeTab === 'yakit' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Yakıt Kayıtları</button>
-                                <button type="button" onClick={() => setActiveTab('istatistik')} className={`rounded-md px-4 py-2 font-medium transition-colors duration-200 ${activeTab === 'istatistik' ? 'bg-slate-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>İstatistikler</button>
+                        <section className="glass-card p-2 sm:p-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                                <button type="button" onClick={() => setActiveTab('bakim')} className={`rounded-md px-4 py-2 font-medium transition-colors duration-300 ${activeTab === 'bakim' ? 'bg-emerald-400 text-slate-950 shadow-md' : 'bg-white/95 dark:bg-slate-900/75 text-slate-900 dark:text-slate-200 border border-slate-400/60 dark:border-white/25 hover:bg-slate-200 dark:hover:bg-slate-800/80'}`}>Bakım Kayıtları</button>
+                                <button type="button" onClick={() => setActiveTab('yakit')} className={`rounded-md px-4 py-2 font-medium transition-colors duration-300 ${activeTab === 'yakit' ? 'bg-indigo-500 text-white shadow-md' : 'bg-white/95 dark:bg-slate-900/75 text-slate-900 dark:text-slate-200 border border-slate-400/60 dark:border-white/25 hover:bg-slate-200 dark:hover:bg-slate-800/80'}`}>Yakıt Kayıtları</button>
+                                <button type="button" onClick={() => setActiveTab('parca')} className={`rounded-md px-4 py-2 font-medium transition-colors duration-300 ${activeTab === 'parca' ? 'bg-violet-500 text-white shadow-md' : 'bg-white/95 dark:bg-slate-900/75 text-slate-900 dark:text-slate-200 border border-slate-400/60 dark:border-white/25 hover:bg-slate-200 dark:hover:bg-slate-800/80'}`}>Parça Takibi</button>
+                                <button type="button" onClick={() => setActiveTab('istatistik')} className={`rounded-md px-4 py-2 font-medium transition-colors duration-300 ${activeTab === 'istatistik' ? 'bg-amber-400 text-slate-950 shadow-md' : 'bg-white/95 dark:bg-slate-900/75 text-slate-900 dark:text-slate-200 border border-slate-400/60 dark:border-white/25 hover:bg-slate-200 dark:hover:bg-slate-800/80'}`}>İstatistikler</button>
                             </div>
                         </section>
 
+                        <div key={activeTab} className="tab-switch-enter">
                         {activeTab === 'bakim' && (
                             <>
                                 <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="bg-white shadow-md rounded-lg border border-emerald-100 p-6">
-                                        <p className="text-sm text-emerald-700 font-medium mb-2">Toplam Harcama</p>
-                                        <p className="text-3xl font-bold text-gray-800">{formatPara(toplamBakimHarcama)}</p>
+                                    <div className="glass-card rounded-lg border border-emerald-300/35 p-6">
+                                        <p className="text-sm text-emerald-300 font-medium mb-2">Toplam Harcama</p>
+                                        <p className="text-3xl font-bold text-slate-50">{formatPara(toplamBakimHarcama)}</p>
                                     </div>
-                                    <div className="bg-white shadow-md rounded-lg border border-blue-100 p-6">
-                                        <p className="text-sm text-blue-700 font-medium mb-2">Son İşlem</p>
+                                    <div className="glass-card rounded-lg border border-indigo-300/35 p-6">
+                                        <p className="text-sm text-indigo-300 font-medium mb-2">Son İşlem</p>
                                         {sonBakim ? (
-                                            <><p className="text-2xl font-bold text-gray-800">{sonBakim.km ?? '-'} KM</p><p className="text-sm text-gray-600 mt-2">{formatTarih(sonBakim.tarih)} tarihinde işlem görmüş</p></>
-                                        ) : (<p className="text-gray-600">Henüz bakım kaydı bulunmuyor.</p>)}
+                                            <><p className="text-2xl font-bold text-slate-50">{sonBakim.km ?? '-'} KM</p><p className="text-sm text-slate-300 mt-2">{formatTarih(sonBakim.tarih)} tarihinde işlem görmüş</p></>
+                                        ) : (<p className="text-slate-300">Henüz bakım kaydı bulunmuyor.</p>)}
                                     </div>
                                 </section>
 
-                                <section className="bg-white shadow-md rounded-lg border border-emerald-100 p-6">
-                                    <h2 className="text-lg font-semibold text-gray-800 mb-4">Yeni Bakım Kaydı</h2>
-                                    {bakimFormError && <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-md px-3 py-2">{bakimFormError}</div>}
+                                <section className="glass-card rounded-lg border border-emerald-300/35 p-6">
+                                    <h2 className="text-lg font-semibold text-slate-50 mb-4">Yeni Bakım Kaydı</h2>
+                                    {bakimFormError && <div className="mb-4 bg-red-950/45 border border-red-300/55 text-red-200 text-sm rounded-md px-3 py-2">{bakimFormError}</div>}
                                     <form onSubmit={handleBakimEkle} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div><label className="block text-sm font-medium mb-1">Tür</label><select name="bakim_tipi" value={bakimFormData.bakim_tipi} onChange={handleBakimInputChange} className="w-full border rounded-md px-3 py-2">{bakimTipleri.map(tip => <option key={tip} value={tip}>{tip}</option>)}</select></div>
-                                        <div><label className="block text-sm font-medium mb-1">Tarih</label><input type="date" name="tarih" value={bakimFormData.tarih} onChange={handleBakimInputChange} className="w-full border rounded-md px-3 py-2" /></div>
-                                        <div><label className="block text-sm font-medium mb-1">KM</label><input type="number" name="km" value={bakimFormData.km} onChange={handleBakimInputChange} className="w-full border rounded-md px-3 py-2" /></div>
-                                        <div><label className="block text-sm font-medium mb-1">Maliyet (TL)</label><input type="number" name="maliyet" value={bakimFormData.maliyet} onChange={handleBakimInputChange} className="w-full border rounded-md px-3 py-2" /></div>
-                                        <div className="md:col-span-2"><label className="block text-sm font-medium mb-1">Notlar</label><textarea name="notlar" value={bakimFormData.notlar} onChange={handleBakimInputChange} rows={3} className="w-full border rounded-md px-3 py-2" /></div>
-                                        <div className="md:col-span-2 flex justify-end"><button type="submit" disabled={isBakimSubmitting} className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-md">{isBakimSubmitting ? 'Kaydediliyor...' : 'Bakım Kaydı Ekle'}</button></div>
+                                        <div><label className="block text-sm font-medium text-slate-300 mb-1">Tür</label><select name="bakim_tipi" value={bakimFormData.bakim_tipi} onChange={handleBakimInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2">{bakimTipleri.map(tip => <option key={tip} value={tip}>{tip}</option>)}</select></div>
+                                        <div><label className="block text-sm font-medium text-slate-300 mb-1">Tarih</label><input type="date" name="tarih" value={bakimFormData.tarih} onChange={handleBakimInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
+                                        <div><label className="block text-sm font-medium text-slate-300 mb-1">KM</label><input type="number" name="km" value={bakimFormData.km} onChange={handleBakimInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
+                                        <div><label className="block text-sm font-medium text-slate-300 mb-1">Maliyet (TL)</label><input type="number" name="maliyet" value={bakimFormData.maliyet} onChange={handleBakimInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
+                                        <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-300 mb-1">Notlar</label><textarea name="notlar" value={bakimFormData.notlar} onChange={handleBakimInputChange} rows={3} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
+                                        <div className="md:col-span-2 flex justify-end"><button type="submit" disabled={isBakimSubmitting} className="bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-semibold px-5 py-2 rounded-md shadow-md">{isBakimSubmitting ? 'Kaydediliyor...' : 'Bakım Kaydı Ekle'}</button></div>
                                     </form>
                                 </section>
 
-                                <section className="bg-white shadow-md rounded-lg border border-blue-100 p-6">
-                                    <h2 className="text-lg font-semibold text-gray-800 mb-4">Geçmiş Bakımlar</h2>
-                                    {filtrelenmisBakimlar.map((bakim) => (
-                                        <div key={bakim.bakim_id} className="border rounded-lg p-4 flex justify-between items-center mb-3">
-                                            <div><p className="font-semibold">{bakim.bakim_tipi}</p><p className="text-sm text-gray-500">{formatTarih(bakim.tarih)} - {bakim.km} KM - {formatPara(bakim.maliyet)}</p></div>
-                                            <button onClick={() => handleBakimSil(bakim.bakim_id)} className="text-red-600 border border-red-200 px-3 py-1 rounded-md">Sil</button>
+                                <section className="glass-card rounded-lg border border-indigo-300/35 p-6">
+                                    <h2 className="text-lg font-semibold text-slate-50 mb-4">Geçmiş Bakımlar</h2>
+                                    {bakimlar.map((bakim) => (
+                                        <div key={bakim.bakim_id} className="border border-white/20 bg-slate-950/35 rounded-lg p-4 flex justify-between items-center mb-3">
+                                            <div><p className="font-semibold text-slate-100">{bakim.bakim_tipi}</p><p className="text-sm text-slate-400">{formatTarih(bakim.tarih)} - {bakim.km} KM - {formatPara(bakim.maliyet)}</p></div>
+                                            <button onClick={() => handleBakimSil(bakim.bakim_id)} className="text-white border border-rose-300/70 bg-rose-500 hover:bg-rose-400 px-3 py-1 rounded-md shadow-md">Sil</button>
                                         </div>
                                     ))}
                                 </section>
@@ -424,76 +955,299 @@ const AracDetay = () => {
 
                         {activeTab === 'yakit' && (
                             <>
-                                <section className="bg-white shadow-md rounded-lg border border-blue-100 p-6">
-                                    <p className="text-sm text-blue-700 font-medium mb-2">Yakıt Özeti</p>
+                                <section className="glass-card rounded-lg border border-indigo-300/35 p-6">
+                                    <p className="text-sm text-indigo-300 font-medium mb-2">Yakıt Özeti</p>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div className="bg-gray-50 rounded-md p-4"><p className="text-xs text-gray-500 mb-1">Toplam Tutar</p><p className="text-xl font-semibold">{formatPara(yakitOzeti.toplamTutar)}</p></div>
-                                        <div className="bg-gray-50 rounded-md p-4"><p className="text-xs text-gray-500 mb-1">Kat Edilen KM</p><p className="text-xl font-semibold">{yakitOzeti.katEdilenToplamKm}</p></div>
-                                        <div className="bg-gray-50 rounded-md p-4"><p className="text-xs text-gray-500 mb-1">Maliyet</p><p className="text-xl font-semibold">{formatKmBasinaMaliyet(yakitOzeti.ortalamaKmBasinaMaliyet)}</p></div>
+                                        <div className="bg-slate-950/40 border border-white/20 rounded-md p-4"><p className="text-xs text-slate-400 mb-1">Toplam Tutar</p><p className="text-xl font-semibold text-slate-100">{formatPara(yakitOzeti.toplamTutar)}</p></div>
+                                        <div className="bg-slate-950/40 border border-white/20 rounded-md p-4"><p className="text-xs text-slate-400 mb-1">Kat Edilen KM</p><p className="text-xl font-semibold text-slate-100">{yakitOzeti.katEdilenToplamKm}</p></div>
+                                        <div className="bg-slate-950/40 border border-white/20 rounded-md p-4"><p className="text-xs text-slate-400 mb-1">Maliyet</p><p className="text-xl font-semibold text-slate-100">{formatKmBasinaMaliyet(yakitOzeti.ortalamaKmBasinaMaliyet)}</p></div>
                                     </div>
                                 </section>
 
-                                <section className="bg-white shadow-md rounded-lg border border-blue-100 p-6">
-                                    <h2 className="text-lg font-semibold text-gray-800 mb-4">Yeni Yakıt Kaydı</h2>
+                                <section className="glass-card rounded-lg border border-indigo-300/35 p-6">
+                                    <h2 className="text-lg font-semibold text-slate-50 mb-4">Yeni Yakıt Kaydı</h2>
                                     <form onSubmit={handleYakitEkle} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div><label className="block text-sm mb-1">Tarih</label><input type="date" name="tarih" value={yakitFormData.tarih} onChange={handleYakitInputChange} className="w-full border rounded-md px-3 py-2" /></div>
-                                        <div><label className="block text-sm mb-1">Yakıt Tipi</label><select name="yakit_tipi" value={yakitFormData.yakit_tipi} onChange={handleYakitInputChange} className="w-full border rounded-md px-3 py-2">{yakitTipleri.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
-                                        <div><label className="block text-sm mb-1">Litre</label><input type="number" step="0.01" name="litre" value={yakitFormData.litre} onChange={handleYakitInputChange} className="w-full border rounded-md px-3 py-2" /></div>
-                                        <div><label className="block text-sm mb-1">Tutar (TL)</label><input type="number" step="0.01" name="tutar" value={yakitFormData.tutar} onChange={handleYakitInputChange} className="w-full border rounded-md px-3 py-2" /></div>
-                                        <div><label className="block text-sm mb-1">KM</label><input type="number" name="km" value={yakitFormData.km} onChange={handleYakitInputChange} className="w-full border rounded-md px-3 py-2" /></div>
-                                        <div className="md:col-span-2 flex justify-end"><button type="submit" disabled={isYakitSubmitting} className="bg-blue-600 text-white px-5 py-2 rounded-md">Yakıt Kaydı Ekle</button></div>
+                                        <div><label className="block text-sm text-slate-300 mb-1">Tarih</label><input type="date" name="tarih" value={yakitFormData.tarih} onChange={handleYakitInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
+                                        <div><label className="block text-sm text-slate-300 mb-1">Yakıt Tipi</label><select name="yakit_tipi" value={yakitFormData.yakit_tipi} onChange={handleYakitInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2">{yakitTipleri.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
+                                        <div><label className="block text-sm text-slate-300 mb-1">Litre</label><input type="number" step="0.01" name="litre" value={yakitFormData.litre} onChange={handleYakitInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
+                                        <div><label className="block text-sm text-slate-300 mb-1">Tutar (TL)</label><input type="number" step="0.01" name="tutar" value={yakitFormData.tutar} onChange={handleYakitInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
+                                        <div><label className="block text-sm text-slate-300 mb-1">KM</label><input type="number" name="km" value={yakitFormData.km} onChange={handleYakitInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
+                                        <div className="md:col-span-2 flex justify-end"><button type="submit" disabled={isYakitSubmitting} className="bg-indigo-400 hover:bg-indigo-300 text-slate-950 font-semibold px-5 py-2 rounded-md shadow-md">Yakıt Kaydı Ekle</button></div>
                                     </form>
                                 </section>
 
-                                <section className="bg-white shadow-md rounded-lg border border-blue-100 p-6">
-                                    <h2 className="text-lg font-semibold text-gray-800 mb-4">Geçmiş Yakıt Kayıtları</h2>
+                                <section className="glass-card rounded-lg border border-indigo-300/35 p-6">
+                                    <h2 className="text-lg font-semibold text-slate-50 mb-4">Geçmiş Yakıt Kayıtları</h2>
                                     {yakitlar.map((yakit) => (
-                                        <div key={yakit.yakit_id} className="border rounded-lg p-4 flex justify-between items-center mb-3">
-                                            <div><p className="font-semibold">{yakit.yakit_tipi}</p><p className="text-sm text-gray-500">{formatTarih(yakit.tarih)} - {yakit.litre}L - {formatPara(yakit.tutar)}</p></div>
-                                            <button onClick={() => handleYakitSil(yakit.yakit_id)} className="text-red-600 border border-red-200 px-3 py-1 rounded-md">Sil</button>
+                                        <div key={yakit.yakit_id} className="border border-white/20 bg-slate-950/35 rounded-lg p-4 flex justify-between items-center mb-3">
+                                            <div><p className="font-semibold text-slate-100">{yakit.yakit_tipi}</p><p className="text-sm text-slate-400">{formatTarih(yakit.tarih)} - {yakit.litre}L - {formatPara(yakit.tutar)}</p></div>
+                                            <button onClick={() => handleYakitSil(yakit.yakit_id)} className="text-white border border-rose-300/70 bg-rose-500 hover:bg-rose-400 px-3 py-1 rounded-md shadow-md">Sil</button>
                                         </div>
                                     ))}
                                 </section>
                             </>
                         )}
 
+                        {activeTab === 'parca' && (
+                            <section className="glass-card p-6">
+                                <div className="flex items-center justify-between mb-4 gap-3">
+                                    <h2 className="text-xl font-bold text-slate-50">Detaylı Parça Ömür Takibi</h2>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSadeceKritikParcalar((prev) => !prev)}
+                                            className={`text-sm px-4 py-2 rounded-full border transition-all duration-300 ${sadeceKritikParcalar ? 'bg-emerald-400/25 text-emerald-100 border-emerald-300/80 brightness-125 shadow-md' : 'bg-slate-800/70 text-slate-200 border-white/30 hover:bg-slate-700/80'}`}
+                                        >
+                                            Sadece Kritik Parçaları Göster
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={openYeniParcaModal}
+                                            className="text-sm px-3 py-1.5 rounded-md bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold transition-colors duration-300 shadow-md"
+                                        >
+                                            Yeni Parça Ekle
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="space-y-4">
+                                    {gorunenParcalar.map((parca) => (
+                                        <div key={parca.parca_id} className="glass-card p-4">
+                                            <div className="flex items-center justify-between gap-4 mb-2">
+                                                <div>
+                                                    <p className="font-semibold text-slate-200">{parca.parca_adi}</p>
+                                                    <p className="text-sm text-slate-400">Kalan Ömür: {parca.kalanMetin}</p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleParcaDegistir(parca)}
+                                                    disabled={isParcaUpdating}
+                                                    className="text-sm bg-violet-400 hover:bg-violet-300 text-slate-950 font-semibold px-3 py-1.5 rounded-md disabled:opacity-60 shadow-md"
+                                                >
+                                                    Parçayı Değiştir
+                                                </button>
+                                            </div>
+                                            <div className="h-3 bg-slate-800/90 rounded-full overflow-hidden border border-white/20">
+                                                <div
+                                                    className={`h-full rounded-full transition-all brightness-125 ${parca.danger ? 'bg-rose-500' : parca.warning ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                                                    style={{ width: `${Math.max(6, parca.oran)}%` }}
+                                                />
+                                            </div>
+                                            <p className="text-xs text-slate-400 mt-1">Kullanım: %{parca.oran.toFixed(1)}</p>
+                                        </div>
+                                    ))}
+                                    {!gorunenParcalar.length && <p className="text-sm text-slate-400">Filtreye uygun parça bulunamadı.</p>}
+                                </div>
+                            </section>
+                        )}
+
                         {activeTab === 'istatistik' && (
-                            <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                                <div className="bg-white shadow-md rounded-lg border border-emerald-100 p-6">
-                                    <h2 className="text-lg font-semibold text-gray-800 mb-4">Maliyet Dağılımı</h2>
-                                    <div className="h-80">
-                                        <ResponsiveContainer width="100%" height="100%" style={{ outline: 'none' }} className="focus:outline-none">
-                                            <PieChart style={{ outline: 'none' }} className="focus:outline-none">
-                                                <Pie data={maliyetPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} label={({ name, percent }) => `${name}: %${((percent || 0) * 100).toFixed(0)}`}>
-                                                    {maliyetPieData.map((entry) => <Cell key={entry.name} fill={entry.color} style={{ outline: 'none' }} className="focus:outline-none" />)}
-                                                </Pie>
-                                                <Tooltip formatter={pieTooltipFormatter} />
-                                                <Legend />
-                                            </PieChart>
-                                        </ResponsiveContainer>
+                            <section className="space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="glass-card rounded-lg border border-indigo-300/35 p-4">
+                                        <p className="text-xs uppercase tracking-wide text-slate-300">KM Başına Maliyet</p>
+                                        <p className="text-2xl font-bold text-white mt-2">{formatKmBasinaMaliyet(kmBasinaToplamMaliyet)}</p>
+                                    </div>
+                                    <div className="glass-card rounded-lg border border-amber-300/35 p-4">
+                                        <p className="text-xs uppercase tracking-wide text-slate-300">Yıllık Tahmini Gider</p>
+                                        <p className="text-2xl font-bold text-white mt-2">{formatKisaPara(yillikTahminiGider)}</p>
+                                    </div>
+                                    <div className="glass-card rounded-lg border border-emerald-300/35 p-4">
+                                        <p className="text-xs uppercase tracking-wide text-slate-300">Genel Sağlık Puanı</p>
+                                        <p className="text-2xl font-bold text-white mt-2">%{genelSaglikPuani}</p>
                                     </div>
                                 </div>
 
-                                <div className="bg-white shadow-md rounded-lg border border-blue-100 p-6">
-                                    <h2 className="text-lg font-semibold text-gray-800 mb-4">Yakıt Trend Grafiği</h2>
-                                    <div className="h-80">
-                                        <ResponsiveContainer width="100%" height="100%" style={{ outline: 'none' }} className="focus:outline-none">
-                                            <BarChart data={yakitTrendData} margin={{ top: 10, right: 16, left: 0, bottom: 8 }} style={{ outline: 'none' }} className="focus:outline-none">
-                                                <CartesianGrid strokeDasharray="3 3" />
-                                                <XAxis dataKey="tarih" />
-                                                <YAxis />
-                                                <Tooltip formatter={barTooltipFormatter} />
-                                                <Legend />
-                                                <Bar dataKey="tutar" name="Tutar" fill="#3B82F6" radius={[8, 8, 0, 0]} style={{ outline: 'none' }} className="focus:outline-none" />
-                                            </BarChart>
-                                        </ResponsiveContainer>
+                                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                                    <div className="glass-card rounded-lg border border-emerald-300/35 p-6">
+                                        <h2 className="text-lg font-semibold text-slate-50 mb-4">Maliyet Analizi</h2>
+                                        <div className="h-80">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <PieChart>
+                                                    <Pie
+                                                        data={maliyetAnaliziData}
+                                                        dataKey="value"
+                                                        nameKey="name"
+                                                        cx="50%"
+                                                        cy="50%"
+                                                        innerRadius={78}
+                                                        outerRadius={115}
+                                                        paddingAngle={3}
+                                                    >
+                                                        {maliyetAnaliziData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
+                                                    </Pie>
+                                                    <text x="50%" y="48%" textAnchor="middle" fill="#e2e8f0" fontSize="12">Toplam Harcama</text>
+                                                    <text x="50%" y="56%" textAnchor="middle" fill="#ffffff" fontSize="16" fontWeight="700">{formatKisaPara(toplamHarcama)}</text>
+                                                    <Tooltip formatter={pieTooltipFormatter} />
+                                                    <Legend />
+                                                </PieChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </div>
+
+                                    <div className="glass-card rounded-lg border border-indigo-300/35 p-6">
+                                        <h2 className="text-lg font-semibold text-slate-50 mb-4">Tüketim Trendi (Son 6 Ay)</h2>
+                                        <div className="h-80">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <AreaChart data={tuketimTrendData} margin={{ top: 10, right: 16, left: 0, bottom: 8 }}>
+                                                    <defs>
+                                                        <linearGradient id="trendYakit" x1="0" y1="0" x2="0" y2="1">
+                                                            <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.45} />
+                                                            <stop offset="95%" stopColor="#f43f5e" stopOpacity={0.06} />
+                                                        </linearGradient>
+                                                        <linearGradient id="trendBakim" x1="0" y1="0" x2="0" y2="1">
+                                                            <stop offset="5%" stopColor="#34d399" stopOpacity={0.45} />
+                                                            <stop offset="95%" stopColor="#34d399" stopOpacity={0.06} />
+                                                        </linearGradient>
+                                                    </defs>
+                                                    <CartesianGrid stroke="rgba(148,163,184,0.12)" strokeDasharray="4 4" />
+                                                    <XAxis dataKey="ayEtiket" stroke="#94a3b8" />
+                                                    <YAxis stroke="#94a3b8" />
+                                                    <Tooltip formatter={areaTooltipFormatter} />
+                                                    <Legend />
+                                                    <Area type="monotone" dataKey="yakit" name="Yakıt" stroke="#f43f5e" fill="url(#trendYakit)" strokeWidth={2} />
+                                                    <Area type="monotone" dataKey="bakim" name="Bakım" stroke="#34d399" fill="url(#trendBakim)" strokeWidth={2} />
+                                                </AreaChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                                    <div className="glass-card rounded-lg border border-slate-500/35 p-6">
+                                        <h2 className="text-lg font-semibold text-slate-50 mb-4">Araç Sağlık Skoru</h2>
+                                        <div className="h-80">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <RadarChart data={aracSaglikRadarData} outerRadius="70%">
+                                                    <PolarGrid stroke="rgba(148,163,184,0.12)" />
+                                                    <PolarAngleAxis dataKey="konu" stroke="#cbd5e1" />
+                                                    <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="rgba(148,163,184,0.4)" />
+                                                    <Radar name="Skor" dataKey="skor" stroke="#fbbf24" fill="#fbbf24" fillOpacity={0.28} />
+                                                    <Tooltip formatter={radarTooltipFormatter} />
+                                                </RadarChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </div>
+
+                                    <div className="glass-card rounded-lg border border-rose-300/35 p-6">
+                                        <h2 className="text-lg font-semibold text-slate-50 mb-4">Parça İstatistikleri (Top 3)</h2>
+                                        <div className="overflow-hidden rounded-lg border border-white/10">
+                                            <table className="w-full text-sm">
+                                                <thead className="bg-slate-900/70 text-slate-200">
+                                                    <tr>
+                                                        <th className="px-3 py-2 text-left">Parça</th>
+                                                        <th className="px-3 py-2 text-left">Değişim Sıklığı</th>
+                                                        <th className="px-3 py-2 text-left">Durum</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {parcaSiklikData.map((satir) => (
+                                                        <tr key={satir.parcaAdi} className="border-t border-white/10 text-slate-100">
+                                                            <td className="px-3 py-2">{satir.parcaAdi}</td>
+                                                            <td className="px-3 py-2">{satir.degisimSayisi}</td>
+                                                            <td className="px-3 py-2">%{satir.durumSkoru}</td>
+                                                        </tr>
+                                                    ))}
+                                                    {!parcaSiklikData.length && (
+                                                        <tr>
+                                                            <td className="px-3 py-3 text-slate-300" colSpan={3}>Parça istatistiği için yeterli veri bulunamadı.</td>
+                                                        </tr>
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
                                 </div>
                             </section>
                         )}
+                        </div>
                     </>
                 )}
             </main>
+
+
+            {isParcaModalOpen && (
+                <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4 ${isParcaModalVisible ? 'modal-backdrop-enter' : 'modal-backdrop-exit'}`}>
+                    <div className={`w-full max-w-lg glass-card p-6 text-slate-100 ${isParcaModalVisible ? 'modal-panel-enter' : 'modal-panel-exit'}`}>
+                        <h3 className="text-xl font-semibold mb-4 text-slate-50">Yeni Parça Ekle</h3>
+
+                        <form onSubmit={handleYeniParcaEkle} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Parça Adı</label>
+                                <select
+                                    name="parca_adi"
+                                    value={yeniParcaFormu.parca_adi}
+                                    onChange={handleYeniParcaInputChange}
+                                    className="w-full border border-white/20 bg-transparent rounded-md px-3 py-2 text-slate-100"
+                                >
+                                    <option value="">Parça seçiniz</option>
+                                    {parcaSecenekleri.map((parcaAdi) => (
+                                        <option key={parcaAdi} value={parcaAdi}>{parcaAdi}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {secilenParcaBilgisi && (
+                                <div className="rounded-lg border border-white/35 bg-black/60 backdrop-blur-xl px-4 py-3">
+                                    <p className="text-xs uppercase tracking-wide text-emerald-300 mb-1">Parça Bilgisi</p>
+                                    <p className="text-sm text-white">{secilenParcaBilgisi.aciklama}</p>
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Değişim Aralığı (KM)</label>
+                                    <input
+                                        type="number"
+                                        name="degisim_araligi_km"
+                                        value={yeniParcaFormu.degisim_araligi_km}
+                                        onChange={handleYeniParcaInputChange}
+                                        className="w-full border border-white/20 bg-transparent rounded-md px-3 py-2 text-slate-100"
+                                        placeholder="Zaman bazlıysa boş bırakın"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Son Değişim KM</label>
+                                    <input
+                                        type="number"
+                                        name="son_degisim_km"
+                                        value={yeniParcaFormu.son_degisim_km}
+                                        onChange={handleYeniParcaInputChange}
+                                        className="w-full border border-white/20 bg-transparent rounded-md px-3 py-2 text-slate-100"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Son Değişim Tarihi</label>
+                                <input
+                                    type="date"
+                                    name="son_degisim_tarihi"
+                                    value={yeniParcaFormu.son_degisim_tarihi}
+                                    onChange={handleYeniParcaInputChange}
+                                    className="w-full border border-white/20 bg-transparent rounded-md px-3 py-2 text-slate-100"
+                                />
+                            </div>
+
+                            <div className="flex justify-end gap-2 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={closeYeniParcaModal}
+                                    className="px-4 py-2 rounded-md border border-white/30 text-slate-200 hover:bg-white/10"
+                                >
+                                    Vazgeç
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isParcaEkleSubmitting}
+                                    className="px-4 py-2 rounded-md bg-violet-400 hover:bg-violet-300 text-slate-950 font-semibold disabled:opacity-60 shadow-md"
+                                >
+                                    {isParcaEkleSubmitting ? 'Ekleniyor...' : 'Parçayı Kaydet'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

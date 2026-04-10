@@ -3,6 +3,7 @@ const pool = require('../db');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const Joi = require('joi');
+const authMiddleware = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
@@ -80,6 +81,34 @@ router.post('/login', async (req, res) => {
   } catch (err) {
     console.error('Giris hatasi:', err);
     return res.status(500).json({ message: 'Sunucu hatası oluştu.' });
+  }
+});
+
+// BILDIRIM AYARLARI GUNCELLEME
+router.put('/settings/notifications', authMiddleware, async (req, res) => {
+  const schema = Joi.object({
+    telefon: Joi.string().max(20).allow('', null),
+    email_bildirim_aktif: Joi.boolean().required()
+  });
+
+  const { error, value } = schema.validate(req.body);
+  if (error) {
+    return res.status(400).json({ message: error.details[0].message });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE users
+       SET telefon = $1,
+           email_bildirim_aktif = $2
+       WHERE user_id = $3
+       RETURNING user_id, ad_soyad, email, telefon, email_bildirim_aktif`,
+      [value.telefon || null, value.email_bildirim_aktif, req.user.user_id]
+    );
+
+    return res.status(200).json({ message: 'Bildirim ayarlari guncellendi', user: result.rows[0] });
+  } catch (err) {
+    return res.status(500).json({ message: 'Bildirim ayarlari guncellenemedi' });
   }
 });
 

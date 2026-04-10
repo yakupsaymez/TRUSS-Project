@@ -1,2 +1,15 @@
 **/node_modules/
 **/.env*
+# Bağımlılıklar
+node_modules/
+dist/
+build/
+
+# Güvenlik (Hassas Bilgiler)
+.env
+.env.local
+.env.development.local
+
+# Sistem Dosyaları
+.DS_Store
+npm-debug.log*

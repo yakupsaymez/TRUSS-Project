@@ -17,6 +17,12 @@ const aracService = {
     aracSil: async (id) => {
         const response = await api.delete(`/araclar/${id}`);
         return response.data;
+    },
+
+    // Araç Güncelleme fonksiyonu
+    aracGuncelle: async (id, aracVerisi) => {
+        const response = await api.put(`/araclar/${id}`, aracVerisi);
+        return response.data;
     }
 };
 
