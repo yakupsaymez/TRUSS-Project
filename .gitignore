@@ -13,3 +13,23 @@ build/
 # Sistem Dosyaları
 .DS_Store
 npm-debug.log*
+
+# IDE (IntelliJ IDEA) Ayarları - Kesinlikle Ignore Edilmeli
+.idea/
+*.iml
+out/
+gen/
+
+# Loglar ve Geçici Dosyalar
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test çıktıları
+/coverage
+/.nyc_output
+
+# İşletim Sistemi Dosyaları
+Thumbs.db

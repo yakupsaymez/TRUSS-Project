@@ -6,6 +6,8 @@ import {
     CartesianGrid,
     Cell,
     Legend,
+    Line,
+    LineChart,
     Pie,
     PieChart,
     PolarAngleAxis,
@@ -14,6 +16,8 @@ import {
     Radar,
     RadarChart,
     ResponsiveContainer,
+    ReferenceLine,
+    Label,
     Tooltip,
     XAxis,
     YAxis
@@ -25,6 +29,8 @@ import aracService from '../services/aracService';
 import bakimService from '../services/bakimService';
 import parcaService from '../services/parcaService';
 import yakitService from '../services/yakitService';
+import { formatCurrency, formatLocaleNumber, parseLocaleNumber } from '../utils/formatters';
+import { exportToCSV, sortByKey } from '../utils/exporter';
 
 const AracDetay = () => {
     const navigate = useNavigate();
@@ -47,12 +53,15 @@ const AracDetay = () => {
     const [isParcaModalVisible, setIsParcaModalVisible] = useState(false);
     const [isParcaEkleSubmitting, setIsParcaEkleSubmitting] = useState(false);
     const parcaModalCloseTimerRef = useRef(null);
+    const predictiveToastRef = useRef(null);
     const [yeniParcaFormu, setYeniParcaFormu] = useState({
         parca_adi: '',
         degisim_araligi_km: '',
         son_degisim_km: 0,
         son_degisim_tarihi: ''
     });
+    const [bakimSortConfig, setBakimSortConfig] = useState({ key: 'tarih', order: 'desc' });
+    const [yakitSortConfig, setYakitSortConfig] = useState({ key: 'tarih', order: 'desc' });
 
     const [bakimFormData, setBakimFormData] = useState({
         bakim_tipi: 'Periyodik Bakım',
@@ -161,11 +170,14 @@ const AracDetay = () => {
         return date.toLocaleDateString('tr-TR');
     }, []);
 
-    const formatPara = useCallback((deger) => {
-        const sayi = Number(deger);
-        if (Number.isNaN(sayi)) return '-';
-        return `${sayi.toLocaleString('tr-TR')} TL`;
+    const formatUzunTarih = useCallback((tarih) => {
+        if (!tarih) return '-';
+        const date = new Date(tarih);
+        if (Number.isNaN(date.getTime())) return '-';
+        return date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
     }, []);
+
+    const formatPara = useCallback((deger) => formatCurrency(deger), []);
 
     const fetchAracVeKayitlar = useCallback(async () => {
         try {
@@ -249,12 +261,49 @@ const AracDetay = () => {
         setYakitFormData((prev) => ({ ...prev, [name]: value }));
     };
 
+    const handleBakimNumberBlur = (e) => {
+        const { name, value } = e.target;
+        if (!['km', 'maliyet'].includes(name)) return;
+
+        const parsed = parseLocaleNumber(value);
+        if (parsed === null) return;
+
+        setBakimFormData((prev) => ({
+            ...prev,
+            [name]: formatLocaleNumber(parsed, name === 'maliyet' ? 2 : 0)
+        }));
+    };
+
+    const handleYakitNumberBlur = (e) => {
+        const { name, value } = e.target;
+        if (!['km', 'tutar'].includes(name)) return;
+
+        const parsed = parseLocaleNumber(value);
+        if (parsed === null) return;
+
+        setYakitFormData((prev) => ({
+            ...prev,
+            [name]: formatLocaleNumber(parsed, name === 'tutar' ? 2 : 0)
+        }));
+    };
+
+    const handleFormEnterKeyDown = (e) => {
+        if (e.key !== 'Enter') return;
+        if (e.target instanceof HTMLTextAreaElement) return;
+
+        e.preventDefault();
+        e.currentTarget.requestSubmit();
+    };
+
     const handleBakimEkle = async (e) => {
         e.preventDefault();
         setBakimFormError(null);
         setError(null);
 
-        if (!bakimFormData.bakim_tipi || !bakimFormData.tarih || !bakimFormData.km || !bakimFormData.maliyet) {
+        const parsedBakimKm = parseLocaleNumber(bakimFormData.km);
+        const parsedBakimMaliyet = parseLocaleNumber(bakimFormData.maliyet);
+
+        if (!bakimFormData.bakim_tipi || !bakimFormData.tarih || parsedBakimKm === null || parsedBakimMaliyet === null) {
             toast.error('Lutfen zorunlu bakim alanlarini eksiksiz doldurun.');
             return;
         }
@@ -265,8 +314,8 @@ const AracDetay = () => {
                 arac_id: Number(id),
                 bakim_tipi: bakimFormData.bakim_tipi,
                 tarih: bakimFormData.tarih,
-                km: Number(bakimFormData.km),
-                maliyet: Number(bakimFormData.maliyet),
+                km: parsedBakimKm,
+                maliyet: parsedBakimMaliyet,
                 notlar: bakimFormData.notlar
             });
             setBakimFormData({
@@ -289,7 +338,11 @@ const AracDetay = () => {
         e.preventDefault();
         setError(null);
 
-        if (!yakitFormData.tarih || !yakitFormData.yakit_tipi || !yakitFormData.litre || !yakitFormData.tutar || !yakitFormData.km) {
+        const parsedYakitLitre = parseLocaleNumber(yakitFormData.litre);
+        const parsedYakitTutar = parseLocaleNumber(yakitFormData.tutar);
+        const parsedYakitKm = parseLocaleNumber(yakitFormData.km);
+
+        if (!yakitFormData.tarih || !yakitFormData.yakit_tipi || parsedYakitLitre === null || parsedYakitTutar === null || parsedYakitKm === null) {
             toast.error('Lutfen zorunlu yakit alanlarini eksiksiz doldurun.');
             return;
         }
@@ -300,9 +353,9 @@ const AracDetay = () => {
                 arac_id: Number(id),
                 yakit_tipi: yakitFormData.yakit_tipi,
                 tarih: yakitFormData.tarih,
-                litre: Number(yakitFormData.litre),
-                tutar: Number(yakitFormData.tutar),
-                km: Number(yakitFormData.km),
+                litre: parsedYakitLitre,
+                tutar: parsedYakitTutar,
+                km: parsedYakitKm,
                 notlar: yakitFormData.notlar
             });
             setYakitFormData({
@@ -689,6 +742,207 @@ const AracDetay = () => {
         return (toplamBakimHarcama + yakitOzeti.toplamTutar) / guncelKm;
     }, [guncelKm, toplamBakimHarcama, yakitOzeti.toplamTutar]);
 
+    const bakimOngorusu = useMemo(() => {
+        const MILLISECONDS_IN_DAY = 1000 * 60 * 60 * 24;
+
+        if (!sonBakim) {
+            return {
+                tip: 'bilgi',
+                mesaj: 'Bu araca ait yeterli bakım verisi bulunmuyor. Tahmine başlamak için bakım kaydı ekleyin.',
+                tahminiTarih: null,
+                kalanKm: null,
+                kalanGun: null,
+                gunlukOrtalamaKm: null,
+                progress: 0,
+                hedefKm: null
+            };
+        }
+
+        const tarihliKayitlar = [...bakimlar, ...yakitlar]
+            .map((kayit) => {
+                const tarih = new Date(kayit?.tarih);
+                const km = Number(kayit?.km);
+
+                return {
+                    tarih,
+                    km
+                };
+            })
+            .filter((kayit) => !Number.isNaN(kayit.tarih.getTime()) && Number.isFinite(kayit.km))
+            .sort((a, b) => b.tarih.getTime() - a.tarih.getTime() || b.km - a.km)
+            .slice(0, 2);
+
+        if (tarihliKayitlar.length < 2) {
+            return {
+                tip: 'bilgi',
+                mesaj: 'Tahmini bakım için en az iki tarihli kayıt gerekiyor. Lütfen yakıt veya bakım kaydı ekleyin.',
+                tahminiTarih: null,
+                kalanKm: null,
+                kalanGun: null,
+                gunlukOrtalamaKm: null,
+                progress: 0,
+                hedefKm: (Number(sonBakim.km) || 0) + 10000
+            };
+        }
+
+        const [enYeniKayit, oncekiKayit] = tarihliKayitlar;
+        const kmFarki = Math.abs((Number(enYeniKayit.km) || 0) - (Number(oncekiKayit.km) || 0));
+        const gunFarki = Math.max(
+            1,
+            Math.round(Math.abs(enYeniKayit.tarih.getTime() - oncekiKayit.tarih.getTime()) / MILLISECONDS_IN_DAY)
+        );
+        const gunlukOrtalamaKm = kmFarki / gunFarki;
+
+        if (!Number.isFinite(gunlukOrtalamaKm) || gunlukOrtalamaKm <= 0) {
+            return {
+                tip: 'bilgi',
+                mesaj: 'Tahmini bakım için anlamlı kilometre artışı bulunamadı.',
+                tahminiTarih: null,
+                kalanKm: null,
+                kalanGun: null,
+                gunlukOrtalamaKm: null,
+                progress: 0,
+                hedefKm: (Number(sonBakim.km) || 0) + 10000
+            };
+        }
+
+        const hedefKm = (Number(sonBakim.km) || 0) + 10000;
+        const kalanKm = hedefKm - guncelKm;
+        const kalanGun = Math.ceil(kalanKm / gunlukOrtalamaKm);
+        const tahminiTarih = new Date();
+        tahminiTarih.setDate(tahminiTarih.getDate() + Math.max(0, kalanGun));
+
+        const progress = Math.max(0, Math.min(((guncelKm - (Number(sonBakim.km) || 0)) / 10000) * 100, 100));
+        const tip = kalanKm <= 0 ? 'tehlike' : (kalanKm <= 1500 || kalanGun <= 7 ? 'uyari' : 'bilgi');
+
+        let mesaj = `Günlük ortalama ${gunlukOrtalamaKm.toFixed(1)} KM ile bakım için yaklaşık ${Math.max(0, kalanGun)} gün kaldı.`;
+        if (kalanKm <= 0) {
+            mesaj = `Bakım kilometresi ${Math.abs(kalanKm).toLocaleString('tr-TR')} KM aşıldı. En kısa sürede bakım yapılmalı.`;
+        } else if (kalanGun <= 7) {
+            mesaj = `Tahmini bakım tarihi yaklaşıyor. ${Math.max(0, kalanKm).toLocaleString('tr-TR')} KM ve yaklaşık ${Math.max(0, kalanGun)} gün kaldı.`;
+        }
+
+        return {
+            tip,
+            mesaj,
+            tahminiTarih: formatUzunTarih(tahminiTarih),
+            kalanKm: Math.max(0, kalanKm),
+            kalanGun: Math.max(0, kalanGun),
+            gunlukOrtalamaKm,
+            progress,
+            hedefKm
+        };
+    }, [bakimlar, formatUzunTarih, guncelKm, yakitlar, sonBakim]);
+
+    useEffect(() => {
+        if (!bakimOngorusu || bakimOngorusu.kalanGun === null || bakimOngorusu.kalanGun > 7) return;
+
+        const toastKey = `${arac?.arac_id || id}-${bakimOngorusu.tahminiTarih || bakimOngorusu.mesaj}`;
+        if (predictiveToastRef.current === toastKey) return;
+
+        predictiveToastRef.current = toastKey;
+        if (bakimOngorusu.tip === 'tehlike') {
+            toast.error(bakimOngorusu.mesaj);
+        } else {
+            toast(bakimOngorusu.mesaj);
+        }
+    }, [arac?.arac_id, bakimOngorusu, id]);
+
+    const CustomTooltip = ({ active, payload }) => {
+        if (!active || !payload || !payload.length) return null;
+
+        const nokta = payload.find((item) => item?.value !== null && item?.value !== undefined);
+        const veri = nokta?.payload || payload[0]?.payload || {};
+        const tarih = veri.tarih ? formatUzunTarih(veri.tarih) : payload[0]?.label || '-';
+        const kmDegeri = Number(nokta?.value);
+        const isFuturePoint = String(nokta?.dataKey || '').toLowerCase().includes('tahmini');
+        const kalanGun = isFuturePoint && veri.tarih
+            ? Math.max(0, Math.ceil((new Date(veri.tarih).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+            : null;
+
+        return (
+            <div className="glass-card min-w-[220px] rounded-xl border border-white/10 bg-slate-900/95 backdrop-blur-md p-4 shadow-2xl">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-400 mb-3">Proje Noktası</p>
+                <div className="space-y-2 text-sm">
+                    <div>
+                        <span className="block text-xs text-slate-400 uppercase tracking-wide">Tarih</span>
+                        <span className="block text-slate-100 font-semibold">{tarih}</span>
+                    </div>
+                    <div>
+                        <span className="block text-xs text-slate-400 uppercase tracking-wide">Kilometre</span>
+                        <span className={`block font-semibold ${isFuturePoint ? 'text-amber-400' : 'text-emerald-400'}`}>
+                            {Number.isFinite(kmDegeri) ? `${kmDegeri.toLocaleString('tr-TR')} KM` : '-'}
+                        </span>
+                    </div>
+                    {isFuturePoint && kalanGun !== null && (
+                        <div>
+                            <span className="block text-xs text-slate-400 uppercase tracking-wide">Hedefe Kalan Gün</span>
+                            <span className="block font-semibold text-amber-400">{kalanGun} gün</span>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
+    const gelecekProjeksiyonVerisi = useMemo(() => {
+        const MILLISECONDS_IN_DAY = 1000 * 60 * 60 * 24;
+        const bugun = new Date();
+        const bugunAyBaslangic = new Date(bugun.getFullYear(), bugun.getMonth(), 1);
+        const baslangicAy = new Date(bugunAyBaslangic.getFullYear(), bugunAyBaslangic.getMonth() - 5, 1);
+        const gelecekAySayisi = Math.max(2, Math.min(6, Math.ceil((bakimOngorusu?.kalanGun ?? 60) / 30)));
+        const bitisAy = new Date(bugunAyBaslangic.getFullYear(), bugunAyBaslangic.getMonth() + gelecekAySayisi, 1);
+
+        const tarihliKayitlar = [...bakimlar, ...yakitlar]
+            .map((kayit) => ({
+                tarih: new Date(kayit?.tarih),
+                km: Number(kayit?.km)
+            }))
+            .filter((kayit) => !Number.isNaN(kayit.tarih.getTime()) && Number.isFinite(kayit.km))
+            .sort((a, b) => a.tarih.getTime() - b.tarih.getTime() || a.km - b.km);
+
+        const ortalamaGunlukKm = Number.isFinite(bakimOngorusu?.gunlukOrtalamaKm) && bakimOngorusu.gunlukOrtalamaKm > 0
+            ? bakimOngorusu.gunlukOrtalamaKm
+            : 45;
+
+        const baslangicKm = Number(guncelKm) || Number(sonBakim?.km) || 0;
+
+        const aylar = [];
+        for (let cursor = new Date(baslangicAy); cursor <= bitisAy; cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)) {
+            aylar.push(new Date(cursor));
+        }
+
+        const findLatestKmBefore = (cutoffDate) => {
+            let latestKm = null;
+            tarihliKayitlar.forEach((kayit) => {
+                if (kayit.tarih <= cutoffDate) {
+                    latestKm = kayit.km;
+                }
+            });
+            return latestKm;
+        };
+
+        return aylar.map((ay) => {
+            const ayBitis = new Date(ay.getFullYear(), ay.getMonth() + 1, 0, 23, 59, 59, 999);
+            const ayEtiketi = ay.toLocaleDateString('tr-TR', { month: 'short', year: 'numeric' });
+
+            const gercekKm = ay <= bugunAyBaslangic ? findLatestKmBefore(ayBitis) : null;
+            const tahminiKm = ay >= bugunAyBaslangic
+                ? (ay.getFullYear() === bugunAyBaslangic.getFullYear() && ay.getMonth() === bugunAyBaslangic.getMonth()
+                    ? baslangicKm
+                    : baslangicKm + (ortalamaGunlukKm * Math.max(0, Math.round((ayBitis.getTime() - bugun.getTime()) / MILLISECONDS_IN_DAY))))
+                : null;
+
+            return {
+                ayEtiketi,
+                tarih: ayBitis,
+                gercekKm,
+                tahminiKm,
+                hedefKm: bakimOngorusu?.hedefKm || null
+            };
+        });
+    }, [bakimOngorusu?.gunlukOrtalamaKm, bakimOngorusu?.hedefKm, bakimOngorusu?.kalanGun, bakimlar, guncelKm, yakitlar, sonBakim]);
+
     const parcaSiklikData = useMemo(() => {
         const kaynakMetinler = bakimlar.map((bakim) => normalizeParcaAdi(`${bakim?.bakim_tipi || ''} ${bakim?.notlar || ''}`));
 
@@ -824,7 +1078,7 @@ const AracDetay = () => {
                             )}
                             {bakimUyari.tip === 'uyari' && (
                                 <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                    <path fillRule="evenodd" d="M18 10A8 8 0 114.293 4.293 8 8 0 0118 10zm-8-3a1 1 0 00-1 1v2a1 1 0 102 0V8a1 1 0 00-1-1zm0 7a1.25 1.25 0 100-2.5A1.25 1.25 0 0010 14z" clipRule="evenodd" />
+                                    <path fillRule="evenodd" d="M18 10A8 8 0 114.293 4.293 8 8 0 0118 10zm-8-3a1 1 0 00-2 0v4a1 1 0 102 0V7zm-1 7a1 1 0 10-2 0 1 1 0 002 0V9a1 1 0 10-2 0v5z" clipRule="evenodd" />
                                 </svg>
                             )}
                             {bakimUyari.tip === 'bilgi' && (
@@ -931,24 +1185,109 @@ const AracDetay = () => {
                                 <section className="glass-card rounded-lg border border-emerald-300/35 p-6">
                                     <h2 className="text-lg font-semibold text-slate-50 mb-4">Yeni Bakım Kaydı</h2>
                                     {bakimFormError && <div className="mb-4 bg-red-950/45 border border-red-300/55 text-red-200 text-sm rounded-md px-3 py-2">{bakimFormError}</div>}
-                                    <form onSubmit={handleBakimEkle} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <form onSubmit={handleBakimEkle} onKeyDown={handleFormEnterKeyDown} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div><label className="block text-sm font-medium text-slate-300 mb-1">Tür</label><select name="bakim_tipi" value={bakimFormData.bakim_tipi} onChange={handleBakimInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2">{bakimTipleri.map(tip => <option key={tip} value={tip}>{tip}</option>)}</select></div>
                                         <div><label className="block text-sm font-medium text-slate-300 mb-1">Tarih</label><input type="date" name="tarih" value={bakimFormData.tarih} onChange={handleBakimInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
-                                        <div><label className="block text-sm font-medium text-slate-300 mb-1">KM</label><input type="number" name="km" value={bakimFormData.km} onChange={handleBakimInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
-                                        <div><label className="block text-sm font-medium text-slate-300 mb-1">Maliyet (TL)</label><input type="number" name="maliyet" value={bakimFormData.maliyet} onChange={handleBakimInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
+                                        <div><label className="block text-sm font-medium text-slate-300 mb-1">KM</label><input type="text" inputMode="numeric" name="km" value={bakimFormData.km} onChange={handleBakimInputChange} onBlur={handleBakimNumberBlur} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
+                                        <div><label className="block text-sm font-medium text-slate-300 mb-1">Maliyet (TL)</label><input type="text" inputMode="decimal" name="maliyet" value={bakimFormData.maliyet} onChange={handleBakimInputChange} onBlur={handleBakimNumberBlur} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
                                         <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-300 mb-1">Notlar</label><textarea name="notlar" value={bakimFormData.notlar} onChange={handleBakimInputChange} rows={3} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
                                         <div className="md:col-span-2 flex justify-end"><button type="submit" disabled={isBakimSubmitting} className="bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-semibold px-5 py-2 rounded-md shadow-md">{isBakimSubmitting ? 'Kaydediliyor...' : 'Bakım Kaydı Ekle'}</button></div>
                                     </form>
                                 </section>
 
                                 <section className="glass-card rounded-lg border border-indigo-300/35 p-6">
-                                    <h2 className="text-lg font-semibold text-slate-50 mb-4">Geçmiş Bakımlar</h2>
-                                    {bakimlar.map((bakim) => (
-                                        <div key={bakim.bakim_id} className="border border-white/20 bg-slate-950/35 rounded-lg p-4 flex justify-between items-center mb-3">
-                                            <div><p className="font-semibold text-slate-100">{bakim.bakim_tipi}</p><p className="text-sm text-slate-400">{formatTarih(bakim.tarih)} - {bakim.km} KM - {formatPara(bakim.maliyet)}</p></div>
-                                            <button onClick={() => handleBakimSil(bakim.bakim_id)} className="text-white border border-rose-300/70 bg-rose-500 hover:bg-rose-400 px-3 py-1 rounded-md shadow-md">Sil</button>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h2 className="text-lg font-semibold text-slate-50">Geçmiş Bakımlar</h2>
+                                        {bakimlar.length > 0 && (
+                                            <button
+                                                onClick={() => {
+                                                    const exportData = sortByKey(bakimlar, bakimSortConfig.key, bakimSortConfig.order).map(bakim => ({
+                                                        Tarih: formatTarih(bakim.tarih),
+                                                        Tip: bakim.bakim_tipi,
+                                                        KM: bakim.km,
+                                                        Maliyet_TL: bakim.maliyet,
+                                                        Notlar: bakim.notlar || '-'
+                                                    }));
+                                                    exportToCSV(exportData, `bakimlar_${new Date().toISOString().split('T')[0]}`);
+                                                }}
+                                                className="text-sm px-3 py-1.5 rounded-md bg-white/95 dark:bg-slate-900/80 text-slate-900 dark:text-slate-200 border border-slate-400/60 dark:border-white/25 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors duration-300 shadow-md"
+                                            >
+                                                📥 CSV İndir
+                                            </button>
+                                        )}
+                                    </div>
+                                    {bakimlar.length === 0 ? (
+                                        <div className="text-center py-8">
+                                            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-slate-700/40 mb-3">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                            </div>
+                                            <p className="text-slate-300 font-medium">Henüz bakım kaydı bulunmuyor</p>
+                                            <p className="text-sm text-slate-400 mt-1">Yeni bir bakım kaydı ekleyerek başlayın</p>
                                         </div>
-                                    ))}
+                                    ) : (
+                                        <div>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                                                <button
+                                                    onClick={() => setBakimSortConfig({ key: 'tarih', order: bakimSortConfig.order === 'asc' ? 'desc' : 'asc' })}
+                                                    className="flex-1 rounded-md px-4 py-2 font-medium transition-colors duration-300 flex items-center justify-center gap-2"
+                                                >
+                                                    Tarih
+                                                    {bakimSortConfig.order === 'asc' ? (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12H8m8 4H8m8-8H8m8 4h4m-8 4h4m-4-8h4" />
+                                                        </svg>
+                                                    ) : (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h8m-8 4h4m-4-8h4m-8 4H4m4 4h4m-4-8h4" />
+                                                        </svg>
+                                                    )}
+                                                </button>
+                                                <button
+                                                    onClick={() => setBakimSortConfig({ key: 'km', order: bakimSortConfig.order === 'asc' ? 'desc' : 'asc' })}
+                                                    className="flex-1 rounded-md px-4 py-2 font-medium transition-colors duration-300 flex items-center justify-center gap-2"
+                                                >
+                                                    KM
+                                                    {bakimSortConfig.order === 'asc' ? (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12H8m8 4H8m8-8H8m8 4h4m-8 4h4m-4-8h4" />
+                                                        </svg>
+                                                    ) : (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h8m-8 4h4m-4-8h4m-8 4H4m4 4h4m-4-8h4" />
+                                                        </svg>
+                                                    )}
+                                                </button>
+                                                <button
+                                                    onClick={() => setBakimSortConfig({ key: 'maliyet', order: bakimSortConfig.order === 'asc' ? 'desc' : 'asc' })}
+                                                    className="flex-1 rounded-md px-4 py-2 font-medium transition-colors duration-300 flex items-center justify-center gap-2"
+                                                >
+                                                    Maliyet
+                                                    {bakimSortConfig.order === 'asc' ? (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12H8m8 4H8m8-8H8m8 4h4m-8 4h4m-4-8h4" />
+                                                        </svg>
+                                                    ) : (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h8m-8 4h4m-4-8h4m-8 4H4m4 4h4m-4-8h4" />
+                                                        </svg>
+                                                    )}
+                                                </button>
+                                            </div>
+                                            <div className="space-y-3">
+                                                {sortByKey(bakimlar, bakimSortConfig.key, bakimSortConfig.order).map((bakim) => (
+                                                    <div key={bakim.bakim_id} className="border border-white/20 bg-slate-950/35 rounded-lg p-4 flex justify-between items-center">
+                                                        <div>
+                                                            <p className="font-semibold text-slate-100">{bakim.bakim_tipi}</p>
+                                                            <p className="text-sm text-slate-400">{formatTarih(bakim.tarih)} - {bakim.km} KM - {formatPara(bakim.maliyet)}</p>
+                                                        </div>
+                                                        <button onClick={() => handleBakimSil(bakim.bakim_id)} className="text-white border border-rose-300/70 bg-rose-500 hover:bg-rose-400 px-3 py-1 rounded-md shadow-md">Sil</button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </section>
                             </>
                         )}
@@ -966,24 +1305,110 @@ const AracDetay = () => {
 
                                 <section className="glass-card rounded-lg border border-indigo-300/35 p-6">
                                     <h2 className="text-lg font-semibold text-slate-50 mb-4">Yeni Yakıt Kaydı</h2>
-                                    <form onSubmit={handleYakitEkle} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <form onSubmit={handleYakitEkle} onKeyDown={handleFormEnterKeyDown} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div><label className="block text-sm text-slate-300 mb-1">Tarih</label><input type="date" name="tarih" value={yakitFormData.tarih} onChange={handleYakitInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
                                         <div><label className="block text-sm text-slate-300 mb-1">Yakıt Tipi</label><select name="yakit_tipi" value={yakitFormData.yakit_tipi} onChange={handleYakitInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2">{yakitTipleri.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
-                                        <div><label className="block text-sm text-slate-300 mb-1">Litre</label><input type="number" step="0.01" name="litre" value={yakitFormData.litre} onChange={handleYakitInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
-                                        <div><label className="block text-sm text-slate-300 mb-1">Tutar (TL)</label><input type="number" step="0.01" name="tutar" value={yakitFormData.tutar} onChange={handleYakitInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
-                                        <div><label className="block text-sm text-slate-300 mb-1">KM</label><input type="number" name="km" value={yakitFormData.km} onChange={handleYakitInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
+                                        <div><label className="block text-sm text-slate-300 mb-1">Litre</label><input type="text" inputMode="decimal" name="litre" value={yakitFormData.litre} onChange={handleYakitInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
+                                        <div><label className="block text-sm text-slate-300 mb-1">Tutar (TL)</label><input type="text" inputMode="decimal" name="tutar" value={yakitFormData.tutar} onChange={handleYakitInputChange} onBlur={handleYakitNumberBlur} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
+                                        <div><label className="block text-sm text-slate-300 mb-1">KM</label><input type="text" inputMode="numeric" name="km" value={yakitFormData.km} onChange={handleYakitInputChange} onBlur={handleYakitNumberBlur} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
                                         <div className="md:col-span-2 flex justify-end"><button type="submit" disabled={isYakitSubmitting} className="bg-indigo-400 hover:bg-indigo-300 text-slate-950 font-semibold px-5 py-2 rounded-md shadow-md">Yakıt Kaydı Ekle</button></div>
                                     </form>
                                 </section>
 
                                 <section className="glass-card rounded-lg border border-indigo-300/35 p-6">
-                                    <h2 className="text-lg font-semibold text-slate-50 mb-4">Geçmiş Yakıt Kayıtları</h2>
-                                    {yakitlar.map((yakit) => (
-                                        <div key={yakit.yakit_id} className="border border-white/20 bg-slate-950/35 rounded-lg p-4 flex justify-between items-center mb-3">
-                                            <div><p className="font-semibold text-slate-100">{yakit.yakit_tipi}</p><p className="text-sm text-slate-400">{formatTarih(yakit.tarih)} - {yakit.litre}L - {formatPara(yakit.tutar)}</p></div>
-                                            <button onClick={() => handleYakitSil(yakit.yakit_id)} className="text-white border border-rose-300/70 bg-rose-500 hover:bg-rose-400 px-3 py-1 rounded-md shadow-md">Sil</button>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h2 className="text-lg font-semibold text-slate-50">Geçmiş Yakıt Kayıtları</h2>
+                                        {yakitlar.length > 0 && (
+                                            <button
+                                                onClick={() => {
+                                                    const exportData = sortByKey(yakitlar, yakitSortConfig.key, yakitSortConfig.order).map(yakit => ({
+                                                        Tarih: formatTarih(yakit.tarih),
+                                                        Tip: yakit.yakit_tipi,
+                                                        Litre: yakit.litre,
+                                                        Tutar_TL: yakit.tutar,
+                                                        KM: yakit.km,
+                                                        Notlar: yakit.notlar || '-'
+                                                    }));
+                                                    exportToCSV(exportData, `yakitlar_${new Date().toISOString().split('T')[0]}`);
+                                                }}
+                                                className="text-sm px-3 py-1.5 rounded-md bg-white/95 dark:bg-slate-900/80 text-slate-900 dark:text-slate-200 border border-slate-400/60 dark:border-white/25 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors duration-300 shadow-md"
+                                            >
+                                                📥 CSV İndir
+                                            </button>
+                                        )}
+                                    </div>
+                                    {yakitlar.length === 0 ? (
+                                        <div className="text-center py-8">
+                                            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-slate-700/40 mb-3">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                            </div>
+                                            <p className="text-slate-300 font-medium">Henüz yakıt kaydı bulunmuyor</p>
+                                            <p className="text-sm text-slate-400 mt-1">Yeni bir yakıt kaydı ekleyerek başlayın</p>
                                         </div>
-                                    ))}
+                                    ) : (
+                                        <div>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                                                <button
+                                                    onClick={() => setYakitSortConfig({ key: 'tarih', order: yakitSortConfig.order === 'asc' ? 'desc' : 'asc' })}
+                                                    className="flex-1 rounded-md px-4 py-2 font-medium transition-colors duration-300 flex items-center justify-center gap-2"
+                                                >
+                                                    Tarih
+                                                    {yakitSortConfig.order === 'asc' ? (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12H8m8 4H8m8-8H8m8 4h4m-8 4h4m-4-8h4" />
+                                                        </svg>
+                                                    ) : (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h8m-8 4h4m-4-8h4m-8 4H4m4 4h4m-4-8h4" />
+                                                        </svg>
+                                                    )}
+                                                </button>
+                                                <button
+                                                    onClick={() => setYakitSortConfig({ key: 'km', order: yakitSortConfig.order === 'asc' ? 'desc' : 'asc' })}
+                                                    className="flex-1 rounded-md px-4 py-2 font-medium transition-colors duration-300 flex items-center justify-center gap-2"
+                                                >
+                                                    KM
+                                                    {yakitSortConfig.order === 'asc' ? (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12H8m8 4H8m8-8H8m8 4h4m-8 4h4m-4-8h4" />
+                                                        </svg>
+                                                    ) : (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h8m-8 4h4m-4-8h4m-8 4H4m4 4h4m-4-8h4" />
+                                                        </svg>
+                                                    )}
+                                                </button>
+                                                <button
+                                                    onClick={() => setYakitSortConfig({ key: 'tutar', order: yakitSortConfig.order === 'asc' ? 'desc' : 'asc' })}
+                                                    className="flex-1 rounded-md px-4 py-2 font-medium transition-colors duration-300 flex items-center justify-center gap-2"
+                                                >
+                                                    Tutar
+                                                    {yakitSortConfig.order === 'asc' ? (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12H8m8 4H8m8-8H8m8 4h4m-8 4h4m-4-8h4" />
+                                                        </svg>
+                                                    ) : (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h8m-8 4h4m-4-8h4m-8 4H4m4 4h4m-4-8h4" />
+                                                        </svg>
+                                                    )}
+                                                </button>
+                                            </div>
+                                            <div className="space-y-3">
+                                                {sortByKey(yakitlar, yakitSortConfig.key, yakitSortConfig.order).map((yakit) => (
+                                                    <div key={yakit.yakit_id} className="border border-white/20 bg-slate-950/35 rounded-lg p-4 flex justify-between items-center">
+                                                        <div>
+                                                            <p className="font-semibold text-slate-100">{yakit.yakit_tipi}</p>
+                                                            <p className="text-sm text-slate-400">{formatTarih(yakit.tarih)} - {yakit.litre}L - {formatPara(yakit.tutar)}</p>
+                                                        </div>
+                                                        <button onClick={() => handleYakitSil(yakit.yakit_id)} className="text-white border border-rose-300/70 bg-rose-500 hover:bg-rose-400 px-3 py-1 rounded-md shadow-md">Sil</button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </section>
                             </>
                         )}
@@ -1042,6 +1467,62 @@ const AracDetay = () => {
 
                         {activeTab === 'istatistik' && (
                             <section className="space-y-6">
+                                <div className="glass-card rounded-lg border border-white/15 p-6">
+                                    <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                                        <div className="max-w-2xl">
+                                            <p className="text-sm uppercase tracking-[0.2em] text-slate-400 mb-2">Akıllı Bakım Asistanı</p>
+                                            <h2 className="text-2xl sm:text-3xl font-bold text-slate-50">Yapay Zeka Destekli Bakım Öngörüsü</h2>
+                                            <p className="text-sm text-slate-300 mt-3">
+                                                {bakimOngorusu?.mesaj || 'Tahmini bakım verisi hazırlanıyor.'}
+                                            </p>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:min-w-[360px]">
+                                            <div className="bg-slate-950/45 border border-white/15 rounded-xl p-4">
+                                                <p className="text-xs uppercase tracking-wide text-slate-400 mb-2">Tahmini Tarih</p>
+                                                <p className={`text-2xl font-bold ${bakimOngorusu?.tip === 'bilgi' ? 'text-emerald-400' : bakimOngorusu?.tip === 'uyari' ? 'text-amber-400' : 'text-rose-500'}`}>
+                                                    {bakimOngorusu?.tahminiTarih || '-'}
+                                                </p>
+                                            </div>
+                                            <div className="bg-slate-950/45 border border-white/15 rounded-xl p-4">
+                                                <p className="text-xs uppercase tracking-wide text-slate-400 mb-2">Kalan Mesafe</p>
+                                                <p className="text-2xl font-bold text-slate-50">
+                                                    {bakimOngorusu?.kalanKm !== null && bakimOngorusu?.kalanKm !== undefined
+                                                        ? `${Number(bakimOngorusu.kalanKm).toLocaleString('tr-TR')} KM kaldı`
+                                                        : '-'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-5">
+                                        <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+                                            <span>Durum Çubuğu</span>
+                                            <span>
+                                                {bakimOngorusu?.progress !== undefined
+                                                    ? `%${bakimOngorusu.progress.toFixed(0)}`
+                                                    : '%0'}
+                                            </span>
+                                        </div>
+                                        <div className="h-3 rounded-full bg-slate-800/80 border border-white/15 overflow-hidden">
+                                            <div
+                                                className={`h-full rounded-full transition-all duration-300 ${bakimOngorusu?.tip === 'tehlike'
+                                                    ? 'bg-rose-500'
+                                                    : bakimOngorusu?.tip === 'uyari'
+                                                        ? 'bg-amber-400'
+                                                        : 'bg-gradient-to-r from-emerald-400 via-emerald-300 to-rose-500'
+                                                    }`}
+                                                style={{ width: `${bakimOngorusu?.progress ?? 0}%` }}
+                                            />
+                                        </div>
+                                        <p className="text-xs text-slate-400 mt-2">
+                                            {bakimOngorusu?.gunlukOrtalamaKm !== null && bakimOngorusu?.gunlukOrtalamaKm !== undefined
+                                                ? `Günlük ortalama kullanım: ${bakimOngorusu.gunlukOrtalamaKm.toFixed(1)} KM`
+                                                : 'Günlük ortalama kullanım için yeterli veri yok.'}
+                                        </p>
+                                    </div>
+                                </div>
+
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div className="glass-card rounded-lg border border-indigo-300/35 p-4">
                                         <p className="text-xs uppercase tracking-wide text-slate-300">KM Başına Maliyet</p>
@@ -1054,6 +1535,102 @@ const AracDetay = () => {
                                     <div className="glass-card rounded-lg border border-emerald-300/35 p-4">
                                         <p className="text-xs uppercase tracking-wide text-slate-300">Genel Sağlık Puanı</p>
                                         <p className="text-2xl font-bold text-white mt-2">%{genelSaglikPuani}</p>
+                                    </div>
+                                </div>
+
+                                <div className="glass-card rounded-lg border border-white/15 p-6 space-y-5">
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                                        <div>
+                                            <p className="text-xs uppercase tracking-[0.2em] text-slate-400 mb-2">Gelecek Projeksiyon</p>
+                                            <h2 className="text-2xl font-bold text-slate-50">Tahmini KM İvme Grafiği</h2>
+                                        </div>
+                                        <p className="text-sm text-slate-400 max-w-xl">
+                                            Araç kullanımının hedef bakıma nasıl hızlandığını geçmiş ve tahmini çizgilerle izleyin.
+                                        </p>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="glass-card rounded-lg border border-emerald-300/25 p-4 bg-slate-950/45">
+                                            <p className="text-xs uppercase tracking-wide text-slate-400 mb-2">Günlük Ortalama Kullanım</p>
+                                            <p className="text-2xl font-bold text-emerald-400">
+                                                {Number.isFinite(bakimOngorusu?.gunlukOrtalamaKm)
+                                                    ? `${bakimOngorusu.gunlukOrtalamaKm.toFixed(0)} KM/Gün`
+                                                    : '45 KM/Gün'}
+                                            </p>
+                                        </div>
+                                        <div className="glass-card rounded-lg border border-amber-300/25 p-4 bg-slate-950/45">
+                                            <p className="text-xs uppercase tracking-wide text-slate-400 mb-2">Kalan Güvenli Mesafe</p>
+                                            <p className="text-2xl font-bold text-amber-400">
+                                                {Number.isFinite(bakimOngorusu?.kalanKm)
+                                                    ? `${Math.max(0, bakimOngorusu.kalanKm).toLocaleString('tr-TR')} KM`
+                                                    : '1.200 KM'}
+                                            </p>
+                                        </div>
+                                        <div className="glass-card rounded-lg border border-rose-300/25 p-4 bg-slate-950/45">
+                                            <p className="text-xs uppercase tracking-wide text-slate-400 mb-2">Kritik Tarih</p>
+                                            <p className="text-2xl font-bold text-rose-500">
+                                                {bakimOngorusu?.tahminiTarih || '15 Ağustos 2026'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="h-96">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <LineChart data={gelecekProjeksiyonVerisi} margin={{ top: 10, right: 24, left: 0, bottom: 12 }}>
+                                                <CartesianGrid stroke="#94a3b8" strokeOpacity={0.1} strokeDasharray="4 4" />
+                                                <XAxis
+                                                    dataKey="ayEtiketi"
+                                                    stroke="#cbd5e1"
+                                                    tick={{ fill: '#cbd5e1', fontSize: 12 }}
+                                                    axisLine={{ stroke: 'rgba(148,163,184,0.25)' }}
+                                                    tickLine={{ stroke: 'rgba(148,163,184,0.25)' }}
+                                                />
+                                                <YAxis
+                                                    stroke="#cbd5e1"
+                                                    tick={{ fill: '#cbd5e1', fontSize: 12 }}
+                                                    tickFormatter={(value) => Number(value).toLocaleString('tr-TR')}
+                                                    axisLine={{ stroke: 'rgba(148,163,184,0.25)' }}
+                                                    tickLine={{ stroke: 'rgba(148,163,184,0.25)' }}
+                                                />
+                                                <Tooltip content={<CustomTooltip />} />
+                                                {Number.isFinite(bakimOngorusu?.hedefKm) && bakimOngorusu.hedefKm > 0 && (
+                                                    <ReferenceLine
+                                                        y={bakimOngorusu.hedefKm}
+                                                        stroke="#f43f5e"
+                                                        strokeDasharray="6 6"
+                                                        strokeWidth={2}
+                                                        label={
+                                                            <Label
+                                                                value={`Bakım Hedefi (${Math.max(0, bakimOngorusu?.kalanGun ?? 0)} Gün Kaldı)`}
+                                                                position="insideTopRight"
+                                                                offset={10}
+                                                                fill="#f43f5e"
+                                                                style={{ fontSize: 12, fontWeight: 700 }}
+                                                            />
+                                                        }
+                                                    />
+                                                )}
+                                                <Line
+                                                    type="monotone"
+                                                    dataKey="gercekKm"
+                                                    name="Geçmiş KM"
+                                                    stroke="#34d399"
+                                                    strokeWidth={3}
+                                                    dot={false}
+                                                    connectNulls
+                                                />
+                                                <Line
+                                                    type="monotone"
+                                                    dataKey="tahminiKm"
+                                                    name="Tahmini KM"
+                                                    stroke="#fbbf24"
+                                                    strokeWidth={3}
+                                                    strokeDasharray="5 5"
+                                                    dot={false}
+                                                    connectNulls
+                                                />
+                                            </LineChart>
+                                        </ResponsiveContainer>
                                     </div>
                                 </div>
 
@@ -1100,7 +1677,7 @@ const AracDetay = () => {
                                                         </linearGradient>
                                                     </defs>
                                                     <CartesianGrid stroke="rgba(148,163,184,0.12)" strokeDasharray="4 4" />
-                                                    <XAxis dataKey="ayEtiket" stroke="#94a3b8" />
+                                                    <XAxis dataKey="ayEtiketi" stroke="#94a3b8" />
                                                     <YAxis stroke="#94a3b8" />
                                                     <Tooltip formatter={areaTooltipFormatter} />
                                                     <Legend />

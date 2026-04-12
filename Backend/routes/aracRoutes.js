@@ -60,7 +60,7 @@ router.get('/', authMiddleware, async (req, res) => {
   const kullanici_id = req.user?.user_id;
   try {
     const result = await pool.query(
-        `SELECT a.*, u.telefon, u.email_bildirim_aktif
+        `SELECT a.*, u.telefon, u.email_bildirim_aktif, u.sms_bildirim_aktif
        FROM araclar a
        INNER JOIN users u ON u.user_id = a.kullanici_id
        WHERE a.kullanici_id = $1

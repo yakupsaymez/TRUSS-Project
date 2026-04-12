@@ -4,6 +4,8 @@ import toast from 'react-hot-toast';
 import aracService from '../services/aracService';
 import bakimService from '../services/bakimService';
 import yakitService from '../services/yakitService';
+import { formatCurrency, formatLocaleNumber, formatTurkishPlate, parseLocaleNumber } from '../utils/formatters';
+import { exportToCSV, sortByKey } from '../utils/exporter';
 
 const Dashboard = () => {
     const navigate = useNavigate();
@@ -40,8 +42,11 @@ const Dashboard = () => {
     const [quickFuelError, setQuickFuelError] = useState(null);
     const [isQuickFuelSubmitting, setIsQuickFuelSubmitting] = useState(false);
     const [listMotionSeed, setListMotionSeed] = useState(0);
+    const [sortConfig, setSortConfig] = useState({ key: 'plaka', order: 'asc' });
     const modalCloseTimerRef = useRef(null);
     const quickFuelCloseTimerRef = useRef(null);
+    const plakaInputRef = useRef(null);
+    const quickFuelAracSelectRef = useRef(null);
 
     const fetchAraclar = useCallback(async () => {
         try {
@@ -162,6 +167,18 @@ const Dashboard = () => {
         if (quickFuelCloseTimerRef.current) clearTimeout(quickFuelCloseTimerRef.current);
     }, []);
 
+    useEffect(() => {
+        if (isModalOpen && isModalVisible && plakaInputRef.current) {
+            plakaInputRef.current.focus();
+        }
+    }, [isModalOpen, isModalVisible]);
+
+    useEffect(() => {
+        if (isQuickFuelModalOpen && isQuickFuelModalVisible && quickFuelAracSelectRef.current) {
+            quickFuelAracSelectRef.current.focus();
+        }
+    }, [isQuickFuelModalOpen, isQuickFuelModalVisible]);
+
 
     const openModal = () => {
         setEditingAracId(null);
@@ -181,7 +198,7 @@ const Dashboard = () => {
     const openEditModal = (arac) => {
         setEditingAracId(arac.arac_id);
         setFormData({
-            plaka: arac.plaka || '',
+            plaka: formatTurkishPlate(arac.plaka || ''),
             marka: arac.marka || '',
             model: arac.model || '',
             yil: arac.yil || '',
@@ -205,7 +222,7 @@ const Dashboard = () => {
         const { name, value } = e.target;
         setFormData((prev) => ({
             ...prev,
-            [name]: value
+            [name]: name === 'plaka' ? formatTurkishPlate(value) : value
         }));
     };
 
@@ -238,11 +255,36 @@ const Dashboard = () => {
         }));
     };
 
+    const handleQuickFuelNumberBlur = (e) => {
+        const { name, value } = e.target;
+        if (!['tutar', 'km'].includes(name)) return;
+
+        const parsed = parseLocaleNumber(value);
+        if (parsed === null) return;
+
+        setQuickFuelData((prev) => ({
+            ...prev,
+            [name]: formatLocaleNumber(parsed, name === 'tutar' ? 2 : 0)
+        }));
+    };
+
+    const handleFormEnterKeyDown = (e) => {
+        if (e.key !== 'Enter') return;
+        if (e.target instanceof HTMLTextAreaElement) return;
+
+        e.preventDefault();
+        e.currentTarget.requestSubmit();
+    };
+
     const handleQuickFuelSubmit = async (e) => {
         e.preventDefault();
         setQuickFuelError(null);
 
-        if (!quickFuelData.arac_id || !quickFuelData.tarih || !quickFuelData.litre || !quickFuelData.tutar || !quickFuelData.km) {
+        const parsedLitre = parseLocaleNumber(quickFuelData.litre);
+        const parsedTutar = parseLocaleNumber(quickFuelData.tutar);
+        const parsedKm = parseLocaleNumber(quickFuelData.km);
+
+        if (!quickFuelData.arac_id || !quickFuelData.tarih || parsedLitre === null || parsedTutar === null || parsedKm === null) {
             setQuickFuelError('Lutfen tum alanlari eksiksiz doldurun.');
             return;
         }
@@ -252,13 +294,12 @@ const Dashboard = () => {
             await yakitService.yakitEkle({
                 arac_id: Number(quickFuelData.arac_id),
                 tarih: quickFuelData.tarih,
-                litre: Number(quickFuelData.litre),
-                tutar: Number(quickFuelData.tutar),
-                km: Number(quickFuelData.km)
+                litre: parsedLitre,
+                tutar: parsedTutar,
+                km: parsedKm
             });
 
             closeQuickFuelModal();
-            // Yeni kayit sonrasi tum ozet metriklerinin aninda yenilenmesi icin tekrar cekiyoruz.
             await fetchAraclar();
         } catch (err) {
             const hataMesaji =
@@ -316,7 +357,7 @@ const Dashboard = () => {
         }
     };
 
-    const formatTahminTL = useCallback((deger) => `${Number(deger || 0).toLocaleString('tr-TR')} TL`, []);
+    const formatTahminTL = useCallback((deger) => formatCurrency(deger || 0), []);
 
     const gosterilenAraclar = useMemo(() => {
         if (aktifFiltre === 'tehlike') {
@@ -347,6 +388,17 @@ const Dashboard = () => {
                 'Araç silinirken bir hata oluştu.';
             setError(hataMesaji);
         }
+    };
+
+    const sortedAraclar = useMemo(() => {
+        return sortByKey(gosterilenAraclar, sortConfig.key, sortConfig.order === 'asc');
+    }, [gosterilenAraclar, sortConfig]);
+
+    const handleSortClick = (key) => {
+        setSortConfig((prev) => ({
+            key,
+            order: prev.key === key && prev.order === 'asc' ? 'desc' : 'asc'
+        }));
     };
 
     return (
@@ -443,19 +495,72 @@ const Dashboard = () => {
                 )}
 
                 {!loading && !error && gosterilenAraclar.length === 0 && (
-                    <div className="glass-card p-8 text-center">
-                        <p className="text-slate-400">Bu görünüm için araç bulunamadı.</p>
+                    <div className="glass-card p-8 sm:p-12 text-center">
+                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-700/40 mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                        </div>
+                        <p className="text-lg font-semibold text-slate-300 mb-2">Henüz araç bulunmuyor</p>
+                        <p className="text-sm text-slate-400 max-w-sm mx-auto">Bu görünüm için araç kaydı bulunamadı. Yeni bir araç ekleyerek başlayın.</p>
                     </div>
                 )}
 
                 {!loading && !error && gosterilenAraclar.length > 0 && (
                     <div className="glass-card p-5 sm:p-6">
-                        <div className="mb-4 pb-3 border-b border-white/20">
-                            <p className="text-sm font-semibold text-slate-50 uppercase tracking-wide">Araç Listesi</p>
-                            <p className="text-xs text-slate-200 mt-1">Plaka, Marka ve Model bilgileri</p>
+                        <div className="mb-4 pb-3 border-b border-white/20 flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-semibold text-slate-50 uppercase tracking-wide">Araç Listesi</p>
+                                <p className="text-xs text-slate-200 mt-1">Plaka, Marka ve Model bilgileri</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => {
+                                        const exportData = sortedAraclar.map(arac => ({
+                                            Plaka: arac.plaka || '-',
+                                            Marka: arac.marka || '-',
+                                            Model: arac.model || '-',
+                                            Yıl: arac.yil || '-'
+                                        }));
+                                        exportToCSV(exportData, `araçlar_${new Date().toISOString().split('T')[0]}`);
+                                    }}
+                                    className="text-sm px-3 py-1.5 rounded-md bg-white/95 dark:bg-slate-900/80 text-slate-900 dark:text-slate-200 border border-slate-400/60 dark:border-white/25 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors duration-300 shadow-md"
+                                >
+                                    📥 CSV İndir
+                                </button>
+                            </div>
+                        </div>
+                        <div className="mb-4 hidden sm:grid grid-cols-3 gap-6 px-2 py-2 text-xs font-semibold text-slate-300 border-b border-white/10">
+                            <button
+                                onClick={() => handleSortClick('plaka')}
+                                className="text-left hover:text-slate-50 transition-colors duration-200 flex items-center gap-1.5 cursor-pointer"
+                            >
+                                Plaka
+                                {sortConfig.key === 'plaka' && (
+                                    <span className="text-indigo-400">{sortConfig.order === 'asc' ? '↑' : '↓'}</span>
+                                )}
+                            </button>
+                            <button
+                                onClick={() => handleSortClick('marka')}
+                                className="text-left hover:text-slate-50 transition-colors duration-200 flex items-center gap-1.5 cursor-pointer"
+                            >
+                                Marka
+                                {sortConfig.key === 'marka' && (
+                                    <span className="text-indigo-400">{sortConfig.order === 'asc' ? '↑' : '↓'}</span>
+                                )}
+                            </button>
+                            <button
+                                onClick={() => handleSortClick('model')}
+                                className="text-left hover:text-slate-50 transition-colors duration-200 flex items-center gap-1.5 cursor-pointer"
+                            >
+                                Model
+                                {sortConfig.key === 'model' && (
+                                    <span className="text-indigo-400">{sortConfig.order === 'asc' ? '↑' : '↓'}</span>
+                                )}
+                            </button>
                         </div>
                     <div key={`arac-list-${listMotionSeed}`} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {gosterilenAraclar.map((arac, index) => (
+                        {sortedAraclar.map((arac, index) => (
                             <div
                                 key={arac.arac_id || arac.id || arac.plaka}
                                 className="stagger-fade-in relative bg-white/95 dark:bg-slate-900/80 border border-slate-400/50 dark:border-white/25 rounded-xl p-5"
@@ -505,14 +610,16 @@ const Dashboard = () => {
                         <h3 className="text-xl font-semibold text-slate-50 mb-4">{editingAracId ? 'Araç Düzenle' : 'Yeni Araç Ekle'}</h3>
 
 
-                        <form onSubmit={handleAddArac} className="space-y-4">
+                        <form onSubmit={handleAddArac} onKeyDown={handleFormEnterKeyDown} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-300 mb-1">Plaka</label>
                                 <input
+                                    ref={plakaInputRef}
                                     type="text"
                                     name="plaka"
                                     value={formData.plaka}
                                     onChange={handleInputChange}
+                                    autoFocus
                                     className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-300"
                                     placeholder="34 ABC 123"
                                 />
@@ -619,13 +726,15 @@ const Dashboard = () => {
                             </div>
                         )}
 
-                        <form onSubmit={handleQuickFuelSubmit} className="space-y-4">
+                        <form onSubmit={handleQuickFuelSubmit} onKeyDown={handleFormEnterKeyDown} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-300 mb-1">Araç Seç</label>
                                 <select
+                                    ref={quickFuelAracSelectRef}
                                     name="arac_id"
                                     value={quickFuelData.arac_id}
                                     onChange={handleQuickFuelInputChange}
+                                    autoFocus
                                     className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-300"
                                 >
                                     <option value="">Araç seçiniz</option>
@@ -651,8 +760,8 @@ const Dashboard = () => {
                             <div>
                                 <label className="block text-sm font-medium text-slate-300 mb-1">Litre</label>
                                 <input
-                                    type="number"
-                                    step="0.01"
+                                    type="text"
+                                    inputMode="decimal"
                                     name="litre"
                                     value={quickFuelData.litre}
                                     onChange={handleQuickFuelInputChange}
@@ -664,11 +773,12 @@ const Dashboard = () => {
                             <div>
                                 <label className="block text-sm font-medium text-slate-300 mb-1">Tutar</label>
                                 <input
-                                    type="number"
-                                    step="0.01"
+                                    type="text"
+                                    inputMode="decimal"
                                     name="tutar"
                                     value={quickFuelData.tutar}
                                     onChange={handleQuickFuelInputChange}
+                                    onBlur={handleQuickFuelNumberBlur}
                                     className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-300"
                                     placeholder="2500"
                                 />
@@ -677,10 +787,12 @@ const Dashboard = () => {
                             <div>
                                 <label className="block text-sm font-medium text-slate-300 mb-1">KM</label>
                                 <input
-                                    type="number"
+                                    type="text"
+                                    inputMode="numeric"
                                     name="km"
                                     value={quickFuelData.km}
                                     onChange={handleQuickFuelInputChange}
+                                    onBlur={handleQuickFuelNumberBlur}
                                     className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-300"
                                     placeholder="125000"
                                 />

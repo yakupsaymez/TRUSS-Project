@@ -12,6 +12,18 @@ ALTER TABLE users -- Kullaniciya bildirim gonderebilmek icin telefon kolonunu ek
 ALTER TABLE users -- Kullanici e-posta bildirim tercihinin saklanmasi icin alan ekler.
     ADD COLUMN IF NOT EXISTS email_bildirim_aktif BOOLEAN NOT NULL DEFAULT TRUE;
 
+ALTER TABLE users -- Kullanici SMS bildirim tercihinin saklanmasi icin alan ekler.
+    ADD COLUMN IF NOT EXISTS sms_bildirim_aktif BOOLEAN NOT NULL DEFAULT TRUE;
+
+ALTER TABLE users -- Kullanici arayuz dili tercihini saklar.
+    ADD COLUMN IF NOT EXISTS dil VARCHAR(10) NOT NULL DEFAULT 'TR';
+
+ALTER TABLE users -- Kullanici para birimi tercihini saklar.
+    ADD COLUMN IF NOT EXISTS para_birimi VARCHAR(10) NOT NULL DEFAULT 'TRY';
+
+ALTER TABLE users -- Kullanici olcu birimi tercihini saklar.
+    ADD COLUMN IF NOT EXISTS olcu_birimi VARCHAR(10) NOT NULL DEFAULT 'KM';
+
 CREATE TABLE IF NOT EXISTS araclar ( -- Araç bilgilerini tutacak tabloyu oluşturur.
                                        arac_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, -- Otomatik artan benzersiz araç kimliği.
                                        plaka VARCHAR(20) NOT NULL UNIQUE, -- Araç plakasını tutar ve tekrar etmesini engeller.
