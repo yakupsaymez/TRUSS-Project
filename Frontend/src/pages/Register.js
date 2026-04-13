@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import authService from '../services/authService';
+import authService from '@/services/authService';
 
 const Register = () => {
     const [formData, setFormData] = useState({ ad_soyad: '', email: '', sifre: '' });

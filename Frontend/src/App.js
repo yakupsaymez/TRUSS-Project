@@ -1,13 +1,14 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import Layout from './components/Layout';
+import Layout from '@/components/Layout';
+import LandingPage from '@/pages/LandingPage';
 
 // İnşa Ettiğimiz Sayfalar (Pages)
-import Register from './pages/Register';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import AracDetay from './pages/AracDetay.js';
+import Register from '@/pages/Register';
+import Login from '@/pages/Login';
+import Dashboard from '@/pages/Dashboard';
+import AracDetay from '@/pages/AracDetay.js';
 
 function App() {
     return (
@@ -25,8 +26,7 @@ function App() {
                     }}
                 />
                 <Routes>
-                    {/* Kullanıcı ana siteye (/) girdiğinde onu kapıda bekletmeyip doğrudan Login'e yönlendiriyoruz */}
-                    <Route path="/" element={<Navigate to="/login" />} />
+                    <Route path="/" element={<LandingPage />} />
 
                     {/* Açık Rotalar (Herkes girebilir) */}
                     <Route path="/register" element={<Layout><Register /></Layout>} />

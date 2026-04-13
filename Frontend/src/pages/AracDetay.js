@@ -25,12 +25,12 @@ import {
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import aracService from '../services/aracService';
-import bakimService from '../services/bakimService';
-import parcaService from '../services/parcaService';
-import yakitService from '../services/yakitService';
-import { formatCurrency, formatLocaleNumber, parseLocaleNumber } from '../utils/formatters';
-import { exportToCSV, sortByKey } from '../utils/exporter';
+import aracService from '@/services/aracService';
+import bakimService from '@/services/bakimService';
+import parcaService from '@/services/parcaService';
+import yakitService from '@/services/yakitService';
+import { formatCurrency, formatLocaleNumber, parseLocaleNumber } from '@/utils/formatters';
+import { exportToCSV, sortByKey } from '@/utils/exporter';
 
 const AracDetay = () => {
     const navigate = useNavigate();
