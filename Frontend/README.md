@@ -1,4 +1,4 @@
-# ABTS Frontend (Vite)
+# truss Frontend (Vite)
 
 This frontend uses React + Tailwind CSS and is built with Vite.
 

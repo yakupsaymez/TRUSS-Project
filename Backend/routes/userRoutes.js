@@ -208,10 +208,10 @@ router.put('/settings/notifications', authMiddleware, async (req, res) => {
         <div style="margin:0;padding:0;background:#020617;color:#e2e8f0;font-family:Arial,Helvetica,sans-serif;">
           <div style="max-width:640px;margin:0 auto;padding:32px 16px;">
             <div style="background:rgba(15,23,42,0.94);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:28px;box-shadow:0 24px 80px rgba(0,0,0,0.45);">
-              <div style="font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:#94a3b8;margin-bottom:10px;">ABTS</div>
+              <div style="font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:#94a3b8;margin-bottom:10px;">truss</div>
               <h2 style="margin:0 0 16px 0;color:#f8fafc;font-size:24px;">Bildirim Tercihleriniz Güncellendi</h2>
               <p style="margin:0 0 12px 0;line-height:1.7;color:#cbd5e1;">Merhaba ${updatedUser.ad_soyad || ''},</p>
-              <p style="margin:0 0 12px 0;line-height:1.7;color:#cbd5e1;">ABTS bildirim ayarlarını başarıyla güncelledik. Bu e-posta, sistemimizin test iletisi olarak gönderilmiştir.</p>
+              <p style="margin:0 0 12px 0;line-height:1.7;color:#cbd5e1;">truss bildirim ayarlarını başarıyla güncelledik. Bu e-posta, sistemimizin test iletisi olarak gönderilmiştir.</p>
               <div style="margin-top:20px;padding:16px;border-radius:14px;border:1px solid rgba(255,255,255,0.08);background:rgba(30,41,59,0.85);">
                 <p style="margin:0;color:#94a3b8;font-size:12px;text-transform:uppercase;letter-spacing:0.18em;">Aktif Kanallar</p>
                 <p style="margin:8px 0 0 0;color:#e2e8f0;">E-posta: ${updatedUser.email_bildirim_aktif ? 'Aktif' : 'Pasif'}<br />SMS: ${updatedUser.sms_bildirim_aktif ? 'Aktif' : 'Pasif'}</p>
@@ -223,7 +223,7 @@ router.put('/settings/notifications', authMiddleware, async (req, res) => {
 
       notificationTasks.push(sendNotificationEmail(
         updatedUser.email,
-        'ABTS: Bildirim Tercihleriniz Güncellendi',
+        'truss: Bildirim Tercihleriniz Güncellendi',
         htmlBody
       ));
     }
@@ -231,7 +231,7 @@ router.put('/settings/notifications', authMiddleware, async (req, res) => {
     if (updatedUser?.sms_bildirim_aktif && updatedUser?.telefon) {
       notificationTasks.push(sendSMS(
         updatedUser.telefon,
-        'ABTS: Bildirim Tercihleriniz Güncellendi'
+        'truss: Bildirim Tercihleriniz Güncellendi'
       ));
     }
 

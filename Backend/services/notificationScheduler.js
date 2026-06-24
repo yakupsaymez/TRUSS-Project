@@ -125,8 +125,8 @@ const notifyEvraklar = async () => {
 
     if (!alerts.length) continue;
 
-    const subject = `ABTS Hatirlatma - ${item.plaka} evrak durumu`;
-    const text = `Merhaba ${item.ad_soyad || ''},\n\n${item.plaka} plakali araciniz icin:\n- ${alerts.join('\n- ')}\n\nABTS ekibi`;
+    const subject = `truss Hatirlatma - ${item.plaka} evrak durumu`;
+    const text = `Merhaba ${item.ad_soyad || ''},\n\n${item.plaka} plakali araciniz icin:\n- ${alerts.join('\n- ')}\n\ntruss ekibi`;
 
     await dispatchNotifications(item, subject, text, `${item.plaka} icin: ${alerts.join(' | ')}`);
   }
@@ -177,8 +177,8 @@ const notifyParcalar = async () => {
 
     if (!alerts.length) continue;
 
-    const subject = `ABTS Parca Omur Uyarisi - ${item.plaka}`;
-    const text = `Merhaba ${item.ad_soyad || ''},\n\n${item.plaka} plakali aracinizda:\n- ${alerts.join('\n- ')}\n\nABTS ekibi`;
+    const subject = `truss Parca Omur Uyarisi - ${item.plaka}`;
+    const text = `Merhaba ${item.ad_soyad || ''},\n\n${item.plaka} plakali aracinizda:\n- ${alerts.join('\n- ')}\n\ntruss ekibi`;
 
     await dispatchNotifications(item, subject, text, `${item.plaka}: ${alerts.join(' | ')}`);
   }
@@ -265,10 +265,10 @@ const notifyPredictiveMaintenance = async () => {
       if (!prediction || prediction.kalanGun > PREDICTIVE_NOTIFY_DAY_THRESHOLD) continue;
 
       const tahminiTarih = prediction.tahminiTarih.toLocaleDateString('tr-TR');
-      const subject = `ABTS Tahmini Bakim Hatirlatmasi - ${item.plaka}`;
+      const subject = `truss Tahmini Bakim Hatirlatmasi - ${item.plaka}`;
       const text = prediction.kalanKm <= 0
-        ? `Merhaba ${item.ad_soyad || ''},\n\n${item.plaka} plakali araciniz icin tahmini bakim kilometresi ${Math.abs(prediction.kalanKm).toLocaleString('tr-TR')} KM asildi. Tahmini bakim tarihi: ${tahminiTarih}.\n\nABTS ekibi`
-        : `Merhaba ${item.ad_soyad || ''},\n\n${item.plaka} plakali araciniz icin tahmini bakim tarihi ${tahminiTarih} olarak hesaplandi. Kalan mesafe: ${Math.max(0, prediction.kalanKm).toLocaleString('tr-TR')} KM.\nGununluk ortalama kullanim: ${prediction.gunlukOrtalamaKm.toFixed(1)} KM.\n\nABTS ekibi`;
+        ? `Merhaba ${item.ad_soyad || ''},\n\n${item.plaka} plakali araciniz icin tahmini bakim kilometresi ${Math.abs(prediction.kalanKm).toLocaleString('tr-TR')} KM asildi. Tahmini bakim tarihi: ${tahminiTarih}.\n\ntruss ekibi`
+        : `Merhaba ${item.ad_soyad || ''},\n\n${item.plaka} plakali araciniz icin tahmini bakim tarihi ${tahminiTarih} olarak hesaplandi. Kalan mesafe: ${Math.max(0, prediction.kalanKm).toLocaleString('tr-TR')} KM.\nGununluk ortalama kullanim: ${prediction.gunlukOrtalamaKm.toFixed(1)} KM.\n\ntruss ekibi`;
 
       const smsText = prediction.kalanKm <= 0
         ? `${item.plaka}: Bakim kilometresi asildi. Tahmini tarih ${tahminiTarih}.`

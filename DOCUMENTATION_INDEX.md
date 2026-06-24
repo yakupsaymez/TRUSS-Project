@@ -1,6 +1,6 @@
-# 📑 ABTS Documentation Index
+# 📑 truss Documentation Index
 
-## Welcome to the ABTS Project Documentation
+## Welcome to the truss Project Documentation
 
 This is your central hub for all project documentation. Find what you need below.
 
@@ -306,7 +306,7 @@ import { sortByKey } from '../utils/exporter';
 
 ## 🎯 First Time Setup
 
-1. **Create** a bookmark folder called "ABTS Docs"
+1. **Create** a bookmark folder called "truss Docs"
 2. **Bookmark** all 5 documentation files
 3. **Open** `QUICK_REFERENCE.md` first
 4. **Bookmark** specific sections you use often
@@ -331,7 +331,7 @@ import { sortByKey } from '../utils/exporter';
 
 All files are in the project root:
 ```
-ABTS/
+truss/
 ├── QUICK_REFERENCE.md ................. You are here! 📍
 ├── IMPLEMENTATION_GUIDE.md ............ Detailed guide
 ├── API_INTEGRATION_GUIDE.md .......... API specs
@@ -366,5 +366,5 @@ Everything you need is in these 5 documentation files. Pick the right one for yo
 **Status**: ✅ Production Ready  
 **Next Update**: 2026-05-12
 
-**Welcome to ABTS! Happy coding! 🚀**
+**Welcome to truss! Happy coding! 🚀**
 

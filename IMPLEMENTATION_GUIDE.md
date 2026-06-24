@@ -1,7 +1,7 @@
-# ABTS Project - Implementation Guide
+# truss Project - Implementation Guide
 ## Faz 2 & Faz 3: Enterprise Features Implementation
 
-**Project**: ABTS (Araç Bakım Takip Sistemi)  
+**Project**: truss (Araç Bakım Takip Sistemi)  
 **Status**: Production Ready ✅  
 **Last Updated**: 2026-04-12  
 **Build Status**: ✅ Compiled successfully, 0 warnings, 0 errors

@@ -1,4 +1,4 @@
-# ABTS - Quick Reference Guide
+# truss - Quick Reference Guide
 ## Faz 2 & 3 Features
 
 **Print this guide for quick access!**
@@ -22,7 +22,7 @@ Frontend/src/
 
 ### Documentation Files (in Project Root)
 ```
-ABTS/
+truss/
 ├── IMPLEMENTATION_GUIDE.md ........... Detailed feature guide (380 lines)
 ├── API_INTEGRATION_GUIDE.md .......... API specs & examples (400 lines)
 ├── FAZ_2_3_COMPLETION_REPORT.md ..... Completion report

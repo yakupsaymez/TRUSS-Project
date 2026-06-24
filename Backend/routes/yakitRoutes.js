@@ -7,6 +7,7 @@ const router = express.Router();
 // YENI YAKIT KAYDI EKLE
 router.post('/', authMiddleware, async (req, res) => {
   const { arac_id, yakit_tipi, tarih, litre, tutar, km, notlar } = req.body;
+  const kullanici_id = req.user?.user_id;
 
   // Temel zorunlu alan kontrolu
   if (!arac_id || !tarih || litre === undefined || tutar === undefined) {
@@ -14,6 +15,16 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 
   try {
+    // SAHİPLİK KONTROL: Araç bu kullanıcıya ait mi?
+    const aracOwnershipCheck = await pool.query(
+      'SELECT arac_id FROM araclar WHERE arac_id = $1 AND kullanici_id = $2',
+      [arac_id, kullanici_id]
+    );
+
+    if (aracOwnershipCheck.rows.length === 0) {
+      return res.status(403).json({ message: 'Bu aracı duzenlemek icin yetkiniz yoktur.' });
+    }
+
     const query = `
       INSERT INTO yakitlar (arac_id, yakit_tipi, tarih, litre, tutar, km, notlar)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -55,8 +66,19 @@ router.get('/arac/:arac_id', authMiddleware, async (req, res) => {
 // BELIRLI YAKIT KAYDINI SIL
 router.delete('/:yakit_id', authMiddleware, async (req, res) => {
   const { yakit_id } = req.params;
+  const kullanici_id = req.user?.user_id;
 
   try {
+    // SAHİPLİK KONTROL: Silinecek yakıt bu kullanıcıya ait aracın mı?
+    const yakitOwnershipCheck = await pool.query(
+      'SELECT y.yakit_id FROM yakitlar y INNER JOIN araclar a ON y.arac_id = a.arac_id WHERE y.yakit_id = $1 AND a.kullanici_id = $2',
+      [yakit_id, kullanici_id]
+    );
+
+    if (yakitOwnershipCheck.rows.length === 0) {
+      return res.status(403).json({ message: 'Bu kayidi silmek icin yetkiniz yoktur.' });
+    }
+
     const result = await pool.query('DELETE FROM yakitlar WHERE yakit_id = $1', [yakit_id]);
 
     if (result.rowCount === 0) {

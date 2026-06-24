@@ -7,6 +7,7 @@ const router = express.Router();
 // YENI BAKIM KAYDI EKLE
 router.post('/', authMiddleware, async (req, res) => {
   const { arac_id, bakim_tipi, tarih, km, maliyet, notlar } = req.body;
+  const kullanici_id = req.user?.user_id;
 
   // Temel zorunlu alan kontrolu
   if (!arac_id || !bakim_tipi || !tarih || km === undefined || maliyet === undefined) {
@@ -14,6 +15,16 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 
   try {
+    // SAHİPLİK KONTROL: Araç bu kullanıcıya ait mi?
+    const aracOwnershipCheck = await pool.query(
+      'SELECT arac_id FROM araclar WHERE arac_id = $1 AND kullanici_id = $2',
+      [arac_id, kullanici_id]
+    );
+
+    if (aracOwnershipCheck.rows.length === 0) {
+      return res.status(403).json({ message: 'Bu aracı duzenlemek icin yetkiniz yoktur.' });
+    }
+
     const query = `
       INSERT INTO bakimlar (arac_id, bakim_tipi, tarih, km, maliyet, notlar)
       VALUES ($1, $2, $3, $4, $5, $6)
@@ -45,8 +56,19 @@ router.get('/arac/:arac_id', authMiddleware, async (req, res) => {
 // BELIRLI BAKIM KAYDINI SIL
 router.delete('/:bakim_id', authMiddleware, async (req, res) => {
   const { bakim_id } = req.params;
+  const kullanici_id = req.user?.user_id;
 
   try {
+    // SAHİPLİK KONTROL: Silinecek bakım bu kullanıcıya ait aracın mı?
+    const bakimOwnershipCheck = await pool.query(
+      'SELECT b.bakim_id FROM bakimlar b INNER JOIN araclar a ON b.arac_id = a.arac_id WHERE b.bakim_id = $1 AND a.kullanici_id = $2',
+      [bakim_id, kullanici_id]
+    );
+
+    if (bakimOwnershipCheck.rows.length === 0) {
+      return res.status(403).json({ message: 'Bu kayidi silmek icin yetkiniz yoktur.' });
+    }
+
     const result = await pool.query('DELETE FROM bakimlar WHERE bakim_id = $1', [bakim_id]);
 
     if (result.rowCount === 0) {

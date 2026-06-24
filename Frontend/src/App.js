@@ -1,19 +1,20 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import Layout from '@/components/Layout';
-import LandingPage from '@/pages/LandingPage';
-
-// İnşa Ettiğimiz Sayfalar (Pages)
+import { ThemeProvider } from '@/components/theme-provider';
+import AppLayout from '@/components/layout/AppLayout';
+import HomePage from '@/pages/HomePage';
 import Register from '@/pages/Register';
 import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
 import AracDetay from '@/pages/AracDetay.js';
+import Settings from '@/pages/Settings.jsx';
+import Vehicles from '@/pages/Vehicles.jsx';
 
 function App() {
     return (
-        <Router>
-            <div className="min-h-screen">
+        <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+            <Router>
                 <Toaster
                     position="top-right"
                     toastOptions={{
@@ -26,20 +27,20 @@ function App() {
                     }}
                 />
                 <Routes>
-                    <Route path="/" element={<LandingPage />} />
+                    {/* Tam ekran rotalar — layout yok */}
+                    <Route path="/" element={<HomePage />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<Register />} />
 
-                    {/* Açık Rotalar (Herkes girebilir) */}
-                    <Route path="/register" element={<Layout><Register /></Layout>} />
-                    <Route path="/login" element={<Layout><Login /></Layout>} />
-
-                    {/* Korumalı Rota (Sadece Token'ı olanlar Dashboard.js içindeki bekçiyi geçebilir) */}
-                    <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
-
-                    {/* Araç detay sayfası rotası */}
-                    <Route path="/arac/:id" element={<Layout><AracDetay /></Layout>} />
+                    {/* Uygulama içi rotalar — AppLayout (Sidebar + Header) */}
+                    <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
+                    <Route path="/arac/:id"    element={<AppLayout><AracDetay /></AppLayout>} />
+                    <Route path="/vehicle/:id" element={<AppLayout><AracDetay /></AppLayout>} />
+                    <Route path="/settings"    element={<AppLayout><Settings /></AppLayout>} />
+                    <Route path="/vehicles"   element={<AppLayout><Vehicles /></AppLayout>} />
                 </Routes>
-            </div>
-        </Router>
+            </Router>
+        </ThemeProvider>
     );
 }
 

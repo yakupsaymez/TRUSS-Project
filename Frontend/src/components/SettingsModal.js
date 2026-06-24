@@ -83,7 +83,7 @@ const SettingsModal = () => {
       onClick={handleAttemptCloseSettings}
       className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-900/25 px-4 ${isSettingsVisible ? 'modal-backdrop-enter' : 'modal-backdrop-exit'}`}
     >
-      <div onClick={(e) => e.stopPropagation()} className={`w-full max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm ${isSettingsVisible ? 'modal-panel-enter' : 'modal-panel-exit'}`}>
+      <div onClick={(e) => e.stopPropagation()} className={`w-full max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl ${isSettingsVisible ? 'modal-panel-enter' : 'modal-panel-exit'}`}>
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-xl font-semibold text-slate-900">Komuta Merkezi Ayarlari</h3>
           <Button

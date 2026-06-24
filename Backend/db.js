@@ -1,5 +1,6 @@
+const path = require('path');
 const { Pool } = require('pg'); // pg paketinden PostgreSQL bağlantı havuzunu oluşturmak için Pool sınıfını içe aktarır.
-require('dotenv').config(); // .env dosyasındaki veritabanı ayarlarını process.env içine yükler.
+require('dotenv').config({ path: path.resolve(__dirname, '.env') }); // Backend/.env dosyasını çalışma dizininden bağımsız yükler.
 
 const pool = new Pool({ // PostgreSQL bağlantı havuzunu oluşturur.
   user: process.env.DB_USER, // Veritabanı kullanıcı adını .env içinden alır.

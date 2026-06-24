@@ -1,27 +1,17 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-    Area,
-    AreaChart,
-    CartesianGrid,
-    Cell,
-    Legend,
-    Line,
-    LineChart,
-    Pie,
-    PieChart,
-    PolarAngleAxis,
-    PolarGrid,
-    PolarRadiusAxis,
-    Radar,
-    RadarChart,
-    ResponsiveContainer,
-    ReferenceLine,
-    Label,
-    Tooltip,
-    XAxis,
-    YAxis
-} from 'recharts';
+    ChartContainer,
+    ChartTooltip,
+    ChartTooltipContent,
+    ChartLegend,
+    ChartLegendContent,
+    Area, AreaChart, CartesianGrid, Cell,
+    Line, LineChart, Pie, PieChart,
+    PolarAngleAxis, PolarGrid, PolarRadiusAxis,
+    Radar, RadarChart, ReferenceLine, Label,
+    XAxis, YAxis,
+} from '@/components/ui/chart';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -31,6 +21,45 @@ import parcaService from '@/services/parcaService';
 import yakitService from '@/services/yakitService';
 import { formatCurrency, formatLocaleNumber, parseLocaleNumber } from '@/utils/formatters';
 import { exportToCSV, sortByKey } from '@/utils/exporter';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import {
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose,
+} from '@/components/ui/dialog';
+import {
+    AlertDialog, AlertDialogAction, AlertDialogCancel,
+    AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+    AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+    Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
+import { AlertTriangle, CheckCircle2, Clock, FileWarning, Pencil, Trash2, Download, ArrowLeft } from 'lucide-react';
+
+const MALIYET_CHART_CONFIG = {
+    bakim: { label: 'Bakım',  color: 'var(--chart-1)' },
+    yakit: { label: 'Yakıt',  color: 'var(--chart-2)' },
+    diger: { label: 'Diğer',  color: 'var(--chart-3)' },
+}
+
+const TREND_CHART_CONFIG = {
+    yakit: { label: 'Yakıt (TL)', color: 'var(--chart-1)' },
+    bakim: { label: 'Bakım (TL)', color: 'var(--chart-2)' },
+}
+
+const RADAR_CHART_CONFIG = {
+    skor: { label: 'Sağlık Skoru', color: 'var(--chart-1)' },
+}
+
+const PROJEKSIYON_CHART_CONFIG = {
+    gercekKm:  { label: 'Geçmiş KM',  color: 'var(--chart-2)' },
+    tahminiKm: { label: 'Tahmini KM', color: 'var(--chart-3)' },
+}
 
 const AracDetay = () => {
     const navigate = useNavigate();
@@ -62,6 +91,15 @@ const AracDetay = () => {
     });
     const [bakimSortConfig, setBakimSortConfig] = useState({ key: 'tarih', order: 'desc' });
     const [yakitSortConfig, setYakitSortConfig] = useState({ key: 'tarih', order: 'desc' });
+
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editFormData, setEditFormData] = useState({
+        plaka: '', marka: '', model: '', yil: '',
+        muayene_tarihi: '', kasko_tarihi: '', sigorta_tarihi: ''
+    });
+    const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const [bakimFormData, setBakimFormData] = useState({
         bakim_tipi: 'Periyodik Bakım',
@@ -653,9 +691,9 @@ const AracDetay = () => {
 
         const bakimGider = Math.max(0, toplamBakimHarcama - digerGider);
         return [
-            { name: 'Bakım', value: bakimGider, color: '#34d399' },
-            { name: 'Yakıt', value: yakitOzeti.toplamTutar, color: '#f43f5e' },
-            { name: 'Diğer', value: digerGider, color: '#fbbf24' }
+            { name: 'bakim', label: 'Bakım',  value: bakimGider,                 fill: 'var(--color-bakim)' },
+            { name: 'yakit', label: 'Yakıt',  value: yakitOzeti.toplamTutar,     fill: 'var(--color-yakit)' },
+            { name: 'diger', label: 'Diğer',  value: digerGider,                 fill: 'var(--color-diger)' },
         ];
     }, [bakimlar, toplamBakimHarcama, yakitOzeti.toplamTutar]);
 
@@ -848,42 +886,6 @@ const AracDetay = () => {
         }
     }, [arac?.arac_id, bakimOngorusu, id]);
 
-    const CustomTooltip = ({ active, payload }) => {
-        if (!active || !payload || !payload.length) return null;
-
-        const nokta = payload.find((item) => item?.value !== null && item?.value !== undefined);
-        const veri = nokta?.payload || payload[0]?.payload || {};
-        const tarih = veri.tarih ? formatUzunTarih(veri.tarih) : payload[0]?.label || '-';
-        const kmDegeri = Number(nokta?.value);
-        const isFuturePoint = String(nokta?.dataKey || '').toLowerCase().includes('tahmini');
-        const kalanGun = isFuturePoint && veri.tarih
-            ? Math.max(0, Math.ceil((new Date(veri.tarih).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-            : null;
-
-        return (
-            <div className="glass-card min-w-[220px] rounded-xl border border-white/10 bg-slate-900/95 backdrop-blur-md p-4 shadow-2xl">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-400 mb-3">Proje Noktası</p>
-                <div className="space-y-2 text-sm">
-                    <div>
-                        <span className="block text-xs text-slate-400 uppercase tracking-wide">Tarih</span>
-                        <span className="block text-slate-100 font-semibold">{tarih}</span>
-                    </div>
-                    <div>
-                        <span className="block text-xs text-slate-400 uppercase tracking-wide">Kilometre</span>
-                        <span className={`block font-semibold ${isFuturePoint ? 'text-amber-400' : 'text-emerald-400'}`}>
-                            {Number.isFinite(kmDegeri) ? `${kmDegeri.toLocaleString('tr-TR')} KM` : '-'}
-                        </span>
-                    </div>
-                    {isFuturePoint && kalanGun !== null && (
-                        <div>
-                            <span className="block text-xs text-slate-400 uppercase tracking-wide">Hedefe Kalan Gün</span>
-                            <span className="block font-semibold text-amber-400">{kalanGun} gün</span>
-                        </div>
-                    )}
-                </div>
-            </div>
-        );
-    };
 
     const gelecekProjeksiyonVerisi = useMemo(() => {
         const MILLISECONDS_IN_DAY = 1000 * 60 * 60 * 24;
@@ -962,9 +964,49 @@ const AracDetay = () => {
             .slice(0, 3);
     }, [bakimlar, normalizeParcaAdi, parcaIlerlemeListesi]);
 
-    const pieTooltipFormatter = useCallback((value) => formatPara(value), [formatPara]);
-    const areaTooltipFormatter = useCallback((value, name) => [formatPara(value), name === 'yakit' ? 'Yakıt' : 'Bakım'], [formatPara]);
-    const radarTooltipFormatter = useCallback((value) => [`${value} / 100`, 'Skor'], []);
+
+    const openEditDialog = () => {
+        if (!arac) return;
+        setEditFormData({
+            plaka: arac.plaka || '',
+            marka: arac.marka || '',
+            model: arac.model || '',
+            yil: arac.yil || '',
+            muayene_tarihi: arac.muayene_tarihi ? String(arac.muayene_tarihi).slice(0, 10) : '',
+            kasko_tarihi: arac.kasko_tarihi ? String(arac.kasko_tarihi).slice(0, 10) : '',
+            sigorta_tarihi: arac.sigorta_tarihi ? String(arac.sigorta_tarihi).slice(0, 10) : '',
+        });
+        setIsEditOpen(true);
+    };
+
+    const handleEditSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            setIsEditSubmitting(true);
+            await aracService.aracGuncelle(id, { ...editFormData, yil: Number(editFormData.yil) });
+            toast.success('Araç bilgileri güncellendi.');
+            setIsEditOpen(false);
+            await fetchAracVeKayitlar();
+        } catch (err) {
+            toast.error(err?.response?.data?.message || 'Güncelleme sırasında bir hata oluştu.');
+        } finally {
+            setIsEditSubmitting(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        try {
+            setIsDeleting(true);
+            await aracService.aracSil(id);
+            toast.success('Araç silindi.');
+            navigate('/dashboard');
+        } catch (err) {
+            toast.error(err?.response?.data?.message || 'Silme sırasında bir hata oluştu.');
+            setIsDeleteOpen(false);
+        } finally {
+            setIsDeleting(false);
+        }
+    };
 
     const exportPDF = useCallback(() => {
         const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
@@ -992,7 +1034,7 @@ const AracDetay = () => {
 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(16);
-        doc.text('ABTS Arac Raporu', 14, 16);
+        doc.text('truss Arac Raporu', 14, 16);
 
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
@@ -1041,788 +1083,664 @@ const AracDetay = () => {
             styles: { font: 'helvetica', fontSize: 9 }
         });
 
-        doc.save(`ABTS_${plaka || 'arac'}_rapor.pdf`);
+        doc.save(`truss_${plaka || 'arac'}_rapor.pdf`);
     }, [arac, bakimUyari?.mesaj, bakimlar, formatPara, formatTarih, guncelKm, sonBakim, yakitlar]);
 
+    const statusBadge = useMemo(() => {
+        if (!bakimUyari) return { label: 'Aktif', variant: 'default', className: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' };
+        if (bakimUyari.tip === 'tehlike') return { label: 'Bakım Gerekli', variant: 'destructive', className: 'bg-destructive/15 text-destructive border-destructive/30' };
+        if (bakimUyari.tip === 'uyari') return { label: 'Uyarı', variant: 'outline', className: 'bg-amber-500/15 text-amber-400 border-amber-500/30' };
+        return { label: 'Bilgi', variant: 'secondary', className: '' };
+    }, [bakimUyari]);
+
+    const inputCls = 'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/30';
+    const labelCls = 'block text-xs font-medium text-muted-foreground mb-1';
+
+
     return (
-        <div className="min-h-screen" style={{ color: 'var(--text-main)' }}>
-            <div className="flex items-center justify-end gap-2 mb-4">
-                <button
-                    onClick={exportPDF}
-                    className="neo-btn bg-indigo-500 hover:bg-indigo-400 text-white px-4 py-2 shadow-md"
-                >
-                    PDF Raporu İndir
-                </button>
-                <button
-                    onClick={() => navigate('/dashboard')}
-                    className="neo-btn bg-emerald-400 hover:bg-emerald-300 text-slate-950 px-4 py-2 shadow-md"
-                >
-                    Geri Dön
-                </button>
-            </div>
-            <main className="space-y-6">
-                {bakimUyari && (
-                    <div
-                        className={`rounded-lg border p-4 shadow-sm flex items-start gap-3 ${bakimUyari.tip === 'tehlike'
-                            ? 'bg-red-950/45 border-red-300/55 text-red-200 shadow-md'
-                            : bakimUyari.tip === 'uyari'
-                                ? 'bg-amber-950/40 border-amber-300/55 text-amber-200 shadow-md'
-                                : 'bg-indigo-950/40 border-indigo-300/55 text-indigo-200'
-                            }`}
-                    >
-                        <div className="mt-0.5">
-                            {bakimUyari.tip === 'tehlike' && (
-                                <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.72-1.36 3.485 0l6.518 11.591c.75 1.334-.213 2.99-1.742 2.99H3.48c-1.53 0-2.493-1.656-1.743-2.99L8.257 3.1zM11 7a1 1 0 10-2 0v4a1 1 0 102 0V7zm-1 7a1.25 1.25 0 100-2.5A1.25 1.25 0 0010 14z" clipRule="evenodd" />
-                                </svg>
-                            )}
-                            {bakimUyari.tip === 'uyari' && (
-                                <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                    <path fillRule="evenodd" d="M18 10A8 8 0 114.293 4.293 8 8 0 0118 10zm-8-3a1 1 0 00-2 0v4a1 1 0 102 0V7zm-1 7a1 1 0 10-2 0 1 1 0 002 0V9a1 1 0 10-2 0v5z" clipRule="evenodd" />
-                                </svg>
-                            )}
-                            {bakimUyari.tip === 'bilgi' && (
-                                <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                    <path fillRule="evenodd" d="M18 10A8 8 0 112 10a8 8 0 0116 0zm-8-4a1 1 0 100 2 1 1 0 000-2zm1 8a1 1 0 10-2 0 1 1 0 002 0V9a1 1 0 10-2 0v5z" clipRule="evenodd" />
-                                </svg>
-                            )}
-                        </div>
-                        <p className="text-sm sm:text-base font-medium">{bakimUyari.mesaj}</p>
+        <div className="flex flex-col gap-4">
+            {/* ── Loading Skeleton ── */}
+            {loading && (
+                <div className="flex gap-4 h-[calc(100vh-9rem)]">
+                    <div className="w-64 shrink-0 flex flex-col gap-4">
+                        <Skeleton className="h-full rounded-xl" />
                     </div>
-                )}
-                {loading && (
-                    <div className="glass-card p-6 sm:p-8 space-y-4">
-                        <div className="rounded-xl border border-white/15 p-4">
-                            <div className="skeleton-block h-6 w-48 rounded mb-4" />
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {Array.from({ length: 6 }).map((_, i) => (
-                                    <div key={`detay-skel-info-${i}`} className="rounded-lg border border-white/15 p-4">
-                                        <div className="skeleton-block h-3 w-20 rounded mb-2" />
-                                        <div className="skeleton-block h-5 w-28 rounded" />
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                        <div className="rounded-xl border border-white/15 p-4">
-                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                                {Array.from({ length: 4 }).map((_, i) => (
-                                    <div key={`detay-skel-tab-${i}`} className="skeleton-block h-10 rounded-md" />
-                                ))}
-                            </div>
-                        </div>
-                        <div className="rounded-xl border border-white/15 p-4">
-                            <div className="skeleton-block h-6 w-52 rounded mb-4" />
-                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                                <div className="skeleton-block h-64 rounded-xl" />
-                                <div className="skeleton-block h-64 rounded-xl" />
-                            </div>
-                        </div>
+                    <div className="flex-1 flex flex-col gap-4">
+                        <Skeleton className="h-10 w-64 rounded-xl" />
+                        <Skeleton className="flex-1 rounded-xl" />
                     </div>
-                )}
-                {!loading && error && <div className="bg-red-950/45 border border-red-300/55 text-red-200 shadow-md rounded-lg p-4 text-center">{error}</div>}
+                </div>
+            )}
 
-                {!loading && !error && (
-                    <>
-                        <section className="glass-card p-6">
-                            <h2 className="text-xl font-bold text-slate-50 mb-4 tracking-wide">Araç Bilgileri</h2>
-                            {arac ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    <div className="bg-transparent border border-white/20 rounded-xl p-4">
-                                        <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">Plaka</p>
-                                        <p className="text-base font-semibold text-slate-100">{arac.plaka || '-'}</p>
-                                    </div>
-                                    <div className="bg-transparent border border-white/20 rounded-xl p-4">
-                                        <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">Marka</p>
-                                        <p className="text-base font-semibold text-slate-100">{arac.marka || '-'}</p>
-                                    </div>
-                                    <div className="bg-transparent border border-white/20 rounded-xl p-4">
-                                        <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">Model</p>
-                                        <p className="text-base font-semibold text-slate-100">{arac.model || '-'}</p>
-                                    </div>
-                                    <div className="bg-transparent border border-white/20 rounded-xl p-4">
-                                        <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">Muayene Tarihi</p>
-                                        <p className="text-base font-semibold text-slate-100">{formatTarih(arac.muayene_tarihi)}</p>
-                                    </div>
-                                    <div className="bg-transparent border border-white/20 rounded-xl p-4">
-                                        <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">Kasko Tarihi</p>
-                                        <p className="text-base font-semibold text-slate-100">{formatTarih(arac.kasko_tarihi)}</p>
-                                    </div>
-                                    <div className="bg-transparent border border-white/20 rounded-xl p-4">
-                                        <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">Sigorta Tarihi</p>
-                                        <p className="text-base font-semibold text-slate-100">{formatTarih(arac.sigorta_tarihi)}</p>
-                                    </div>
-                                </div>
-                            ) : (
-                                <p className="text-gray-600">ID: {id} için araç bilgisi bulunamadı.</p>
-                            )}
-                        </section>
+            {/* ── Error ── */}
+            {!loading && error && (
+                <Card className="border-destructive/40 bg-destructive/5">
+                    <CardContent className="py-6 text-center text-sm text-destructive">{error}</CardContent>
+                </Card>
+            )}
 
-                        <section className="glass-card p-2 sm:p-3">
-                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                                <button type="button" onClick={() => setActiveTab('bakim')} className={`rounded-md px-4 py-2 font-medium transition-colors duration-300 ${activeTab === 'bakim' ? 'bg-emerald-400 text-slate-950 shadow-md' : 'bg-white/95 dark:bg-slate-900/75 text-slate-900 dark:text-slate-200 border border-slate-400/60 dark:border-white/25 hover:bg-slate-200 dark:hover:bg-slate-800/80'}`}>Bakım Kayıtları</button>
-                                <button type="button" onClick={() => setActiveTab('yakit')} className={`rounded-md px-4 py-2 font-medium transition-colors duration-300 ${activeTab === 'yakit' ? 'bg-indigo-500 text-white shadow-md' : 'bg-white/95 dark:bg-slate-900/75 text-slate-900 dark:text-slate-200 border border-slate-400/60 dark:border-white/25 hover:bg-slate-200 dark:hover:bg-slate-800/80'}`}>Yakıt Kayıtları</button>
-                                <button type="button" onClick={() => setActiveTab('parca')} className={`rounded-md px-4 py-2 font-medium transition-colors duration-300 ${activeTab === 'parca' ? 'bg-violet-500 text-white shadow-md' : 'bg-white/95 dark:bg-slate-900/75 text-slate-900 dark:text-slate-200 border border-slate-400/60 dark:border-white/25 hover:bg-slate-200 dark:hover:bg-slate-800/80'}`}>Parça Takibi</button>
-                                <button type="button" onClick={() => setActiveTab('istatistik')} className={`rounded-md px-4 py-2 font-medium transition-colors duration-300 ${activeTab === 'istatistik' ? 'bg-amber-400 text-slate-950 shadow-md' : 'bg-white/95 dark:bg-slate-900/75 text-slate-900 dark:text-slate-200 border border-slate-400/60 dark:border-white/25 hover:bg-slate-200 dark:hover:bg-slate-800/80'}`}>İstatistikler</button>
-                            </div>
-                        </section>
+            {/* ── Alert banner ── */}
+            {!loading && bakimUyari && (
+                <div className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
+                    bakimUyari.tip === 'tehlike' ? 'border-destructive/40 bg-destructive/10 text-destructive' :
+                    bakimUyari.tip === 'uyari'   ? 'border-amber-500/40 bg-amber-500/10 text-amber-400' :
+                                                   'border-primary/40 bg-primary/10 text-primary'
+                }`}>
+                    {bakimUyari.tip === 'tehlike' ? <AlertTriangle className="mt-0.5 size-4 shrink-0" /> :
+                     bakimUyari.tip === 'uyari'   ? <Clock className="mt-0.5 size-4 shrink-0" /> :
+                                                    <FileWarning className="mt-0.5 size-4 shrink-0" />}
+                    <span>{bakimUyari.mesaj}</span>
+                </div>
+            )}
 
-                        <div key={activeTab} className="tab-switch-enter">
-                        {activeTab === 'bakim' && (
-                            <>
-                                <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="glass-card rounded-lg border border-emerald-300/35 p-6">
-                                        <p className="text-sm text-emerald-300 font-medium mb-2">Toplam Harcama</p>
-                                        <p className="text-3xl font-bold text-slate-50">{formatPara(toplamBakimHarcama)}</p>
-                                    </div>
-                                    <div className="glass-card rounded-lg border border-indigo-300/35 p-6">
-                                        <p className="text-sm text-indigo-300 font-medium mb-2">Son İşlem</p>
-                                        {sonBakim ? (
-                                            <><p className="text-2xl font-bold text-slate-50">{sonBakim.km ?? '-'} KM</p><p className="text-sm text-slate-300 mt-2">{formatTarih(sonBakim.tarih)} tarihinde işlem görmüş</p></>
-                                        ) : (<p className="text-slate-300">Henüz bakım kaydı bulunmuyor.</p>)}
-                                    </div>
-                                </section>
-
-                                <section className="glass-card rounded-lg border border-emerald-300/35 p-6">
-                                    <h2 className="text-lg font-semibold text-slate-50 mb-4">Yeni Bakım Kaydı</h2>
-                                    {bakimFormError && <div className="mb-4 bg-red-950/45 border border-red-300/55 text-red-200 text-sm rounded-md px-3 py-2">{bakimFormError}</div>}
-                                    <form onSubmit={handleBakimEkle} onKeyDown={handleFormEnterKeyDown} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div><label className="block text-sm font-medium text-slate-300 mb-1">Tür</label><select name="bakim_tipi" value={bakimFormData.bakim_tipi} onChange={handleBakimInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2">{bakimTipleri.map(tip => <option key={tip} value={tip}>{tip}</option>)}</select></div>
-                                        <div><label className="block text-sm font-medium text-slate-300 mb-1">Tarih</label><input type="date" name="tarih" value={bakimFormData.tarih} onChange={handleBakimInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
-                                        <div><label className="block text-sm font-medium text-slate-300 mb-1">KM</label><input type="text" inputMode="numeric" name="km" value={bakimFormData.km} onChange={handleBakimInputChange} onBlur={handleBakimNumberBlur} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
-                                        <div><label className="block text-sm font-medium text-slate-300 mb-1">Maliyet (TL)</label><input type="text" inputMode="decimal" name="maliyet" value={bakimFormData.maliyet} onChange={handleBakimInputChange} onBlur={handleBakimNumberBlur} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
-                                        <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-300 mb-1">Notlar</label><textarea name="notlar" value={bakimFormData.notlar} onChange={handleBakimInputChange} rows={3} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
-                                        <div className="md:col-span-2 flex justify-end"><button type="submit" disabled={isBakimSubmitting} className="bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-semibold px-5 py-2 rounded-md shadow-md">{isBakimSubmitting ? 'Kaydediliyor...' : 'Bakım Kaydı Ekle'}</button></div>
-                                    </form>
-                                </section>
-
-                                <section className="glass-card rounded-lg border border-indigo-300/35 p-6">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h2 className="text-lg font-semibold text-slate-50">Geçmiş Bakımlar</h2>
-                                        {bakimlar.length > 0 && (
-                                            <button
-                                                onClick={() => {
-                                                    const exportData = sortByKey(bakimlar, bakimSortConfig.key, bakimSortConfig.order).map(bakim => ({
-                                                        Tarih: formatTarih(bakim.tarih),
-                                                        Tip: bakim.bakim_tipi,
-                                                        KM: bakim.km,
-                                                        Maliyet_TL: bakim.maliyet,
-                                                        Notlar: bakim.notlar || '-'
-                                                    }));
-                                                    exportToCSV(exportData, `bakimlar_${new Date().toISOString().split('T')[0]}`);
-                                                }}
-                                                className="text-sm px-3 py-1.5 rounded-md bg-white/95 dark:bg-slate-900/80 text-slate-900 dark:text-slate-200 border border-slate-400/60 dark:border-white/25 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors duration-300 shadow-md"
-                                            >
-                                                📥 CSV İndir
-                                            </button>
-                                        )}
-                                    </div>
-                                    {bakimlar.length === 0 ? (
-                                        <div className="text-center py-8">
-                                            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-slate-700/40 mb-3">
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                </svg>
-                                            </div>
-                                            <p className="text-slate-300 font-medium">Henüz bakım kaydı bulunmuyor</p>
-                                            <p className="text-sm text-slate-400 mt-1">Yeni bir bakım kaydı ekleyerek başlayın</p>
-                                        </div>
-                                    ) : (
+            {/* ── Main Resizable Layout ── */}
+            {!loading && !error && (
+                <ResizablePanelGroup direction="horizontal" className="h-[calc(100vh-9rem)] rounded-xl border border-border overflow-hidden">
+                    {/* ── LEFT: Araç Künyesi ── */}
+                    <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
+                        <div className="flex h-full flex-col gap-4 p-4">
+                            <Card className="flex-1 flex flex-col">
+                                <CardHeader className="pb-3">
+                                    <div className="flex items-start justify-between gap-2">
                                         <div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                                                <button
-                                                    onClick={() => setBakimSortConfig({ key: 'tarih', order: bakimSortConfig.order === 'asc' ? 'desc' : 'asc' })}
-                                                    className="flex-1 rounded-md px-4 py-2 font-medium transition-colors duration-300 flex items-center justify-center gap-2"
-                                                >
-                                                    Tarih
-                                                    {bakimSortConfig.order === 'asc' ? (
-                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12H8m8 4H8m8-8H8m8 4h4m-8 4h4m-4-8h4" />
-                                                        </svg>
-                                                    ) : (
-                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h8m-8 4h4m-4-8h4m-8 4H4m4 4h4m-4-8h4" />
-                                                        </svg>
-                                                    )}
-                                                </button>
-                                                <button
-                                                    onClick={() => setBakimSortConfig({ key: 'km', order: bakimSortConfig.order === 'asc' ? 'desc' : 'asc' })}
-                                                    className="flex-1 rounded-md px-4 py-2 font-medium transition-colors duration-300 flex items-center justify-center gap-2"
-                                                >
-                                                    KM
-                                                    {bakimSortConfig.order === 'asc' ? (
-                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12H8m8 4H8m8-8H8m8 4h4m-8 4h4m-4-8h4" />
-                                                        </svg>
-                                                    ) : (
-                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h8m-8 4h4m-4-8h4m-8 4H4m4 4h4m-4-8h4" />
-                                                        </svg>
-                                                    )}
-                                                </button>
-                                                <button
-                                                    onClick={() => setBakimSortConfig({ key: 'maliyet', order: bakimSortConfig.order === 'asc' ? 'desc' : 'asc' })}
-                                                    className="flex-1 rounded-md px-4 py-2 font-medium transition-colors duration-300 flex items-center justify-center gap-2"
-                                                >
-                                                    Maliyet
-                                                    {bakimSortConfig.order === 'asc' ? (
-                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12H8m8 4H8m8-8H8m8 4h4m-8 4h4m-4-8h4" />
-                                                        </svg>
-                                                    ) : (
-                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h8m-8 4h4m-4-8h4m-8 4H4m4 4h4m-4-8h4" />
-                                                        </svg>
-                                                    )}
-                                                </button>
-                                            </div>
-                                            <div className="space-y-3">
-                                                {sortByKey(bakimlar, bakimSortConfig.key, bakimSortConfig.order).map((bakim) => (
-                                                    <div key={bakim.bakim_id} className="border border-white/20 bg-slate-950/35 rounded-lg p-4 flex justify-between items-center">
-                                                        <div>
-                                                            <p className="font-semibold text-slate-100">{bakim.bakim_tipi}</p>
-                                                            <p className="text-sm text-slate-400">{formatTarih(bakim.tarih)} - {bakim.km} KM - {formatPara(bakim.maliyet)}</p>
-                                                        </div>
-                                                        <button onClick={() => handleBakimSil(bakim.bakim_id)} className="text-white border border-rose-300/70 bg-rose-500 hover:bg-rose-400 px-3 py-1 rounded-md shadow-md">Sil</button>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Araç Künyesi</p>
+                                            <CardTitle className="text-2xl font-bold tracking-tight">
+                                                {arac?.plaka || '—'}
+                                            </CardTitle>
                                         </div>
-                                    )}
-                                </section>
-                            </>
-                        )}
-
-                        {activeTab === 'yakit' && (
-                            <>
-                                <section className="glass-card rounded-lg border border-indigo-300/35 p-6">
-                                    <p className="text-sm text-indigo-300 font-medium mb-2">Yakıt Özeti</p>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div className="bg-slate-950/40 border border-white/20 rounded-md p-4"><p className="text-xs text-slate-400 mb-1">Toplam Tutar</p><p className="text-xl font-semibold text-slate-100">{formatPara(yakitOzeti.toplamTutar)}</p></div>
-                                        <div className="bg-slate-950/40 border border-white/20 rounded-md p-4"><p className="text-xs text-slate-400 mb-1">Kat Edilen KM</p><p className="text-xl font-semibold text-slate-100">{yakitOzeti.katEdilenToplamKm}</p></div>
-                                        <div className="bg-slate-950/40 border border-white/20 rounded-md p-4"><p className="text-xs text-slate-400 mb-1">Maliyet</p><p className="text-xl font-semibold text-slate-100">{formatKmBasinaMaliyet(yakitOzeti.ortalamaKmBasinaMaliyet)}</p></div>
+                                        <Badge className={`shrink-0 mt-1 border ${statusBadge.className}`}>
+                                            {statusBadge.label}
+                                        </Badge>
                                     </div>
-                                </section>
+                                </CardHeader>
+                                <CardContent className="flex-1 flex flex-col gap-3 pb-4">
+                                    <dl className="space-y-3">
+                                        {[
+                                            { label: 'Marka', value: arac?.marka },
+                                            { label: 'Model', value: arac?.model },
+                                            { label: 'Yıl', value: arac?.yil },
+                                            { label: 'Güncel KM', value: guncelKm > 0 ? `${guncelKm.toLocaleString('tr-TR')} KM` : '—' },
+                                            { label: 'Muayene', value: formatTarih(arac?.muayene_tarihi) },
+                                            { label: 'Kasko', value: formatTarih(arac?.kasko_tarihi) },
+                                            { label: 'Sigorta', value: formatTarih(arac?.sigorta_tarihi) },
+                                        ].map(({ label, value }) => (
+                                            <div key={label}>
+                                                <dt className="text-xs text-muted-foreground">{label}</dt>
+                                                <dd className="text-sm font-medium text-foreground">{value || '—'}</dd>
+                                            </div>
+                                        ))}
+                                    </dl>
 
-                                <section className="glass-card rounded-lg border border-indigo-300/35 p-6">
-                                    <h2 className="text-lg font-semibold text-slate-50 mb-4">Yeni Yakıt Kaydı</h2>
-                                    <form onSubmit={handleYakitEkle} onKeyDown={handleFormEnterKeyDown} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div><label className="block text-sm text-slate-300 mb-1">Tarih</label><input type="date" name="tarih" value={yakitFormData.tarih} onChange={handleYakitInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
-                                        <div><label className="block text-sm text-slate-300 mb-1">Yakıt Tipi</label><select name="yakit_tipi" value={yakitFormData.yakit_tipi} onChange={handleYakitInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2">{yakitTipleri.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
-                                        <div><label className="block text-sm text-slate-300 mb-1">Litre</label><input type="text" inputMode="decimal" name="litre" value={yakitFormData.litre} onChange={handleYakitInputChange} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
-                                        <div><label className="block text-sm text-slate-300 mb-1">Tutar (TL)</label><input type="text" inputMode="decimal" name="tutar" value={yakitFormData.tutar} onChange={handleYakitInputChange} onBlur={handleYakitNumberBlur} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
-                                        <div><label className="block text-sm text-slate-300 mb-1">KM</label><input type="text" inputMode="numeric" name="km" value={yakitFormData.km} onChange={handleYakitInputChange} onBlur={handleYakitNumberBlur} className="w-full border border-slate-400/60 dark:border-white/25 bg-white/95 dark:bg-slate-950/80 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2" /></div>
-                                        <div className="md:col-span-2 flex justify-end"><button type="submit" disabled={isYakitSubmitting} className="bg-indigo-400 hover:bg-indigo-300 text-slate-950 font-semibold px-5 py-2 rounded-md shadow-md">Yakıt Kaydı Ekle</button></div>
-                                    </form>
-                                </section>
-
-                                <section className="glass-card rounded-lg border border-indigo-300/35 p-6">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h2 className="text-lg font-semibold text-slate-50">Geçmiş Yakıt Kayıtları</h2>
-                                        {yakitlar.length > 0 && (
-                                            <button
-                                                onClick={() => {
-                                                    const exportData = sortByKey(yakitlar, yakitSortConfig.key, yakitSortConfig.order).map(yakit => ({
-                                                        Tarih: formatTarih(yakit.tarih),
-                                                        Tip: yakit.yakit_tipi,
-                                                        Litre: yakit.litre,
-                                                        Tutar_TL: yakit.tutar,
-                                                        KM: yakit.km,
-                                                        Notlar: yakit.notlar || '-'
-                                                    }));
-                                                    exportToCSV(exportData, `yakitlar_${new Date().toISOString().split('T')[0]}`);
-                                                }}
-                                                className="text-sm px-3 py-1.5 rounded-md bg-white/95 dark:bg-slate-900/80 text-slate-900 dark:text-slate-200 border border-slate-400/60 dark:border-white/25 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors duration-300 shadow-md"
-                                            >
-                                                📥 CSV İndir
-                                            </button>
-                                        )}
+                                    <div className="mt-auto pt-4 border-t border-border flex flex-col gap-2">
+                                        <Button variant="outline" size="sm" className="w-full justify-start gap-2" onClick={openEditDialog}>
+                                            <Pencil className="size-3.5" />
+                                            Düzenle
+                                        </Button>
+                                        <Button variant="outline" size="sm" className="w-full justify-start gap-2 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => setIsDeleteOpen(true)}>
+                                            <Trash2 className="size-3.5" />
+                                            Aracı Sil
+                                        </Button>
+                                        <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground" onClick={exportPDF}>
+                                            <Download className="size-3.5" />
+                                            PDF Rapor
+                                        </Button>
+                                        <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground" onClick={() => navigate('/dashboard')}>
+                                            <ArrowLeft className="size-3.5" />
+                                            Geri Dön
+                                        </Button>
                                     </div>
-                                    {yakitlar.length === 0 ? (
-                                        <div className="text-center py-8">
-                                            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-slate-700/40 mb-3">
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                </svg>
-                                            </div>
-                                            <p className="text-slate-300 font-medium">Henüz yakıt kaydı bulunmuyor</p>
-                                            <p className="text-sm text-slate-400 mt-1">Yeni bir yakıt kaydı ekleyerek başlayın</p>
-                                        </div>
-                                    ) : (
-                                        <div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                                                <button
-                                                    onClick={() => setYakitSortConfig({ key: 'tarih', order: yakitSortConfig.order === 'asc' ? 'desc' : 'asc' })}
-                                                    className="flex-1 rounded-md px-4 py-2 font-medium transition-colors duration-300 flex items-center justify-center gap-2"
-                                                >
-                                                    Tarih
-                                                    {yakitSortConfig.order === 'asc' ? (
-                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12H8m8 4H8m8-8H8m8 4h4m-8 4h4m-4-8h4" />
-                                                        </svg>
-                                                    ) : (
-                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h8m-8 4h4m-4-8h4m-8 4H4m4 4h4m-4-8h4" />
-                                                        </svg>
-                                                    )}
-                                                </button>
-                                                <button
-                                                    onClick={() => setYakitSortConfig({ key: 'km', order: yakitSortConfig.order === 'asc' ? 'desc' : 'asc' })}
-                                                    className="flex-1 rounded-md px-4 py-2 font-medium transition-colors duration-300 flex items-center justify-center gap-2"
-                                                >
-                                                    KM
-                                                    {yakitSortConfig.order === 'asc' ? (
-                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12H8m8 4H8m8-8H8m8 4h4m-8 4h4m-4-8h4" />
-                                                        </svg>
-                                                    ) : (
-                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h8m-8 4h4m-4-8h4m-8 4H4m4 4h4m-4-8h4" />
-                                                        </svg>
-                                                    )}
-                                                </button>
-                                                <button
-                                                    onClick={() => setYakitSortConfig({ key: 'tutar', order: yakitSortConfig.order === 'asc' ? 'desc' : 'asc' })}
-                                                    className="flex-1 rounded-md px-4 py-2 font-medium transition-colors duration-300 flex items-center justify-center gap-2"
-                                                >
-                                                    Tutar
-                                                    {yakitSortConfig.order === 'asc' ? (
-                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12H8m8 4H8m8-8H8m8 4h4m-8 4h4m-4-8h4" />
-                                                        </svg>
-                                                    ) : (
-                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h8m-8 4h4m-4-8h4m-8 4H4m4 4h4m-4-8h4" />
-                                                        </svg>
-                                                    )}
-                                                </button>
-                                            </div>
-                                            <div className="space-y-3">
-                                                {sortByKey(yakitlar, yakitSortConfig.key, yakitSortConfig.order).map((yakit) => (
-                                                    <div key={yakit.yakit_id} className="border border-white/20 bg-slate-950/35 rounded-lg p-4 flex justify-between items-center">
-                                                        <div>
-                                                            <p className="font-semibold text-slate-100">{yakit.yakit_tipi}</p>
-                                                            <p className="text-sm text-slate-400">{formatTarih(yakit.tarih)} - {yakit.litre}L - {formatPara(yakit.tutar)}</p>
-                                                        </div>
-                                                        <button onClick={() => handleYakitSil(yakit.yakit_id)} className="text-white border border-rose-300/70 bg-rose-500 hover:bg-rose-400 px-3 py-1 rounded-md shadow-md">Sil</button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </section>
-                            </>
-                        )}
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </ResizablePanel>
 
-                        {activeTab === 'parca' && (
-                            <section className="glass-card p-6">
-                                <div className="flex items-center justify-between mb-4 gap-3">
-                                    <h2 className="text-xl font-bold text-slate-50">Detaylı Parça Ömür Takibi</h2>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => setSadeceKritikParcalar((prev) => !prev)}
-                                            className={`text-sm px-4 py-2 rounded-full border transition-all duration-300 ${sadeceKritikParcalar ? 'bg-emerald-400/25 text-emerald-100 border-emerald-300/80 brightness-125 shadow-md' : 'bg-slate-800/70 text-slate-200 border-white/30 hover:bg-slate-700/80'}`}
-                                        >
-                                            Sadece Kritik Parçaları Göster
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={openYeniParcaModal}
-                                            className="text-sm px-3 py-1.5 rounded-md bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold transition-colors duration-300 shadow-md"
-                                        >
-                                            Yeni Parça Ekle
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="space-y-4">
-                                    {gorunenParcalar.map((parca) => (
-                                        <div key={parca.parca_id} className="glass-card p-4">
-                                            <div className="flex items-center justify-between gap-4 mb-2">
-                                                <div>
-                                                    <p className="font-semibold text-slate-200">{parca.parca_adi}</p>
-                                                    <p className="text-sm text-slate-400">Kalan Ömür: {parca.kalanMetin}</p>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleParcaDegistir(parca)}
-                                                    disabled={isParcaUpdating}
-                                                    className="text-sm bg-violet-400 hover:bg-violet-300 text-slate-950 font-semibold px-3 py-1.5 rounded-md disabled:opacity-60 shadow-md"
-                                                >
-                                                    Parçayı Değiştir
-                                                </button>
-                                            </div>
-                                            <div className="h-3 bg-slate-800/90 rounded-full overflow-hidden border border-white/20">
-                                                <div
-                                                    className={`h-full rounded-full transition-all brightness-125 ${parca.danger ? 'bg-rose-500' : parca.warning ? 'bg-amber-400' : 'bg-emerald-400'}`}
-                                                    style={{ width: `${Math.max(6, parca.oran)}%` }}
-                                                />
-                                            </div>
-                                            <p className="text-xs text-slate-400 mt-1">Kullanım: %{parca.oran.toFixed(1)}</p>
-                                        </div>
-                                    ))}
-                                    {!gorunenParcalar.length && <p className="text-sm text-slate-400">Filtreye uygun parça bulunamadı.</p>}
-                                </div>
-                            </section>
-                        )}
+                    <ResizableHandle withHandle />
 
-                        {activeTab === 'istatistik' && (
-                            <section className="space-y-6">
-                                <div className="glass-card rounded-lg border border-white/15 p-6">
-                                    <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-                                        <div className="max-w-2xl">
-                                            <p className="text-sm uppercase tracking-[0.2em] text-slate-400 mb-2">Akıllı Bakım Asistanı</p>
-                                            <h2 className="text-2xl sm:text-3xl font-bold text-slate-50">Yapay Zeka Destekli Bakım Öngörüsü</h2>
-                                            <p className="text-sm text-slate-300 mt-3">
-                                                {bakimOngorusu?.mesaj || 'Tahmini bakım verisi hazırlanıyor.'}
-                                            </p>
-                                        </div>
+                    {/* ── RIGHT: Tabs ── */}
+                    <ResizablePanel defaultSize={75} minSize={50}>
+                        <div className="h-full overflow-auto p-4">
+                            <Tabs defaultValue="genel" className="h-full">
+                                <TabsList className="mb-4">
+                                    <TabsTrigger value="genel">Genel Bakış</TabsTrigger>
+                                    <TabsTrigger value="bakim">Bakım</TabsTrigger>
+                                    <TabsTrigger value="yakit">Yakıt</TabsTrigger>
+                                    <TabsTrigger value="istatistik">İstatistikler</TabsTrigger>
+                                </TabsList>
 
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:min-w-[360px]">
-                                            <div className="bg-slate-950/45 border border-white/15 rounded-xl p-4">
-                                                <p className="text-xs uppercase tracking-wide text-slate-400 mb-2">Tahmini Tarih</p>
-                                                <p className={`text-2xl font-bold ${bakimOngorusu?.tip === 'bilgi' ? 'text-emerald-400' : bakimOngorusu?.tip === 'uyari' ? 'text-amber-400' : 'text-rose-500'}`}>
-                                                    {bakimOngorusu?.tahminiTarih || '-'}
-                                                </p>
-                                            </div>
-                                            <div className="bg-slate-950/45 border border-white/15 rounded-xl p-4">
-                                                <p className="text-xs uppercase tracking-wide text-slate-400 mb-2">Kalan Mesafe</p>
-                                                <p className="text-2xl font-bold text-slate-50">
-                                                    {bakimOngorusu?.kalanKm !== null && bakimOngorusu?.kalanKm !== undefined
-                                                        ? `${Number(bakimOngorusu.kalanKm).toLocaleString('tr-TR')} KM kaldı`
-                                                        : '-'}
-                                                </p>
-                                            </div>
-                                        </div>
+                                {/* ── Genel Bakış ── */}
+                                <TabsContent value="genel" className="space-y-4 mt-0">
+                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                        {[
+                                            { label: 'Toplam Bakım', value: formatPara(toplamBakimHarcama), icon: <CheckCircle2 className="size-4 text-emerald-500" /> },
+                                            { label: 'Toplam Yakıt', value: formatPara(yakitOzeti.toplamTutar), icon: <AlertTriangle className="size-4 text-rose-400" /> },
+                                            { label: 'Sağlık Puanı', value: `%${genelSaglikPuani}`, icon: <CheckCircle2 className="size-4 text-primary" /> },
+                                            { label: 'Yıllık Tahmin', value: `${yillikTahminiGider.toLocaleString('tr-TR')} TL`, icon: <Clock className="size-4 text-amber-400" /> },
+                                        ].map(({ label, value, icon }) => (
+                                            <Card key={label}>
+                                                <CardHeader className="pb-1 flex flex-row items-center justify-between">
+                                                    <CardTitle className="text-xs font-medium text-muted-foreground">{label}</CardTitle>
+                                                    {icon}
+                                                </CardHeader>
+                                                <CardContent>
+                                                    <p className="text-lg font-bold tracking-tight">{value}</p>
+                                                </CardContent>
+                                            </Card>
+                                        ))}
                                     </div>
 
-                                    <div className="mt-5">
-                                        <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
-                                            <span>Durum Çubuğu</span>
-                                            <span>
-                                                {bakimOngorusu?.progress !== undefined
-                                                    ? `%${bakimOngorusu.progress.toFixed(0)}`
-                                                    : '%0'}
-                                            </span>
-                                        </div>
-                                        <div className="h-3 rounded-full bg-slate-800/80 border border-white/15 overflow-hidden">
-                                            <div
-                                                className={`h-full rounded-full transition-all duration-300 ${bakimOngorusu?.tip === 'tehlike'
-                                                    ? 'bg-rose-500'
-                                                    : bakimOngorusu?.tip === 'uyari'
-                                                        ? 'bg-amber-400'
-                                                        : 'bg-gradient-to-r from-emerald-400 via-emerald-300 to-rose-500'
-                                                    }`}
-                                                style={{ width: `${bakimOngorusu?.progress ?? 0}%` }}
+                                    {/* Bakım Öngörüsü Progress */}
+                                    <Card>
+                                        <CardHeader className="pb-3">
+                                            <CardTitle className="text-sm font-semibold">Bakım Öngörüsü</CardTitle>
+                                            <CardDescription>{bakimOngorusu?.mesaj || 'Yeterli veri yok.'}</CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="space-y-3">
+                                            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                                                <span>Son bakımdan bu yana</span>
+                                                <span>%{Math.round(bakimOngorusu?.progress ?? 0)}</span>
+                                            </div>
+                                            <Progress
+                                                value={bakimOngorusu?.progress ?? 0}
+                                                className={`h-2 ${bakimOngorusu?.tip === 'tehlike' ? '[&>div]:bg-destructive' : bakimOngorusu?.tip === 'uyari' ? '[&>div]:bg-amber-400' : ''}`}
                                             />
-                                        </div>
-                                        <p className="text-xs text-slate-400 mt-2">
-                                            {bakimOngorusu?.gunlukOrtalamaKm !== null && bakimOngorusu?.gunlukOrtalamaKm !== undefined
-                                                ? `Günlük ortalama kullanım: ${bakimOngorusu.gunlukOrtalamaKm.toFixed(1)} KM`
-                                                : 'Günlük ortalama kullanım için yeterli veri yok.'}
-                                        </p>
-                                    </div>
-                                </div>
+                                            <div className="grid grid-cols-2 gap-3 text-sm">
+                                                <div>
+                                                    <p className="text-xs text-muted-foreground">Tahmini Tarih</p>
+                                                    <p className="font-semibold">{bakimOngorusu?.tahminiTarih || '—'}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs text-muted-foreground">Kalan Mesafe</p>
+                                                    <p className="font-semibold">{bakimOngorusu?.kalanKm !== null && bakimOngorusu?.kalanKm !== undefined ? `${Number(bakimOngorusu.kalanKm).toLocaleString('tr-TR')} KM` : '—'}</p>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
 
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="glass-card rounded-lg border border-indigo-300/35 p-4">
-                                        <p className="text-xs uppercase tracking-wide text-slate-300">KM Başına Maliyet</p>
-                                        <p className="text-2xl font-bold text-white mt-2">{formatKmBasinaMaliyet(kmBasinaToplamMaliyet)}</p>
-                                    </div>
-                                    <div className="glass-card rounded-lg border border-amber-300/35 p-4">
-                                        <p className="text-xs uppercase tracking-wide text-slate-300">Yıllık Tahmini Gider</p>
-                                        <p className="text-2xl font-bold text-white mt-2">{formatKisaPara(yillikTahminiGider)}</p>
-                                    </div>
-                                    <div className="glass-card rounded-lg border border-emerald-300/35 p-4">
-                                        <p className="text-xs uppercase tracking-wide text-slate-300">Genel Sağlık Puanı</p>
-                                        <p className="text-2xl font-bold text-white mt-2">%{genelSaglikPuani}</p>
-                                    </div>
-                                </div>
-
-                                <div className="glass-card rounded-lg border border-white/15 p-6 space-y-5">
-                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                                        <div>
-                                            <p className="text-xs uppercase tracking-[0.2em] text-slate-400 mb-2">Gelecek Projeksiyon</p>
-                                            <h2 className="text-2xl font-bold text-slate-50">Tahmini KM İvme Grafiği</h2>
-                                        </div>
-                                        <p className="text-sm text-slate-400 max-w-xl">
-                                            Araç kullanımının hedef bakıma nasıl hızlandığını geçmiş ve tahmini çizgilerle izleyin.
-                                        </p>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div className="glass-card rounded-lg border border-emerald-300/25 p-4 bg-slate-950/45">
-                                            <p className="text-xs uppercase tracking-wide text-slate-400 mb-2">Günlük Ortalama Kullanım</p>
-                                            <p className="text-2xl font-bold text-emerald-400">
-                                                {Number.isFinite(bakimOngorusu?.gunlukOrtalamaKm)
-                                                    ? `${bakimOngorusu.gunlukOrtalamaKm.toFixed(0)} KM/Gün`
-                                                    : '45 KM/Gün'}
-                                            </p>
-                                        </div>
-                                        <div className="glass-card rounded-lg border border-amber-300/25 p-4 bg-slate-950/45">
-                                            <p className="text-xs uppercase tracking-wide text-slate-400 mb-2">Kalan Güvenli Mesafe</p>
-                                            <p className="text-2xl font-bold text-amber-400">
-                                                {Number.isFinite(bakimOngorusu?.kalanKm)
-                                                    ? `${Math.max(0, bakimOngorusu.kalanKm).toLocaleString('tr-TR')} KM`
-                                                    : '1.200 KM'}
-                                            </p>
-                                        </div>
-                                        <div className="glass-card rounded-lg border border-rose-300/25 p-4 bg-slate-950/45">
-                                            <p className="text-xs uppercase tracking-wide text-slate-400 mb-2">Kritik Tarih</p>
-                                            <p className="text-2xl font-bold text-rose-500">
-                                                {bakimOngorusu?.tahminiTarih || '15 Ağustos 2026'}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="h-96">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <LineChart data={gelecekProjeksiyonVerisi} margin={{ top: 10, right: 24, left: 0, bottom: 12 }}>
-                                                <CartesianGrid stroke="#94a3b8" strokeOpacity={0.1} strokeDasharray="4 4" />
-                                                <XAxis
-                                                    dataKey="ayEtiketi"
-                                                    stroke="#cbd5e1"
-                                                    tick={{ fill: '#cbd5e1', fontSize: 12 }}
-                                                    axisLine={{ stroke: 'rgba(148,163,184,0.25)' }}
-                                                    tickLine={{ stroke: 'rgba(148,163,184,0.25)' }}
-                                                />
-                                                <YAxis
-                                                    stroke="#cbd5e1"
-                                                    tick={{ fill: '#cbd5e1', fontSize: 12 }}
-                                                    tickFormatter={(value) => Number(value).toLocaleString('tr-TR')}
-                                                    axisLine={{ stroke: 'rgba(148,163,184,0.25)' }}
-                                                    tickLine={{ stroke: 'rgba(148,163,184,0.25)' }}
-                                                />
-                                                <Tooltip content={<CustomTooltip />} />
-                                                {Number.isFinite(bakimOngorusu?.hedefKm) && bakimOngorusu.hedefKm > 0 && (
-                                                    <ReferenceLine
-                                                        y={bakimOngorusu.hedefKm}
-                                                        stroke="#f43f5e"
-                                                        strokeDasharray="6 6"
-                                                        strokeWidth={2}
-                                                        label={
-                                                            <Label
-                                                                value={`Bakım Hedefi (${Math.max(0, bakimOngorusu?.kalanGun ?? 0)} Gün Kaldı)`}
-                                                                position="insideTopRight"
-                                                                offset={10}
-                                                                fill="#f43f5e"
-                                                                style={{ fontSize: 12, fontWeight: 700 }}
-                                                            />
-                                                        }
+                                    {/* Parça Takibi */}
+                                    <Card>
+                                        <CardHeader className="flex flex-row items-center justify-between pb-3">
+                                            <CardTitle className="text-sm font-semibold">Parça Ömür Takibi</CardTitle>
+                                            <div className="flex gap-2">
+                                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setSadeceKritikParcalar(p => !p)}>
+                                                    {sadeceKritikParcalar ? 'Tümünü Göster' : 'Sadece Kritik'}
+                                                </Button>
+                                                <Button size="sm" className="h-7 px-2 text-xs" onClick={openYeniParcaModal}>+ Parça</Button>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent className="space-y-3">
+                                            {gorunenParcalar.length === 0 && (
+                                                <p className="text-sm text-muted-foreground text-center py-4">Parça kaydı bulunamadı.</p>
+                                            )}
+                                            {gorunenParcalar.map((parca) => (
+                                                <div key={parca.parca_id} className="space-y-1.5">
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <p className="text-sm font-medium">{parca.parca_adi}</p>
+                                                            <p className="text-xs text-muted-foreground">Kalan: {parca.kalanMetin}</p>
+                                                        </div>
+                                                        <Button
+                                                            variant="outline" size="sm"
+                                                            className={`h-7 px-2 text-xs ${parca.danger ? 'border-destructive/40 text-destructive' : ''}`}
+                                                            disabled={isParcaUpdating}
+                                                            onClick={() => handleParcaDegistir(parca)}
+                                                        >Değiştir</Button>
+                                                    </div>
+                                                    <Progress
+                                                        value={parca.oran}
+                                                        className={`h-1.5 ${parca.danger ? '[&>div]:bg-destructive' : parca.warning ? '[&>div]:bg-amber-400' : '[&>div]:bg-emerald-500'}`}
                                                     />
+                                                </div>
+                                            ))}
+                                        </CardContent>
+                                    </Card>
+                                </TabsContent>
+
+                                {/* ── Bakım Tab ── */}
+                                <TabsContent value="bakim" className="space-y-4 mt-0">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <Card>
+                                            <CardHeader className="pb-1"><CardTitle className="text-xs text-muted-foreground">Toplam Harcama</CardTitle></CardHeader>
+                                            <CardContent><p className="text-xl font-bold">{formatPara(toplamBakimHarcama)}</p></CardContent>
+                                        </Card>
+                                        <Card>
+                                            <CardHeader className="pb-1"><CardTitle className="text-xs text-muted-foreground">Son Bakım</CardTitle></CardHeader>
+                                            <CardContent>
+                                                {sonBakim ? (
+                                                    <>
+                                                        <p className="text-xl font-bold">{sonBakim.km?.toLocaleString('tr-TR')} KM</p>
+                                                        <p className="text-xs text-muted-foreground">{formatTarih(sonBakim.tarih)}</p>
+                                                    </>
+                                                ) : (
+                                                    <p className="text-sm text-muted-foreground">Kayıt yok</p>
                                                 )}
-                                                <Line
-                                                    type="monotone"
-                                                    dataKey="gercekKm"
-                                                    name="Geçmiş KM"
-                                                    stroke="#34d399"
-                                                    strokeWidth={3}
-                                                    dot={false}
-                                                    connectNulls
-                                                />
-                                                <Line
-                                                    type="monotone"
-                                                    dataKey="tahminiKm"
-                                                    name="Tahmini KM"
-                                                    stroke="#fbbf24"
-                                                    strokeWidth={3}
-                                                    strokeDasharray="5 5"
-                                                    dot={false}
-                                                    connectNulls
-                                                />
-                                            </LineChart>
-                                        </ResponsiveContainer>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                                    <div className="glass-card rounded-lg border border-emerald-300/35 p-6">
-                                        <h2 className="text-lg font-semibold text-slate-50 mb-4">Maliyet Analizi</h2>
-                                        <div className="h-80">
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <PieChart>
-                                                    <Pie
-                                                        data={maliyetAnaliziData}
-                                                        dataKey="value"
-                                                        nameKey="name"
-                                                        cx="50%"
-                                                        cy="50%"
-                                                        innerRadius={78}
-                                                        outerRadius={115}
-                                                        paddingAngle={3}
-                                                    >
-                                                        {maliyetAnaliziData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
-                                                    </Pie>
-                                                    <text x="50%" y="48%" textAnchor="middle" fill="#e2e8f0" fontSize="12">Toplam Harcama</text>
-                                                    <text x="50%" y="56%" textAnchor="middle" fill="#ffffff" fontSize="16" fontWeight="700">{formatKisaPara(toplamHarcama)}</text>
-                                                    <Tooltip formatter={pieTooltipFormatter} />
-                                                    <Legend />
-                                                </PieChart>
-                                            </ResponsiveContainer>
-                                        </div>
+                                            </CardContent>
+                                        </Card>
                                     </div>
 
-                                    <div className="glass-card rounded-lg border border-indigo-300/35 p-6">
-                                        <h2 className="text-lg font-semibold text-slate-50 mb-4">Tüketim Trendi (Son 6 Ay)</h2>
-                                        <div className="h-80">
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <AreaChart data={tuketimTrendData} margin={{ top: 10, right: 16, left: 0, bottom: 8 }}>
-                                                    <defs>
-                                                        <linearGradient id="trendYakit" x1="0" y1="0" x2="0" y2="1">
-                                                            <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.45} />
-                                                            <stop offset="95%" stopColor="#f43f5e" stopOpacity={0.06} />
-                                                        </linearGradient>
-                                                        <linearGradient id="trendBakim" x1="0" y1="0" x2="0" y2="1">
-                                                            <stop offset="5%" stopColor="#34d399" stopOpacity={0.45} />
-                                                            <stop offset="95%" stopColor="#34d399" stopOpacity={0.06} />
-                                                        </linearGradient>
-                                                    </defs>
-                                                    <CartesianGrid stroke="rgba(148,163,184,0.12)" strokeDasharray="4 4" />
-                                                    <XAxis dataKey="ayEtiketi" stroke="#94a3b8" />
-                                                    <YAxis stroke="#94a3b8" />
-                                                    <Tooltip formatter={areaTooltipFormatter} />
-                                                    <Legend />
-                                                    <Area type="monotone" dataKey="yakit" name="Yakıt" stroke="#f43f5e" fill="url(#trendYakit)" strokeWidth={2} />
-                                                    <Area type="monotone" dataKey="bakim" name="Bakım" stroke="#34d399" fill="url(#trendBakim)" strokeWidth={2} />
-                                                </AreaChart>
-                                            </ResponsiveContainer>
-                                        </div>
-                                    </div>
-                                </div>
+                                    <Card>
+                                        <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold">Yeni Bakım Kaydı</CardTitle></CardHeader>
+                                        <CardContent>
+                                            <form onSubmit={handleBakimEkle} onKeyDown={handleFormEnterKeyDown} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className={labelCls}>Tür</label>
+                                                    <select name="bakim_tipi" value={bakimFormData.bakim_tipi} onChange={handleBakimInputChange} className={inputCls}>
+                                                        {bakimTipleri.map(t => <option key={t} value={t}>{t}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className={labelCls}>Tarih</label>
+                                                    <input type="date" name="tarih" value={bakimFormData.tarih} onChange={handleBakimInputChange} className={inputCls} />
+                                                </div>
+                                                <div>
+                                                    <label className={labelCls}>KM</label>
+                                                    <input type="text" inputMode="numeric" name="km" value={bakimFormData.km} onChange={handleBakimInputChange} onBlur={handleBakimNumberBlur} className={inputCls} />
+                                                </div>
+                                                <div>
+                                                    <label className={labelCls}>Maliyet (TL)</label>
+                                                    <input type="text" inputMode="decimal" name="maliyet" value={bakimFormData.maliyet} onChange={handleBakimInputChange} onBlur={handleBakimNumberBlur} className={inputCls} />
+                                                </div>
+                                                <div className="sm:col-span-2">
+                                                    <label className={labelCls}>Notlar</label>
+                                                    <textarea name="notlar" value={bakimFormData.notlar} onChange={handleBakimInputChange} rows={2} className={inputCls} />
+                                                </div>
+                                                <div className="sm:col-span-2 flex justify-end">
+                                                    <Button type="submit" disabled={isBakimSubmitting} size="sm">
+                                                        {isBakimSubmitting ? 'Kaydediliyor…' : 'Bakım Kaydı Ekle'}
+                                                    </Button>
+                                                </div>
+                                            </form>
+                                        </CardContent>
+                                    </Card>
 
-                                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                                    <div className="glass-card rounded-lg border border-slate-500/35 p-6">
-                                        <h2 className="text-lg font-semibold text-slate-50 mb-4">Araç Sağlık Skoru</h2>
-                                        <div className="h-80">
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <RadarChart data={aracSaglikRadarData} outerRadius="70%">
-                                                    <PolarGrid stroke="rgba(148,163,184,0.12)" />
-                                                    <PolarAngleAxis dataKey="konu" stroke="#cbd5e1" />
-                                                    <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="rgba(148,163,184,0.4)" />
-                                                    <Radar name="Skor" dataKey="skor" stroke="#fbbf24" fill="#fbbf24" fillOpacity={0.28} />
-                                                    <Tooltip formatter={radarTooltipFormatter} />
-                                                </RadarChart>
-                                            </ResponsiveContainer>
-                                        </div>
+                                    <Card>
+                                        <CardHeader className="flex flex-row items-center justify-between pb-3">
+                                            <CardTitle className="text-sm font-semibold">Geçmiş Bakımlar</CardTitle>
+                                            {bakimlar.length > 0 && (
+                                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs gap-1.5" onClick={() => {
+                                                    exportToCSV(
+                                                        sortByKey(bakimlar, bakimSortConfig.key, bakimSortConfig.order).map(b => ({
+                                                            Tarih: formatTarih(b.tarih), Tip: b.bakim_tipi, KM: b.km,
+                                                            Maliyet_TL: b.maliyet, Notlar: b.notlar || '-'
+                                                        })),
+                                                        `bakimlar_${new Date().toISOString().split('T')[0]}`
+                                                    );
+                                                }}>
+                                                    <Download className="size-3" /> CSV
+                                                </Button>
+                                            )}
+                                        </CardHeader>
+                                        <CardContent className="p-0">
+                                            {bakimlar.length === 0 ? (
+                                                <p className="text-sm text-muted-foreground text-center py-8">Henüz bakım kaydı bulunmuyor.</p>
+                                            ) : (
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead className="cursor-pointer" onClick={() => setBakimSortConfig(s => ({ key: 'tarih', order: s.order === 'asc' ? 'desc' : 'asc' }))}>Tarih</TableHead>
+                                                            <TableHead>Tür</TableHead>
+                                                            <TableHead className="cursor-pointer" onClick={() => setBakimSortConfig(s => ({ key: 'km', order: s.order === 'asc' ? 'desc' : 'asc' }))}>KM</TableHead>
+                                                            <TableHead className="cursor-pointer text-right" onClick={() => setBakimSortConfig(s => ({ key: 'maliyet', order: s.order === 'asc' ? 'desc' : 'asc' }))}>Maliyet</TableHead>
+                                                            <TableHead className="w-16"></TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {sortByKey(bakimlar, bakimSortConfig.key, bakimSortConfig.order).map((bakim) => (
+                                                            <TableRow key={bakim.bakim_id}>
+                                                                <TableCell className="text-xs">{formatTarih(bakim.tarih)}</TableCell>
+                                                                <TableCell className="text-xs">{bakim.bakim_tipi}</TableCell>
+                                                                <TableCell className="text-xs">{bakim.km?.toLocaleString('tr-TR')}</TableCell>
+                                                                <TableCell className="text-xs text-right">{formatPara(bakim.maliyet)}</TableCell>
+                                                                <TableCell>
+                                                                    <Button variant="ghost" size="sm" className="h-6 px-1.5 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleBakimSil(bakim.bakim_id)}>
+                                                                        <Trash2 className="size-3" />
+                                                                    </Button>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                </TabsContent>
+
+                                {/* ── Yakıt Tab ── */}
+                                <TabsContent value="yakit" className="space-y-4 mt-0">
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {[
+                                            { label: 'Toplam Tutar', value: formatPara(yakitOzeti.toplamTutar) },
+                                            { label: 'Kat Edilen KM', value: `${yakitOzeti.katEdilenToplamKm.toLocaleString('tr-TR')} KM` },
+                                            { label: 'KM Başına Maliyet', value: formatKmBasinaMaliyet(yakitOzeti.ortalamaKmBasinaMaliyet) },
+                                        ].map(({ label, value }) => (
+                                            <Card key={label}>
+                                                <CardHeader className="pb-1"><CardTitle className="text-xs text-muted-foreground">{label}</CardTitle></CardHeader>
+                                                <CardContent><p className="text-base font-bold">{value}</p></CardContent>
+                                            </Card>
+                                        ))}
                                     </div>
 
-                                    <div className="glass-card rounded-lg border border-rose-300/35 p-6">
-                                        <h2 className="text-lg font-semibold text-slate-50 mb-4">Parça İstatistikleri (Top 3)</h2>
-                                        <div className="overflow-hidden rounded-lg border border-white/10">
-                                            <table className="w-full text-sm">
-                                                <thead className="bg-slate-900/70 text-slate-200">
-                                                    <tr>
-                                                        <th className="px-3 py-2 text-left">Parça</th>
-                                                        <th className="px-3 py-2 text-left">Değişim Sıklığı</th>
-                                                        <th className="px-3 py-2 text-left">Durum</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {parcaSiklikData.map((satir) => (
-                                                        <tr key={satir.parcaAdi} className="border-t border-white/10 text-slate-100">
-                                                            <td className="px-3 py-2">{satir.parcaAdi}</td>
-                                                            <td className="px-3 py-2">{satir.degisimSayisi}</td>
-                                                            <td className="px-3 py-2">%{satir.durumSkoru}</td>
-                                                        </tr>
-                                                    ))}
-                                                    {!parcaSiklikData.length && (
-                                                        <tr>
-                                                            <td className="px-3 py-3 text-slate-300" colSpan={3}>Parça istatistiği için yeterli veri bulunamadı.</td>
-                                                        </tr>
-                                                    )}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                    <Card>
+                                        <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold">Yeni Yakıt Kaydı</CardTitle></CardHeader>
+                                        <CardContent>
+                                            <form onSubmit={handleYakitEkle} onKeyDown={handleFormEnterKeyDown} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className={labelCls}>Tarih</label>
+                                                    <input type="date" name="tarih" value={yakitFormData.tarih} onChange={handleYakitInputChange} className={inputCls} />
+                                                </div>
+                                                <div>
+                                                    <label className={labelCls}>Yakıt Tipi</label>
+                                                    <select name="yakit_tipi" value={yakitFormData.yakit_tipi} onChange={handleYakitInputChange} className={inputCls}>
+                                                        {yakitTipleri.map(t => <option key={t} value={t}>{t}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className={labelCls}>Litre</label>
+                                                    <input type="text" inputMode="decimal" name="litre" value={yakitFormData.litre} onChange={handleYakitInputChange} className={inputCls} />
+                                                </div>
+                                                <div>
+                                                    <label className={labelCls}>Tutar (TL)</label>
+                                                    <input type="text" inputMode="decimal" name="tutar" value={yakitFormData.tutar} onChange={handleYakitInputChange} onBlur={handleYakitNumberBlur} className={inputCls} />
+                                                </div>
+                                                <div>
+                                                    <label className={labelCls}>KM</label>
+                                                    <input type="text" inputMode="numeric" name="km" value={yakitFormData.km} onChange={handleYakitInputChange} onBlur={handleYakitNumberBlur} className={inputCls} />
+                                                </div>
+                                                <div className="flex items-end">
+                                                    <Button type="submit" disabled={isYakitSubmitting} size="sm" className="w-full">
+                                                        {isYakitSubmitting ? 'Kaydediliyor…' : 'Yakıt Kaydı Ekle'}
+                                                    </Button>
+                                                </div>
+                                            </form>
+                                        </CardContent>
+                                    </Card>
+
+                                    <Card>
+                                        <CardHeader className="flex flex-row items-center justify-between pb-3">
+                                            <CardTitle className="text-sm font-semibold">Geçmiş Yakıt Kayıtları</CardTitle>
+                                            {yakitlar.length > 0 && (
+                                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs gap-1.5" onClick={() => {
+                                                    exportToCSV(
+                                                        sortByKey(yakitlar, yakitSortConfig.key, yakitSortConfig.order).map(y => ({
+                                                            Tarih: formatTarih(y.tarih), Tip: y.yakit_tipi,
+                                                            Litre: y.litre, Tutar_TL: y.tutar, KM: y.km
+                                                        })),
+                                                        `yakitlar_${new Date().toISOString().split('T')[0]}`
+                                                    );
+                                                }}>
+                                                    <Download className="size-3" /> CSV
+                                                </Button>
+                                            )}
+                                        </CardHeader>
+                                        <CardContent className="p-0">
+                                            {yakitlar.length === 0 ? (
+                                                <p className="text-sm text-muted-foreground text-center py-8">Henüz yakıt kaydı bulunmuyor.</p>
+                                            ) : (
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead>Tarih</TableHead>
+                                                            <TableHead>Tip</TableHead>
+                                                            <TableHead>Litre</TableHead>
+                                                            <TableHead>KM</TableHead>
+                                                            <TableHead className="text-right">Tutar</TableHead>
+                                                            <TableHead className="w-16"></TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {sortByKey(yakitlar, yakitSortConfig.key, yakitSortConfig.order).map((yakit) => (
+                                                            <TableRow key={yakit.yakit_id}>
+                                                                <TableCell className="text-xs">{formatTarih(yakit.tarih)}</TableCell>
+                                                                <TableCell className="text-xs">{yakit.yakit_tipi}</TableCell>
+                                                                <TableCell className="text-xs">{yakit.litre}</TableCell>
+                                                                <TableCell className="text-xs">{yakit.km?.toLocaleString('tr-TR')}</TableCell>
+                                                                <TableCell className="text-xs text-right">{formatPara(yakit.tutar)}</TableCell>
+                                                                <TableCell>
+                                                                    <Button variant="ghost" size="sm" className="h-6 px-1.5 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleYakitSil(yakit.yakit_id)}>
+                                                                        <Trash2 className="size-3" />
+                                                                    </Button>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                </TabsContent>
+
+                                {/* ── İstatistikler Tab ── */}
+                                <TabsContent value="istatistik" className="space-y-4 mt-0">
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {[
+                                            { label: 'KM Başına Maliyet', value: formatKmBasinaMaliyet(kmBasinaToplamMaliyet) },
+                                            { label: 'Yıllık Tahmin', value: `${yillikTahminiGider.toLocaleString('tr-TR')} TL` },
+                                            { label: 'Sağlık Puanı', value: `%${genelSaglikPuani}` },
+                                        ].map(({ label, value }) => (
+                                            <Card key={label}>
+                                                <CardHeader className="pb-1"><CardTitle className="text-xs text-muted-foreground">{label}</CardTitle></CardHeader>
+                                                <CardContent><p className="text-lg font-bold">{value}</p></CardContent>
+                                            </Card>
+                                        ))}
                                     </div>
-                                </div>
-                            </section>
-                        )}
+
+                                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                        {/* Maliyet Analizi – Donut */}
+                                        <Card className="bg-card border-border/50">
+                                            <CardHeader className="pb-2">
+                                                <CardTitle className="text-sm font-semibold">Maliyet Analizi</CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="pb-3">
+                                                <ChartContainer config={MALIYET_CHART_CONFIG} className="h-64 w-full">
+                                                    <PieChart>
+                                                        <ChartTooltip content={<ChartTooltipContent nameKey="name" hideLabel />} />
+                                                        <ChartLegend content={<ChartLegendContent />} />
+                                                        <Pie
+                                                            data={maliyetAnaliziData}
+                                                            dataKey="value"
+                                                            nameKey="name"
+                                                            cx="50%" cy="48%"
+                                                            innerRadius={58} outerRadius={85}
+                                                            paddingAngle={3}
+                                                        >
+                                                            {maliyetAnaliziData.map((e) => (
+                                                                <Cell key={e.name} fill={e.fill} />
+                                                            ))}
+                                                        </Pie>
+                                                        <text x="50%" y="44%" textAnchor="middle" fill="var(--muted-foreground)" fontSize="11">Toplam</text>
+                                                        <text x="50%" y="53%" textAnchor="middle" fill="var(--foreground)" fontSize="13" fontWeight="700">
+                                                            {`${toplamHarcama.toLocaleString('tr-TR')} TL`}
+                                                        </text>
+                                                    </PieChart>
+                                                </ChartContainer>
+                                            </CardContent>
+                                        </Card>
+
+                                        {/* Tüketim Trendi – Area */}
+                                        <Card className="bg-card border-border/50">
+                                            <CardHeader className="pb-2">
+                                                <CardTitle className="text-sm font-semibold">Tüketim Trendi (6 Ay)</CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="pb-3">
+                                                <ChartContainer config={TREND_CHART_CONFIG} className="h-64 w-full">
+                                                    <AreaChart data={tuketimTrendData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                                                        <defs>
+                                                            <linearGradient id="gradYakit" x1="0" y1="0" x2="0" y2="1">
+                                                                <stop offset="5%"  stopColor="var(--color-yakit)" stopOpacity={0.35} />
+                                                                <stop offset="95%" stopColor="var(--color-yakit)" stopOpacity={0.02} />
+                                                            </linearGradient>
+                                                            <linearGradient id="gradBakim" x1="0" y1="0" x2="0" y2="1">
+                                                                <stop offset="5%"  stopColor="var(--color-bakim)" stopOpacity={0.35} />
+                                                                <stop offset="95%" stopColor="var(--color-bakim)" stopOpacity={0.02} />
+                                                            </linearGradient>
+                                                        </defs>
+                                                        <CartesianGrid vertical={false} />
+                                                        <XAxis dataKey="ayEtiket" tickLine={false} axisLine={false} tickMargin={8} />
+                                                        <YAxis tickLine={false} axisLine={false} tickMargin={4} />
+                                                        <ChartTooltip content={<ChartTooltipContent />} />
+                                                        <ChartLegend content={<ChartLegendContent />} />
+                                                        <Area type="monotone" dataKey="yakit" stroke="var(--color-yakit)" fill="url(#gradYakit)" strokeWidth={2} />
+                                                        <Area type="monotone" dataKey="bakim" stroke="var(--color-bakim)" fill="url(#gradBakim)" strokeWidth={2} />
+                                                    </AreaChart>
+                                                </ChartContainer>
+                                            </CardContent>
+                                        </Card>
+
+                                        {/* Araç Sağlık Skoru – Radar */}
+                                        <Card className="bg-card border-border/50">
+                                            <CardHeader className="pb-2">
+                                                <CardTitle className="text-sm font-semibold">Araç Sağlık Skoru</CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="pb-3">
+                                                <ChartContainer config={RADAR_CHART_CONFIG} className="h-64 w-full">
+                                                    <RadarChart data={aracSaglikRadarData} outerRadius="70%">
+                                                        <PolarGrid />
+                                                        <PolarAngleAxis dataKey="konu" />
+                                                        <PolarRadiusAxis angle={30} domain={[0, 100]} />
+                                                        <ChartTooltip content={<ChartTooltipContent />} />
+                                                        <Radar
+                                                            name="skor"
+                                                            dataKey="skor"
+                                                            stroke="var(--color-skor)"
+                                                            fill="var(--color-skor)"
+                                                            fillOpacity={0.28}
+                                                        />
+                                                        <ChartLegend content={<ChartLegendContent />} />
+                                                    </RadarChart>
+                                                </ChartContainer>
+                                            </CardContent>
+                                        </Card>
+
+                                        {/* KM Projeksiyon – Line */}
+                                        <Card className="bg-card border-border/50">
+                                            <CardHeader className="pb-2">
+                                                <CardTitle className="text-sm font-semibold">KM Projeksiyon</CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="pb-3">
+                                                <ChartContainer config={PROJEKSIYON_CHART_CONFIG} className="h-64 w-full">
+                                                    <LineChart data={gelecekProjeksiyonVerisi} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                                                        <CartesianGrid vertical={false} />
+                                                        <XAxis dataKey="ayEtiketi" tickLine={false} axisLine={false} tickMargin={8} />
+                                                        <YAxis tickLine={false} axisLine={false} tickMargin={4} tickFormatter={(v) => `${Number(v).toLocaleString('tr-TR')}`} />
+                                                        <ChartTooltip content={<ChartTooltipContent />} />
+                                                        <ChartLegend content={<ChartLegendContent />} />
+                                                        {Number.isFinite(bakimOngorusu?.hedefKm) && bakimOngorusu.hedefKm > 0 && (
+                                                            <ReferenceLine y={bakimOngorusu.hedefKm} stroke="var(--destructive)" strokeDasharray="6 6" strokeWidth={2}>
+                                                                <Label value="Bakım Hedefi" position="insideTopRight" fill="var(--destructive)" style={{ fontSize: 11, fontWeight: 700 }} />
+                                                            </ReferenceLine>
+                                                        )}
+                                                        <Line type="monotone" dataKey="gercekKm"  stroke="var(--color-gercekKm)"  strokeWidth={2.5} dot={false} connectNulls />
+                                                        <Line type="monotone" dataKey="tahminiKm" stroke="var(--color-tahminiKm)" strokeWidth={2.5} strokeDasharray="5 5" dot={false} connectNulls />
+                                                    </LineChart>
+                                                </ChartContainer>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                </TabsContent>
+                            </Tabs>
                         </div>
-                    </>
-                )}
-            </main>
+                    </ResizablePanel>
+                </ResizablePanelGroup>
+            )}
 
+            {/* ── Edit Vehicle Dialog ── */}
+            <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Araç Bilgilerini Düzenle</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleEditSubmit} className="grid grid-cols-2 gap-3 mt-2">
+                        <div>
+                            <label className={labelCls}>Plaka</label>
+                            <input name="plaka" value={editFormData.plaka} onChange={e => setEditFormData(p => ({...p, plaka: e.target.value}))} className={inputCls} />
+                        </div>
+                        <div>
+                            <label className={labelCls}>Yıl</label>
+                            <input type="number" name="yil" value={editFormData.yil} onChange={e => setEditFormData(p => ({...p, yil: e.target.value}))} className={inputCls} />
+                        </div>
+                        <div>
+                            <label className={labelCls}>Marka</label>
+                            <input name="marka" value={editFormData.marka} onChange={e => setEditFormData(p => ({...p, marka: e.target.value}))} className={inputCls} />
+                        </div>
+                        <div>
+                            <label className={labelCls}>Model</label>
+                            <input name="model" value={editFormData.model} onChange={e => setEditFormData(p => ({...p, model: e.target.value}))} className={inputCls} />
+                        </div>
+                        <div>
+                            <label className={labelCls}>Muayene Tarihi</label>
+                            <input type="date" value={editFormData.muayene_tarihi} onChange={e => setEditFormData(p => ({...p, muayene_tarihi: e.target.value}))} className={inputCls} />
+                        </div>
+                        <div>
+                            <label className={labelCls}>Kasko Tarihi</label>
+                            <input type="date" value={editFormData.kasko_tarihi} onChange={e => setEditFormData(p => ({...p, kasko_tarihi: e.target.value}))} className={inputCls} />
+                        </div>
+                        <div className="col-span-2">
+                            <label className={labelCls}>Sigorta Tarihi</label>
+                            <input type="date" value={editFormData.sigorta_tarihi} onChange={e => setEditFormData(p => ({...p, sigorta_tarihi: e.target.value}))} className={inputCls} />
+                        </div>
+                        <DialogFooter className="col-span-2 mt-2">
+                            <DialogClose asChild><Button variant="outline" type="button">İptal</Button></DialogClose>
+                            <Button type="submit" disabled={isEditSubmitting}>{isEditSubmitting ? 'Kaydediliyor…' : 'Kaydet'}</Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
 
+            {/* ── Delete AlertDialog ── */}
+            <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Aracı silmek istediğinize emin misiniz?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            <strong>{arac?.plaka}</strong> plakalı araç ve tüm bakım, yakıt, parça kayıtları kalıcı olarak silinecek. Bu işlem geri alınamaz.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>İptal</AlertDialogCancel>
+                        <AlertDialogAction variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+                            {isDeleting ? 'Siliniyor…' : 'Evet, Sil'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* ── Parça Ekle Modal ── */}
             {isParcaModalOpen && (
-                <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4 ${isParcaModalVisible ? 'modal-backdrop-enter' : 'modal-backdrop-exit'}`}>
-                    <div className={`w-full max-w-lg glass-card p-6 text-slate-100 ${isParcaModalVisible ? 'modal-panel-enter' : 'modal-panel-exit'}`}>
-                        <h3 className="text-xl font-semibold mb-4 text-slate-50">Yeni Parça Ekle</h3>
-
-                        <form onSubmit={handleYeniParcaEkle} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Parça Adı</label>
-                                <select
-                                    name="parca_adi"
-                                    value={yeniParcaFormu.parca_adi}
-                                    onChange={handleYeniParcaInputChange}
-                                    className="w-full border border-white/20 bg-transparent rounded-md px-3 py-2 text-slate-100"
-                                >
-                                    <option value="">Parça seçiniz</option>
-                                    {parcaSecenekleri.map((parcaAdi) => (
-                                        <option key={parcaAdi} value={parcaAdi}>{parcaAdi}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {secilenParcaBilgisi && (
-                                <div className="rounded-lg border border-white/35 bg-black/60 backdrop-blur-xl px-4 py-3">
-                                    <p className="text-xs uppercase tracking-wide text-emerald-300 mb-1">Parça Bilgisi</p>
-                                    <p className="text-sm text-white">{secilenParcaBilgisi.aciklama}</p>
-                                </div>
-                            )}
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4 ${isParcaModalVisible ? 'animate-in fade-in-0' : 'animate-out fade-out-0'}`}>
+                    <Card className="w-full max-w-lg">
+                        <CardHeader><CardTitle>Yeni Parça Ekle</CardTitle></CardHeader>
+                        <CardContent>
+                            <form onSubmit={handleYeniParcaEkle} className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Değişim Aralığı (KM)</label>
-                                    <input
-                                        type="number"
-                                        name="degisim_araligi_km"
-                                        value={yeniParcaFormu.degisim_araligi_km}
-                                        onChange={handleYeniParcaInputChange}
-                                        className="w-full border border-white/20 bg-transparent rounded-md px-3 py-2 text-slate-100"
-                                        placeholder="Zaman bazlıysa boş bırakın"
-                                    />
+                                    <label className={labelCls}>Parça Adı</label>
+                                    <select name="parca_adi" value={yeniParcaFormu.parca_adi} onChange={handleYeniParcaInputChange} className={inputCls}>
+                                        <option value="">Parça seçiniz</option>
+                                        {parcaSecenekleri.map(p => <option key={p} value={p}>{p}</option>)}
+                                    </select>
+                                </div>
+                                {secilenParcaBilgisi && (
+                                    <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">{secilenParcaBilgisi.aciklama}</div>
+                                )}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className={labelCls}>Değişim Aralığı (KM)</label>
+                                        <input type="number" name="degisim_araligi_km" value={yeniParcaFormu.degisim_araligi_km} onChange={handleYeniParcaInputChange} className={inputCls} placeholder="Zaman bazlıysa boş" />
+                                    </div>
+                                    <div>
+                                        <label className={labelCls}>Son Değişim KM</label>
+                                        <input type="number" name="son_degisim_km" value={yeniParcaFormu.son_degisim_km} onChange={handleYeniParcaInputChange} className={inputCls} />
+                                    </div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Son Değişim KM</label>
-                                    <input
-                                        type="number"
-                                        name="son_degisim_km"
-                                        value={yeniParcaFormu.son_degisim_km}
-                                        onChange={handleYeniParcaInputChange}
-                                        className="w-full border border-white/20 bg-transparent rounded-md px-3 py-2 text-slate-100"
-                                    />
+                                    <label className={labelCls}>Son Değişim Tarihi</label>
+                                    <input type="date" name="son_degisim_tarihi" value={yeniParcaFormu.son_degisim_tarihi} onChange={handleYeniParcaInputChange} className={inputCls} />
                                 </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Son Değişim Tarihi</label>
-                                <input
-                                    type="date"
-                                    name="son_degisim_tarihi"
-                                    value={yeniParcaFormu.son_degisim_tarihi}
-                                    onChange={handleYeniParcaInputChange}
-                                    className="w-full border border-white/20 bg-transparent rounded-md px-3 py-2 text-slate-100"
-                                />
-                            </div>
-
-                            <div className="flex justify-end gap-2 pt-2">
-                                <button
-                                    type="button"
-                                    onClick={closeYeniParcaModal}
-                                    className="px-4 py-2 rounded-md border border-white/30 text-slate-200 hover:bg-white/10"
-                                >
-                                    Vazgeç
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isParcaEkleSubmitting}
-                                    className="px-4 py-2 rounded-md bg-violet-400 hover:bg-violet-300 text-slate-950 font-semibold disabled:opacity-60 shadow-md"
-                                >
-                                    {isParcaEkleSubmitting ? 'Ekleniyor...' : 'Parçayı Kaydet'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+                                <div className="flex justify-end gap-2 pt-2">
+                                    <Button type="button" variant="outline" onClick={closeYeniParcaModal}>Vazgeç</Button>
+                                    <Button type="submit" disabled={isParcaEkleSubmitting}>{isParcaEkleSubmitting ? 'Ekleniyor…' : 'Parçayı Kaydet'}</Button>
+                                </div>
+                            </form>
+                        </CardContent>
+                    </Card>
                 </div>
             )}
         </div>

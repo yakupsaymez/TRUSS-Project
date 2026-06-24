@@ -1,4 +1,4 @@
-# ABTS - API & Integration Guide
+# truss - API & Integration Guide
 ## Faz 2 & Faz 3 Backend Integration
 
 **Last Updated**: 2026-04-12  

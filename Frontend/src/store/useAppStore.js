@@ -15,16 +15,8 @@ const defaultSettingsForm = {
 
 let settingsCloseTimer = null;
 
-const applyThemeToDocument = (theme) => {
-  if (typeof document === 'undefined') return;
-  document.documentElement.classList.toggle('dark', theme === 'dark');
-  document.documentElement.setAttribute('data-theme', theme);
-  localStorage.setItem('abts-theme', theme);
-};
-
 // noinspection JSUnusedGlobalSymbols
 const useAppStore = create((set, get) => ({
-  theme: localStorage.getItem('abts-theme') || 'light',
   isSettingsOpen: false,
   isSettingsVisible: false,
   isSaving: false,
@@ -32,18 +24,6 @@ const useAppStore = create((set, get) => ({
   activeSettingsTab: 'hesap',
   isDirty: false,
   deleteConfirmText: '',
-
-  syncTheme: () => {
-    applyThemeToDocument(get().theme);
-  },
-
-  toggleTheme: () => {
-    set((state) => {
-      const nextTheme = state.theme === 'dark' ? 'light' : 'dark';
-      applyThemeToDocument(nextTheme);
-      return { theme: nextTheme };
-    });
-  },
 
   syncPreferenceSummary: async (isAuthenticated) => {
     if (!isAuthenticated) {
