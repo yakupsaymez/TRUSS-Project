@@ -17,12 +17,23 @@ import {
 } from 'lucide-react';
 import yakitService from '@/services/yakitService';
 import aracService from '@/services/aracService';
+import useVehicleStore from '@/store/useVehicleStore';
+import { formatLocaleNumber, parseLocaleNumber } from '@/utils/formatters';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { TrussDatePicker } from '@/components/ui/truss-date-picker';
-import ConfirmAlertDialog from '@/components/ConfirmAlertDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Table,
   TableBody,
@@ -132,9 +143,9 @@ export default function Yakitlar() {
       arac_id: String(yakit.arac_id || ''),
       yakit_tipi: yakit.yakit_tipi || 'Dizel',
       tarih: yakit.tarih ? String(yakit.tarih).slice(0, 10) : new Date().toISOString().slice(0, 10),
-      litre: yakit.litre ?? '',
-      tutar: yakit.tutar ?? '',
-      km: yakit.km ?? '',
+      litre: yakit.litre !== null && yakit.litre !== undefined ? formatLocaleNumber(yakit.litre, 2) : '',
+      tutar: yakit.tutar !== null && yakit.tutar !== undefined ? formatLocaleNumber(yakit.tutar, 2) : '',
+      km: yakit.km !== null && yakit.km !== undefined ? formatLocaleNumber(yakit.km, 0) : '',
       notlar: yakit.notlar || '',
     });
     setIsModalOpen(true);
@@ -151,21 +162,48 @@ export default function Yakitlar() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleNumberBlur = (e) => {
+    const { name, value } = e.target;
+    if (!['litre', 'tutar', 'km'].includes(name)) return;
+    const parsed = parseLocaleNumber(value);
+    if (parsed === null) return;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: formatLocaleNumber(parsed, name === 'km' ? 0 : 2),
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.arac_id || !formData.tarih || formData.litre === '' || formData.tutar === '') {
-      toast.error('Lütfen zorunlu alanları (Araç, Tarih, Litre, Tutar) doldurun.');
+
+    const parsedAracId = Number(formData.arac_id);
+    const parsedLitre = parseLocaleNumber(formData.litre);
+    const parsedTutar = parseLocaleNumber(formData.tutar);
+    const hasKmInput = String(formData.km ?? '').trim() !== '';
+    const parsedKm = hasKmInput ? parseLocaleNumber(formData.km) : null;
+
+    if (
+      !Number.isFinite(parsedAracId) ||
+      parsedAracId <= 0 ||
+      !formData.tarih ||
+      parsedLitre === null ||
+      parsedLitre <= 0 ||
+      parsedTutar === null ||
+      parsedTutar < 0 ||
+      (hasKmInput && (parsedKm === null || parsedKm < 0))
+    ) {
+      toast.error('Lütfen zorunlu alanları (Araç, Tarih, Litre, Tutar) geçerli sayısal değerlerle doldurun.');
       return;
     }
 
     const payload = {
-      arac_id: Number(formData.arac_id),
+      arac_id: parsedAracId,
       yakit_tipi: formData.yakit_tipi || 'Diğer',
       tarih: formData.tarih,
-      litre: Number(formData.litre),
-      tutar: Number(formData.tutar),
-      km: formData.km === '' || formData.km === null ? null : Number(formData.km),
-      notlar: formData.notlar.trim() || null,
+      litre: Number(parsedLitre),
+      tutar: Number(parsedTutar),
+      km: parsedKm !== null ? Number(parsedKm) : null,
+      notlar: formData.notlar?.trim() || null,
     };
 
     setIsSubmitting(true);
@@ -178,7 +216,10 @@ export default function Yakitlar() {
         toast.success('Yakıt kaydı eklendi.');
       }
       closeModal();
-      await verileriYukle(seciliAracId);
+      await Promise.all([
+        verileriYukle(seciliAracId),
+        useVehicleStore.getState().fetchAraclar(),
+      ]);
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Yakıt kaydedilemedi.');
     } finally {
@@ -198,37 +239,47 @@ export default function Yakitlar() {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Kompakt Filtre ve Aksiyon Çubuğu (Toolbar) */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <Car className="size-4 text-muted-foreground" />
-          <select
-            value={seciliAracId}
-            onChange={(e) => setSeciliAracId(e.target.value)}
-            className="h-8 rounded-md border border-input bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="tum">Tüm Araçlar</option>
-            {araclar.map((a) => (
-              <option key={a.arac_id} value={a.arac_id}>
-                {a.plaka} — {a.marka} {a.model}
-              </option>
-            ))}
-          </select>
+    <div className="space-y-3 bg-truss-bg text-truss-text">
+      {/* Compact Toolbar (Sol: Başlık + Araç Filtresi, Sağ: Arama + Yeni Ekle) */}
+      <div className="flex flex-col gap-2 rounded-xl border border-truss-border bg-truss-surface p-3.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Fuel className="size-4 text-truss-purple" />
+            <span className="text-sm font-semibold tracking-tight text-truss-text">Yakıt Alımları</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Car className="size-3.5 text-truss-muted" />
+            <select
+              value={seciliAracId}
+              onChange={(e) => setSeciliAracId(e.target.value)}
+              className="h-8 rounded-lg border border-truss-border bg-truss-bg px-2.5 text-xs text-truss-text focus:border-truss-purple focus:outline-none focus:ring-1 focus:ring-truss-purple"
+            >
+              <option value="tum" className="bg-truss-surface text-truss-text">Tüm Araçlar</option>
+              {araclar.map((a) => (
+                <option key={a.arac_id} value={a.arac_id} className="bg-truss-surface text-truss-text">
+                  {a.plaka} — {a.marka} {a.model}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
           <div className="relative w-full sm:w-60">
-            <Search className="pointer-events-none absolute left-2.5 top-2 size-3.5 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-2.5 top-2 size-3.5 text-truss-muted" />
             <Input
               type="search"
               placeholder="Plaka, yakıt tipi veya not ara…"
               value={aramaMetni}
               onChange={(e) => setAramaMetni(e.target.value)}
-              className="h-8 pl-8 text-xs"
+              className="h-8 rounded-lg border-truss-border bg-truss-bg pl-8 text-xs text-truss-text placeholder:text-truss-muted focus:border-truss-purple focus-visible:ring-truss-purple"
             />
           </div>
-          <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={openAddModal}>
+          <Button
+            size="sm"
+            className="h-8 gap-1.5 rounded-lg bg-truss-purple px-3 text-xs font-semibold text-truss-text hover:bg-truss-purple-hover"
+            onClick={openAddModal}
+          >
             <Plus className="size-3.5" /> Yeni Yakıt Kaydı
           </Button>
         </div>
@@ -236,12 +287,12 @@ export default function Yakitlar() {
 
       {/* Kompakt Tek Satırlık KPI Şeridi */}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <div className="flex items-center justify-between rounded-lg border border-border bg-card p-3.5">
-          <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <Banknote className="size-4 shrink-0 text-emerald-500" />
+        <div className="flex items-center justify-between rounded-xl border border-truss-border bg-truss-surface p-3.5">
+          <span className="flex items-center gap-2 text-xs font-medium text-truss-muted">
+            <Banknote className="size-4 shrink-0 text-truss-purple" />
             Toplam Harcama
           </span>
-          <span className="text-base font-bold tabular-nums tracking-tight">
+          <span className="text-base font-bold tabular-nums tracking-tight text-truss-text">
             {ozet.toplamTutar.toLocaleString('tr-TR', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
@@ -249,12 +300,12 @@ export default function Yakitlar() {
             ₺
           </span>
         </div>
-        <div className="flex items-center justify-between rounded-lg border border-border bg-card p-3.5">
-          <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <Droplets className="size-4 shrink-0 text-sky-500" />
+        <div className="flex items-center justify-between rounded-xl border border-truss-border bg-truss-surface p-3.5">
+          <span className="flex items-center gap-2 text-xs font-medium text-truss-muted">
+            <Droplets className="size-4 shrink-0 text-truss-purple" />
             Toplam Litre
           </span>
-          <span className="text-base font-bold tabular-nums tracking-tight">
+          <span className="text-base font-bold tabular-nums tracking-tight text-truss-text">
             {ozet.toplamLitre.toLocaleString('tr-TR', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
@@ -262,12 +313,12 @@ export default function Yakitlar() {
             L
           </span>
         </div>
-        <div className="flex items-center justify-between rounded-lg border border-border bg-card p-3.5">
-          <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <Fuel className="size-4 shrink-0 text-amber-500" />
+        <div className="flex items-center justify-between rounded-xl border border-truss-border bg-truss-surface p-3.5">
+          <span className="flex items-center gap-2 text-xs font-medium text-truss-muted">
+            <Fuel className="size-4 shrink-0 text-truss-purple" />
             Ortalama Litre Fiyatı
           </span>
-          <span className="text-base font-bold tabular-nums tracking-tight">
+          <span className="text-base font-bold tabular-nums tracking-tight text-truss-text">
             {ozet.ortalamaBirimFiyat.toLocaleString('tr-TR', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
@@ -277,62 +328,73 @@ export default function Yakitlar() {
         </div>
       </div>
 
-      {/* Tablo */}
+      {/* Kompakt Grid Yakıt Tablosu */}
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-12 animate-pulse rounded-lg bg-muted/40" />
+            <div key={i} className="h-10 animate-pulse rounded-lg border border-truss-border bg-truss-surface" />
           ))}
         </div>
       ) : gosterilenYakitlar.length === 0 ? (
-        <div className="rounded-xl border border-border py-16 text-center text-muted-foreground">
-          <Fuel className="mx-auto mb-3 size-8 opacity-40" />
-          <p className="text-sm font-medium">Henüz yakıt kaydı bulunmuyor.</p>
-          <Button size="sm" variant="outline" className="mt-3 gap-1.5" onClick={openAddModal}>
-            <Plus className="size-4" /> İlk Yakıt Kaydını Ekle
+        <div className="rounded-xl border border-truss-border bg-truss-surface p-6 text-center text-truss-muted">
+          <Fuel className="mx-auto mb-2 size-6 text-truss-muted" />
+          <p className="text-sm font-medium text-truss-text">Henüz yakıt kaydı bulunmuyor.</p>
+          <Button
+            size="sm"
+            variant="outline"
+            className="mt-3 h-8 gap-1.5 border-truss-border bg-truss-bg text-xs text-truss-text hover:border-truss-purple hover:bg-truss-purple/15"
+            onClick={openAddModal}
+          >
+            <Plus className="size-3.5" /> İlk Yakıt Kaydını Ekle
           </Button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border">
+        <div className="overflow-hidden rounded-xl border border-truss-border bg-truss-surface">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/30">
-                <TableHead>Plaka / Araç</TableHead>
-                <TableHead>Yakıt Tipi</TableHead>
-                <TableHead>Tarih</TableHead>
-                <TableHead>Litre</TableHead>
-                <TableHead>Tutar</TableHead>
-                <TableHead>Kilometre</TableHead>
-                <TableHead>Notlar</TableHead>
-                <TableHead className="text-right">İşlemler</TableHead>
+              <TableRow className="border-b border-truss-border bg-truss-bg/60 hover:bg-truss-bg/60">
+                <TableHead className="px-3.5 py-2.5 text-xs font-semibold text-truss-muted">Plaka / Araç</TableHead>
+                <TableHead className="px-3.5 py-2.5 text-xs font-semibold text-truss-muted">Yakıt Tipi</TableHead>
+                <TableHead className="px-3.5 py-2.5 text-xs font-semibold text-truss-muted">Tarih</TableHead>
+                <TableHead className="px-3.5 py-2.5 text-xs font-semibold text-truss-muted">Litre</TableHead>
+                <TableHead className="px-3.5 py-2.5 text-xs font-semibold text-truss-muted">Tutar</TableHead>
+                <TableHead className="px-3.5 py-2.5 text-xs font-semibold text-truss-muted">Kilometre</TableHead>
+                <TableHead className="px-3.5 py-2.5 text-xs font-semibold text-truss-muted">Notlar</TableHead>
+                <TableHead className="px-3.5 py-2.5 text-right text-xs font-semibold text-truss-muted">İşlemler</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody className="divide-y divide-truss-border">
               {gosterilenYakitlar.map((yakit) => (
-                <TableRow key={yakit.yakit_id} className="hover:bg-muted/30">
-                  <TableCell className="font-mono text-sm font-semibold">
+                <TableRow
+                  key={yakit.yakit_id}
+                  className="border-truss-border transition-colors hover:bg-truss-bg/50"
+                >
+                  <TableCell className="px-3.5 py-2.5 font-mono text-sm font-semibold tabular-nums text-truss-text">
                     <div>{yakit.plaka || `#${yakit.arac_id}`}</div>
                     {(yakit.marka || yakit.model) && (
-                      <div className="font-sans text-xs font-normal text-muted-foreground">
+                      <div className="font-sans text-xs font-normal text-truss-muted">
                         {yakit.marka} {yakit.model}
                       </div>
                     )}
                   </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="gap-1">
-                      <Fuel className="size-3" />
+                  <TableCell className="px-3.5 py-2.5 text-sm">
+                    <Badge
+                      variant="outline"
+                      className="gap-1 border-truss-border bg-truss-bg text-xs font-medium text-truss-text"
+                    >
+                      <Fuel className="size-3 text-truss-purple" />
                       {yakit.yakit_tipi || 'Diğer'}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-sm">
+                  <TableCell className="px-3.5 py-2.5 text-sm tabular-nums text-truss-text">
                     <span className="inline-flex items-center gap-1.5">
-                      <Calendar className="size-3.5 text-muted-foreground" />
+                      <Calendar className="size-3.5 text-truss-muted" />
                       {yakit.tarih ? new Date(yakit.tarih).toLocaleDateString('tr-TR') : '-'}
                     </span>
                   </TableCell>
-                  <TableCell className="text-sm font-medium">
+                  <TableCell className="px-3.5 py-2.5 text-sm font-medium tabular-nums text-truss-text">
                     <span className="inline-flex items-center gap-1.5">
-                      <Droplets className="size-3.5 text-sky-500" />
+                      <Droplets className="size-3.5 text-truss-purple" />
                       {Number(yakit.litre || 0).toLocaleString('tr-TR', {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
@@ -340,9 +402,9 @@ export default function Yakitlar() {
                       L
                     </span>
                   </TableCell>
-                  <TableCell className="text-sm font-semibold">
+                  <TableCell className="px-3.5 py-2.5 text-sm font-semibold tabular-nums text-truss-text">
                     <span className="inline-flex items-center gap-1.5">
-                      <Banknote className="size-3.5 text-emerald-500" />
+                      <Banknote className="size-3.5 text-truss-purple" />
                       {Number(yakit.tutar || 0).toLocaleString('tr-TR', {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
@@ -350,25 +412,25 @@ export default function Yakitlar() {
                       ₺
                     </span>
                   </TableCell>
-                  <TableCell className="text-sm">
+                  <TableCell className="px-3.5 py-2.5 text-sm tabular-nums text-truss-text">
                     {yakit.km !== null && yakit.km !== undefined ? (
                       <span className="inline-flex items-center gap-1.5">
-                        <Gauge className="size-3.5 text-muted-foreground" />
+                        <Gauge className="size-3.5 text-truss-muted" />
                         {Number(yakit.km).toLocaleString('tr-TR')} KM
                       </span>
                     ) : (
-                      <span className="text-xs text-muted-foreground">-</span>
+                      <span className="text-xs text-truss-muted">-</span>
                     )}
                   </TableCell>
-                  <TableCell className="max-w-xs truncate text-xs text-muted-foreground">
+                  <TableCell className="max-w-xs truncate px-3.5 py-2.5 text-sm text-truss-muted">
                     {yakit.notlar || '-'}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="px-3.5 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="size-7"
+                        className="size-7 text-truss-muted hover:bg-truss-bg hover:text-truss-text"
                         onClick={() => openEditModal(yakit)}
                       >
                         <Pencil className="size-3.5" />
@@ -376,7 +438,7 @@ export default function Yakitlar() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="size-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        className="size-7 text-truss-muted hover:bg-truss-bg hover:text-truss-purple"
                         onClick={() => setDeleteYakitId(yakit.yakit_id)}
                       >
                         <Trash2 className="size-3.5" />
@@ -389,13 +451,32 @@ export default function Yakitlar() {
           </Table>
         </div>
       )}
-      <ConfirmAlertDialog
+
+      {/* Shadcn AlertDialog - Silme Onayı */}
+      <AlertDialog
         open={deleteYakitId !== null}
         onOpenChange={(open) => !open && setDeleteYakitId(null)}
-        title="Yakıt kaydını sil?"
-        description="Bu yakıt kaydı kalıcı olarak silinecek."
-        onConfirm={handleDelete}
-      />
+      >
+        <AlertDialogContent className="border-truss-border bg-truss-surface text-truss-text">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-truss-text">Yakıt kaydını sil?</AlertDialogTitle>
+            <AlertDialogDescription className="text-truss-muted">
+              Bu yakıt kaydı kalıcı olarak silinecek. Bu işlem geri alınamaz.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-truss-border bg-truss-bg text-truss-text hover:bg-truss-surface">
+              Vazgeç
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-truss-purple text-truss-text hover:bg-truss-purple-hover"
+            >
+              Sil
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Ekle / Düzenle Modalı */}
       {isModalOpen && (
@@ -463,28 +544,28 @@ export default function Yakitlar() {
                 <div>
                   <Label className="mb-1.5 block text-xs font-medium text-truss-muted">Litre (L)</Label>
                   <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
+                    inputMode="decimal"
                     name="litre"
                     value={formData.litre}
                     onChange={handleInputChange}
-                    placeholder="45.50"
-                    className="h-10 rounded-xl border-truss-border bg-truss-bg px-3.5 text-truss-text placeholder:text-truss-muted focus:border-truss-purple focus:ring-2 focus:ring-truss-purple/25"
+                    onBlur={handleNumberBlur}
+                    placeholder="45,50"
+                    className="h-10 rounded-xl border-truss-border bg-truss-bg px-3.5 tabular-nums text-truss-text placeholder:text-truss-muted focus:border-truss-purple focus:ring-2 focus:ring-truss-purple/25"
                     required
                   />
                 </div>
                 <div>
                   <Label className="mb-1.5 block text-xs font-medium text-truss-muted">Tutar (₺)</Label>
                   <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
+                    inputMode="decimal"
                     name="tutar"
                     value={formData.tutar}
                     onChange={handleInputChange}
-                    placeholder="1950.00"
-                    className="h-10 rounded-xl border-truss-border bg-truss-bg px-3.5 text-truss-text placeholder:text-truss-muted focus:border-truss-purple focus:ring-2 focus:ring-truss-purple/25"
+                    onBlur={handleNumberBlur}
+                    placeholder="1.950,00"
+                    className="h-10 rounded-xl border-truss-border bg-truss-bg px-3.5 tabular-nums text-truss-text placeholder:text-truss-muted focus:border-truss-purple focus:ring-2 focus:ring-truss-purple/25"
                     required
                   />
                 </div>
@@ -493,13 +574,14 @@ export default function Yakitlar() {
               <div>
                 <Label className="mb-1.5 block text-xs font-medium text-truss-muted">Kilometre (KM)</Label>
                 <Input
-                  type="number"
-                  min="0"
+                  type="text"
+                  inputMode="numeric"
                   name="km"
                   value={formData.km}
                   onChange={handleInputChange}
-                  placeholder="125000 (İsteğe bağlı)"
-                  className="h-10 rounded-xl border-truss-border bg-truss-bg px-3.5 text-truss-text placeholder:text-truss-muted focus:border-truss-purple focus:ring-2 focus:ring-truss-purple/25"
+                  onBlur={handleNumberBlur}
+                  placeholder="125.000 (İsteğe bağlı)"
+                  className="h-10 rounded-xl border-truss-border bg-truss-bg px-3.5 tabular-nums text-truss-text placeholder:text-truss-muted focus:border-truss-purple focus:ring-2 focus:ring-truss-purple/25"
                 />
               </div>
 
@@ -526,7 +608,11 @@ export default function Yakitlar() {
                 >
                   İptal
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="bg-truss-purple font-semibold text-truss-text hover:bg-truss-purple-hover"
+                >
                   {isSubmitting
                     ? 'Kaydediliyor…'
                     : editingYakitId

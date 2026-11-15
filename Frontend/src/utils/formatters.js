@@ -1,12 +1,23 @@
 export const parseLocaleNumber = (value) => {
-    const normalized = String(value ?? '')
-        .trim()
-        .replace(/\s/g, '')
-        .replace(/\./g, '')
-        .replace(',', '.')
-        .replace(/[^0-9.-]/g, '');
+    if (typeof value === 'number') {
+        return Number.isFinite(value) ? value : null;
+    }
 
+    const raw = String(value ?? '').trim().replace(/\s/g, '');
+    if (!raw) return null;
+
+    let normalized;
+    if (raw.includes(',')) {
+        normalized = raw.replace(/\./g, '').replace(',', '.');
+    } else if (/^-?\d+\.\d{1,2}$/.test(raw)) {
+        normalized = raw;
+    } else {
+        normalized = raw.replace(/\./g, '');
+    }
+
+    normalized = normalized.replace(/[^0-9.-]/g, '');
     if (!normalized) return null;
+
     const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : null;
 };

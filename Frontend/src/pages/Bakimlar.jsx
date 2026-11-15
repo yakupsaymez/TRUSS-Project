@@ -16,12 +16,23 @@ import {
 } from 'lucide-react';
 import bakimService from '@/services/bakimService';
 import aracService from '@/services/aracService';
+import useVehicleStore from '@/store/useVehicleStore';
+import { formatLocaleNumber, parseLocaleNumber } from '@/utils/formatters';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { TrussDatePicker } from '@/components/ui/truss-date-picker';
-import ConfirmAlertDialog from '@/components/ConfirmAlertDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Table,
   TableBody,
@@ -116,8 +127,8 @@ export default function Bakimlar() {
       arac_id: String(bakim.arac_id || ''),
       bakim_tipi: bakim.bakim_tipi || '',
       tarih: bakim.tarih ? String(bakim.tarih).slice(0, 10) : '',
-      km: bakim.km ?? '',
-      maliyet: bakim.maliyet ?? '',
+      km: bakim.km !== null && bakim.km !== undefined ? formatLocaleNumber(bakim.km, 0) : '',
+      maliyet: bakim.maliyet !== null && bakim.maliyet !== undefined ? formatLocaleNumber(bakim.maliyet, 2) : '',
       notlar: bakim.notlar || '',
     });
     setIsModalOpen(true);
@@ -134,20 +145,45 @@ export default function Bakimlar() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleNumberBlur = (e) => {
+    const { name, value } = e.target;
+    if (!['km', 'maliyet'].includes(name)) return;
+    const parsed = parseLocaleNumber(value);
+    if (parsed === null) return;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: formatLocaleNumber(parsed, name === 'maliyet' ? 2 : 0),
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.arac_id || !formData.bakim_tipi || !formData.tarih || formData.km === '' || formData.maliyet === '') {
-      toast.error('Lütfen zorunlu alanları doldurun.');
+
+    const parsedAracId = Number(formData.arac_id);
+    const parsedKm = parseLocaleNumber(formData.km);
+    const parsedMaliyet = parseLocaleNumber(formData.maliyet);
+
+    if (
+      !Number.isFinite(parsedAracId) ||
+      parsedAracId <= 0 ||
+      !formData.bakim_tipi?.trim() ||
+      !formData.tarih ||
+      parsedKm === null ||
+      parsedKm < 0 ||
+      parsedMaliyet === null ||
+      parsedMaliyet < 0
+    ) {
+      toast.error('Lütfen zorunlu alanları geçerli değerlerle doldurun.');
       return;
     }
 
     const payload = {
-      arac_id: Number(formData.arac_id),
+      arac_id: parsedAracId,
       bakim_tipi: formData.bakim_tipi.trim(),
       tarih: formData.tarih,
-      km: Number(formData.km),
-      maliyet: Number(formData.maliyet),
-      notlar: formData.notlar.trim() || null,
+      km: Number(parsedKm),
+      maliyet: Number(parsedMaliyet),
+      notlar: formData.notlar?.trim() || null,
     };
 
     setIsSubmitting(true);
@@ -160,7 +196,10 @@ export default function Bakimlar() {
         toast.success('Bakım kaydı eklendi.');
       }
       closeModal();
-      await verileriYukle(seciliAracId);
+      await Promise.all([
+        verileriYukle(seciliAracId),
+        useVehicleStore.getState().fetchAraclar(),
+      ]);
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Bakım kaydedilemedi.');
     } finally {
@@ -180,37 +219,47 @@ export default function Bakimlar() {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Kompakt Filtre ve Aksiyon Çubuğu (Toolbar) */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <Car className="size-4 text-muted-foreground" />
-          <select
-            value={seciliAracId}
-            onChange={(e) => setSeciliAracId(e.target.value)}
-            className="h-8 rounded-md border border-input bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="tum">Tüm Araçlar</option>
-            {araclar.map((a) => (
-              <option key={a.arac_id} value={a.arac_id}>
-                {a.plaka} — {a.marka} {a.model}
-              </option>
-            ))}
-          </select>
+    <div className="space-y-3 bg-truss-bg text-truss-text">
+      {/* Compact Toolbar (Sol: Başlık + Araç Filtresi, Sağ: Arama + Yeni Ekle) */}
+      <div className="flex flex-col gap-2 rounded-xl border border-truss-border bg-truss-surface p-3.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Wrench className="size-4 text-truss-purple" />
+            <span className="text-sm font-semibold tracking-tight text-truss-text">Bakım Kayıtları</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Car className="size-3.5 text-truss-muted" />
+            <select
+              value={seciliAracId}
+              onChange={(e) => setSeciliAracId(e.target.value)}
+              className="h-8 rounded-lg border border-truss-border bg-truss-bg px-2.5 text-xs text-truss-text focus:border-truss-purple focus:outline-none focus:ring-1 focus:ring-truss-purple"
+            >
+              <option value="tum" className="bg-truss-surface text-truss-text">Tüm Araçlar</option>
+              {araclar.map((a) => (
+                <option key={a.arac_id} value={a.arac_id} className="bg-truss-surface text-truss-text">
+                  {a.plaka} — {a.marka} {a.model}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
           <div className="relative w-full sm:w-60">
-            <Search className="pointer-events-none absolute left-2.5 top-2 size-3.5 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-2.5 top-2 size-3.5 text-truss-muted" />
             <Input
               type="search"
               placeholder="Plaka, bakım tipi veya not ara…"
               value={aramaMetni}
               onChange={(e) => setAramaMetni(e.target.value)}
-              className="h-8 pl-8 text-xs"
+              className="h-8 rounded-lg border-truss-border bg-truss-bg pl-8 text-xs text-truss-text placeholder:text-truss-muted focus:border-truss-purple focus-visible:ring-truss-purple"
             />
           </div>
-          <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={openAddModal}>
+          <Button
+            size="sm"
+            className="h-8 gap-1.5 rounded-lg bg-truss-purple px-3 text-xs font-semibold text-truss-text hover:bg-truss-purple-hover"
+            onClick={openAddModal}
+          >
             <Plus className="size-3.5" /> Yeni Bakım Ekle
           </Button>
         </div>
@@ -218,92 +267,107 @@ export default function Bakimlar() {
 
       {/* Kompakt Tek Satırlık KPI Şeridi */}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <div className="flex items-center justify-between rounded-lg border border-border bg-card p-3.5">
-          <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <Wrench className="size-4 shrink-0 text-primary" />
+        <div className="flex items-center justify-between rounded-xl border border-truss-border bg-truss-surface p-3.5">
+          <span className="flex items-center gap-2 text-xs font-medium text-truss-muted">
+            <Wrench className="size-4 shrink-0 text-truss-purple" />
             Toplam Bakım Kaydı
           </span>
-          <span className="text-base font-bold tabular-nums tracking-tight">{gosterilenBakimlar.length}</span>
+          <span className="text-base font-bold tabular-nums tracking-tight text-truss-text">
+            {gosterilenBakimlar.length}
+          </span>
         </div>
-        <div className="flex items-center justify-between rounded-lg border border-border bg-card p-3.5">
-          <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <Banknote className="size-4 shrink-0 text-emerald-500" />
+        <div className="flex items-center justify-between rounded-xl border border-truss-border bg-truss-surface p-3.5">
+          <span className="flex items-center gap-2 text-xs font-medium text-truss-muted">
+            <Banknote className="size-4 shrink-0 text-truss-purple" />
             Toplam Bakım Gideri
           </span>
-          <span className="text-base font-bold tabular-nums tracking-tight">
+          <span className="text-base font-bold tabular-nums tracking-tight text-truss-text">
             {toplamMaliyet.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺
           </span>
         </div>
-        <div className="flex items-center justify-between rounded-lg border border-border bg-card p-3.5">
-          <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <Car className="size-4 shrink-0 text-sky-500" />
+        <div className="flex items-center justify-between rounded-xl border border-truss-border bg-truss-surface p-3.5">
+          <span className="flex items-center gap-2 text-xs font-medium text-truss-muted">
+            <Car className="size-4 shrink-0 text-truss-purple" />
             Kayıtlı Araç Sayısı
           </span>
-          <span className="text-base font-bold tabular-nums tracking-tight">{araclar.length}</span>
+          <span className="text-base font-bold tabular-nums tracking-tight text-truss-text">
+            {araclar.length}
+          </span>
         </div>
       </div>
 
-      {/* Bakım Tablosu */}
+      {/* Kompakt Grid Bakım Tablosu */}
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-12 animate-pulse rounded-lg bg-muted/40" />
+            <div key={i} className="h-10 animate-pulse rounded-lg border border-truss-border bg-truss-surface" />
           ))}
         </div>
       ) : gosterilenBakimlar.length === 0 ? (
-        <div className="rounded-xl border border-border py-16 text-center text-muted-foreground">
-          <Wrench className="mx-auto mb-3 size-8 opacity-40" />
-          <p className="text-sm font-medium">Henüz bakım kaydı bulunmuyor.</p>
-          <Button size="sm" variant="outline" className="mt-3 gap-1.5" onClick={openAddModal}>
-            <Plus className="size-4" /> İlk Bakımı Ekle
+        <div className="rounded-xl border border-truss-border bg-truss-surface p-6 text-center text-truss-muted">
+          <Wrench className="mx-auto mb-2 size-6 text-truss-muted" />
+          <p className="text-sm font-medium text-truss-text">Henüz bakım kaydı bulunmuyor.</p>
+          <Button
+            size="sm"
+            variant="outline"
+            className="mt-3 h-8 gap-1.5 border-truss-border bg-truss-bg text-xs text-truss-text hover:border-truss-purple hover:bg-truss-purple/15"
+            onClick={openAddModal}
+          >
+            <Plus className="size-3.5" /> İlk Bakımı Ekle
           </Button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border">
+        <div className="overflow-hidden rounded-xl border border-truss-border bg-truss-surface">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/30">
-                <TableHead>Plaka / Araç</TableHead>
-                <TableHead>Bakım Tipi</TableHead>
-                <TableHead>Tarih</TableHead>
-                <TableHead>Kilometre</TableHead>
-                <TableHead>Maliyet</TableHead>
-                <TableHead>Notlar</TableHead>
-                <TableHead className="text-right">İşlemler</TableHead>
+              <TableRow className="border-b border-truss-border bg-truss-bg/60 hover:bg-truss-bg/60">
+                <TableHead className="px-3.5 py-2.5 text-xs font-semibold text-truss-muted">Plaka / Araç</TableHead>
+                <TableHead className="px-3.5 py-2.5 text-xs font-semibold text-truss-muted">Bakım Tipi</TableHead>
+                <TableHead className="px-3.5 py-2.5 text-xs font-semibold text-truss-muted">Tarih</TableHead>
+                <TableHead className="px-3.5 py-2.5 text-xs font-semibold text-truss-muted">Kilometre</TableHead>
+                <TableHead className="px-3.5 py-2.5 text-xs font-semibold text-truss-muted">Maliyet</TableHead>
+                <TableHead className="px-3.5 py-2.5 text-xs font-semibold text-truss-muted">Notlar</TableHead>
+                <TableHead className="px-3.5 py-2.5 text-right text-xs font-semibold text-truss-muted">İşlemler</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody className="divide-y divide-truss-border">
               {gosterilenBakimlar.map((bakim) => (
-                <TableRow key={bakim.bakim_id} className="hover:bg-muted/30">
-                  <TableCell className="font-mono text-sm font-semibold">
+                <TableRow
+                  key={bakim.bakim_id}
+                  className="border-truss-border transition-colors hover:bg-truss-bg/50"
+                >
+                  <TableCell className="px-3.5 py-2.5 font-mono text-sm font-semibold tabular-nums text-truss-text">
                     <div>{bakim.plaka || `#${bakim.arac_id}`}</div>
                     {(bakim.marka || bakim.model) && (
-                      <div className="font-sans text-xs font-normal text-muted-foreground">
+                      <div className="font-sans text-xs font-normal text-truss-muted">
                         {bakim.marka} {bakim.model}
                       </div>
                     )}
                   </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="gap-1">
-                      <Wrench className="size-3" />
+                  <TableCell className="px-3.5 py-2.5 text-sm">
+                    <Badge
+                      variant="outline"
+                      className="gap-1 border-truss-border bg-truss-bg text-xs font-medium text-truss-text"
+                    >
+                      <Wrench className="size-3 text-truss-purple" />
                       {bakim.bakim_tipi}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-sm">
+                  <TableCell className="px-3.5 py-2.5 text-sm tabular-nums text-truss-text">
                     <span className="inline-flex items-center gap-1.5">
-                      <Calendar className="size-3.5 text-muted-foreground" />
+                      <Calendar className="size-3.5 text-truss-muted" />
                       {bakim.tarih ? new Date(bakim.tarih).toLocaleDateString('tr-TR') : '-'}
                     </span>
                   </TableCell>
-                  <TableCell className="text-sm">
+                  <TableCell className="px-3.5 py-2.5 text-sm tabular-nums text-truss-text">
                     <span className="inline-flex items-center gap-1.5">
-                      <Gauge className="size-3.5 text-muted-foreground" />
+                      <Gauge className="size-3.5 text-truss-muted" />
                       {Number(bakim.km || 0).toLocaleString('tr-TR')} KM
                     </span>
                   </TableCell>
-                  <TableCell className="text-sm font-semibold">
+                  <TableCell className="px-3.5 py-2.5 text-sm font-semibold tabular-nums text-truss-text">
                     <span className="inline-flex items-center gap-1.5">
-                      <Banknote className="size-3.5 text-emerald-500" />
+                      <Banknote className="size-3.5 text-truss-purple" />
                       {Number(bakim.maliyet || 0).toLocaleString('tr-TR', {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
@@ -311,15 +375,15 @@ export default function Bakimlar() {
                       ₺
                     </span>
                   </TableCell>
-                  <TableCell className="max-w-xs truncate text-xs text-muted-foreground">
+                  <TableCell className="max-w-xs truncate px-3.5 py-2.5 text-sm text-truss-muted">
                     {bakim.notlar || '-'}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="px-3.5 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="size-7"
+                        className="size-7 text-truss-muted hover:bg-truss-bg hover:text-truss-text"
                         onClick={() => openEditModal(bakim)}
                       >
                         <Pencil className="size-3.5" />
@@ -327,7 +391,7 @@ export default function Bakimlar() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="size-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        className="size-7 text-truss-muted hover:bg-truss-bg hover:text-truss-purple"
                         onClick={() => setDeleteBakimId(bakim.bakim_id)}
                       >
                         <Trash2 className="size-3.5" />
@@ -340,13 +404,32 @@ export default function Bakimlar() {
           </Table>
         </div>
       )}
-      <ConfirmAlertDialog
+
+      {/* Shadcn AlertDialog - Silme Onayı */}
+      <AlertDialog
         open={deleteBakimId !== null}
         onOpenChange={(open) => !open && setDeleteBakimId(null)}
-        title="Bakım kaydını sil?"
-        description="Bu bakım kaydı kalıcı olarak silinecek."
-        onConfirm={handleDelete}
-      />
+      >
+        <AlertDialogContent className="border-truss-border bg-truss-surface text-truss-text">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-truss-text">Bakım kaydını sil?</AlertDialogTitle>
+            <AlertDialogDescription className="text-truss-muted">
+              Bu bakım kaydı kalıcı olarak silinecek. Bu işlem geri alınamaz.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-truss-border bg-truss-bg text-truss-text hover:bg-truss-surface">
+              Vazgeç
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-truss-purple text-truss-text hover:bg-truss-purple-hover"
+            >
+              Sil
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Ekle / Düzenle Modalı */}
       {isModalOpen && (
@@ -408,13 +491,14 @@ export default function Bakimlar() {
                 <div>
                   <Label className="mb-1.5 block text-xs font-medium text-truss-muted">Kilometre (KM)</Label>
                   <Input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     name="km"
-                    min="0"
                     value={formData.km}
                     onChange={handleInputChange}
-                    placeholder="125000"
-                    className="h-10 rounded-xl border-truss-border bg-truss-bg px-3.5 text-truss-text placeholder:text-truss-muted focus:border-truss-purple focus:ring-2 focus:ring-truss-purple/25"
+                    onBlur={handleNumberBlur}
+                    placeholder="125.000"
+                    className="h-10 rounded-xl border-truss-border bg-truss-bg px-3.5 tabular-nums text-truss-text placeholder:text-truss-muted focus:border-truss-purple focus:ring-2 focus:ring-truss-purple/25"
                     required
                   />
                 </div>
@@ -423,14 +507,14 @@ export default function Bakimlar() {
               <div>
                 <Label className="mb-1.5 block text-xs font-medium text-truss-muted">Maliyet (₺)</Label>
                 <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  type="text"
+                  inputMode="decimal"
                   name="maliyet"
                   value={formData.maliyet}
                   onChange={handleInputChange}
-                  placeholder="4500.00"
-                  className="h-10 rounded-xl border-truss-border bg-truss-bg px-3.5 text-truss-text placeholder:text-truss-muted focus:border-truss-purple focus:ring-2 focus:ring-truss-purple/25"
+                  onBlur={handleNumberBlur}
+                  placeholder="4.500,00"
+                  className="h-10 rounded-xl border-truss-border bg-truss-bg px-3.5 tabular-nums text-truss-text placeholder:text-truss-muted focus:border-truss-purple focus:ring-2 focus:ring-truss-purple/25"
                   required
                 />
               </div>
@@ -458,7 +542,11 @@ export default function Bakimlar() {
                 >
                   İptal
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="bg-truss-purple font-semibold text-truss-text hover:bg-truss-purple-hover"
+                >
                   {isSubmitting
                     ? 'Kaydediliyor…'
                     : editingBakimId
