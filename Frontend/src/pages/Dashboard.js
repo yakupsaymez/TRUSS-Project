@@ -2,9 +2,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardStats, ChartAreaInteractive } from '@/components/dashboard';
 import aracService from '@/services/aracService';
-import bakimService from '@/services/bakimService';
-import yakitService from '@/services/yakitService';
 import raporService from '@/services/raporService';
+import useVehicleStore from '@/store/useVehicleStore';
+import ConfirmAlertDialog from '@/components/ConfirmAlertDialog';
 import { formatCurrency } from '@/utils/formatters';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import {
@@ -12,7 +12,8 @@ import {
     ChartLegend, ChartLegendContent, BarChart, Bar, XAxis, YAxis,
 } from '@/components/ui/chart';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { AlertTriangle, FileWarning } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { AlertTriangle, FileWarning, Car, Wrench, Fuel } from 'lucide-react';
 
 const aracChartConfig = {
     yakit: { label: 'Yakıt (TL)', color: 'var(--chart-1)' },
@@ -23,10 +24,12 @@ const MILLISECONDS_IN_DAY = 1000 * 60 * 60 * 24;
 
 const Dashboard = () => {
     const navigate = useNavigate();
+    const deleteVehicle = useVehicleStore((s) => s.deleteVehicle);
 
     const [filoOzeti, setFiloOzeti] = useState({ tehlike: 0, uyari: 0, sorunsuz: 0, evrakSorunu: 0, gelecekAyTahmin: 0 });
     const [chartData, setChartData] = useState([]);
     const [aylikData, setAylikData] = useState([]);
+    const [deleteId, setDeleteId] = useState(null);
 
     const fetchData = useCallback(async () => {
         const [data, giderler, aylik] = await Promise.all([
@@ -45,51 +48,42 @@ const Dashboard = () => {
             bakim: Math.round(Number(r.toplam_bakim) || 0),
         })));
 
-        const son30GunBaslangic = new Date(Date.now() - 30 * MILLISECONDS_IN_DAY);
         let tehlikeCount = 0;
         let uyariCount = 0;
         let sorunsuzCount = 0;
         let evrakSorunuCount = 0;
         let gelecekAyTahminToplami = 0;
 
-        await Promise.all(aracListesi.map(async (arac) => {
-            try {
-                const [bakimRes, yakitRes] = await Promise.all([
-                    bakimService.getBakimlarByArac(arac.arac_id),
-                    yakitService.getYakitlarByArac(arac.arac_id),
-                ]);
-                const bakimlar = Array.isArray(bakimRes) ? bakimRes : (bakimRes?.bakimlar || []);
-                const yakitlar = Array.isArray(yakitRes) ? yakitRes : (yakitRes?.yakitlar || []);
-
-                gelecekAyTahminToplami += yakitlar.reduce((sum, y) => {
-                    const t = new Date(y?.tarih);
-                    return t >= son30GunBaslangic ? sum + (Number(y?.tutar) || 0) : sum;
-                }, 0);
-
-                const tumKmler = [...bakimlar, ...yakitlar].map(i => Number(i.km)).filter(Number.isFinite);
-                const guncelKm = tumKmler.length > 0 ? Math.max(...tumKmler) : 0;
-                const sonBakim = bakimlar.length > 0
-                    ? bakimlar.reduce((max, cur) => Number(cur.km) > Number(max.km) ? cur : max, bakimlar[0])
+        aracListesi.forEach((arac) => {
+            gelecekAyTahminToplami += Number(arac.son_30_gun_yakit_tutari) || 0;
+            const isSmh = arac.sayac_tipi === 'SMH' || Number(arac.calisma_saati_bakim) > 0;
+            const sayac = Number(
+                arac.guncel_sayac ?? (isSmh ? arac.guncel_calisma_saati : arac.guncel_km) ?? 0
+            );
+            const periyot = Number(
+                (isSmh ? arac.calisma_saati_bakim : arac.onerilen_bakim_km) ||
+                arac.bakim_periyodu ||
+                (isSmh ? 250 : 15000)
+            );
+            const sonBakim =
+                arac.son_bakim_km !== null && arac.son_bakim_km !== undefined
+                    ? Number(arac.son_bakim_km)
                     : null;
+            const kalan =
+                sonBakim !== null && Number.isFinite(sonBakim) && Number.isFinite(periyot)
+                    ? sonBakim + periyot - sayac
+                    : Infinity;
+            if (kalan <= 0) tehlikeCount++;
+            else if (kalan <= Math.min(isSmh ? 25 : 1500, periyot * 0.1)) uyariCount++;
+            else sorunsuzCount++;
 
-                if (sonBakim) {
-                    const kalanKm = (Number(sonBakim.km) + 10000) - guncelKm;
-                    if (kalanKm <= 0) tehlikeCount++;
-                    else if (kalanKm <= 1500) uyariCount++;
-                    else sorunsuzCount++;
-                } else {
-                    sorunsuzCount++;
-                }
-
-                const bugun = new Date(); bugun.setHours(0, 0, 0, 0);
-                const evrakRiskiVar = [arac.muayene_tarihi, arac.kasko_tarihi, arac.sigorta_tarihi].some(tarih => {
-                    if (!tarih) return false;
-                    const hedef = new Date(tarih); hedef.setHours(0, 0, 0, 0);
-                    return Math.ceil((hedef - bugun) / MILLISECONDS_IN_DAY) <= 15;
-                });
-                if (evrakRiskiVar) evrakSorunuCount++;
-            } catch { /* per-vehicle errors silently ignored */ }
-        }));
+            const bugun = new Date(); bugun.setHours(0, 0, 0, 0);
+            if ([arac.muayene_tarihi, arac.kasko_tarihi, arac.sigorta_tarihi].some(tarih => {
+                if (!tarih) return false;
+                const hedef = new Date(tarih); hedef.setHours(0, 0, 0, 0);
+                return Math.ceil((hedef - bugun) / MILLISECONDS_IN_DAY) <= 15;
+            })) evrakSorunuCount++;
+        });
 
         setFiloOzeti({
             tehlike: tehlikeCount,
@@ -106,40 +100,68 @@ const Dashboard = () => {
         fetchData();
     }, [navigate, fetchData]);
 
+    const handleDeleteConfirm = async () => {
+        if (deleteId !== null) {
+            await deleteVehicle(deleteId);
+            await fetchData();
+        }
+        setDeleteId(null);
+    };
+
     const formatTahminTL = (v) => formatCurrency(v || 0);
-    const handleStatClick = (filtre) => navigate(`/vehicles?filtre=${filtre}`);
 
     return (
         <div className="space-y-4">
+            <div className="flex items-center justify-end gap-2">
+                <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => navigate('/yakitlar')}>
+                    <Fuel className="size-3.5" /> Yakıt Kaydı
+                </Button>
+                <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => navigate('/bakim')}>
+                    <Wrench className="size-3.5" /> Bakım Kaydı
+                </Button>
+                <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => navigate('/vehicles')}>
+                    <Car className="size-3.5" /> Araçlar
+                </Button>
+            </div>
+
             <DashboardStats
                 filoOzeti={filoOzeti}
-                setAktifFiltre={handleStatClick}
                 formatTahminTL={formatTahminTL}
             />
 
             {(filoOzeti.tehlike > 0 || filoOzeti.evrakSorunu > 0) && (
                 <div className="flex flex-col gap-2">
                     {filoOzeti.tehlike > 0 && (
-                        <Alert variant="destructive">
-                            <AlertTriangle className="size-4" />
-                            <div>
-                                <AlertTitle>Acil Bakım Gerekiyor</AlertTitle>
-                                <AlertDescription>
-                                    {filoOzeti.tehlike} araç bakım limitini aşmış durumda — hemen müdahale gerekiyor.
-                                </AlertDescription>
-                            </div>
-                        </Alert>
+                        <div
+                            onClick={() => navigate('/vehicles?filtre=tehlike')}
+                            className="cursor-pointer hover:scale-[1.02] hover:shadow-md transition-all rounded-lg"
+                        >
+                            <Alert variant="destructive">
+                                <AlertTriangle className="size-4" />
+                                <div>
+                                    <AlertTitle>Acil Bakım Gerekiyor</AlertTitle>
+                                    <AlertDescription>
+                                        {filoOzeti.tehlike} araç bakım limitini aşmış durumda — hemen müdahale gerekiyor.
+                                    </AlertDescription>
+                                </div>
+                            </Alert>
+                        </div>
                     )}
                     {filoOzeti.evrakSorunu > 0 && (
-                        <Alert variant="warning">
-                            <FileWarning className="size-4" />
-                            <div>
-                                <AlertTitle>Evrak Süresi Dolmak Üzere</AlertTitle>
-                                <AlertDescription>
-                                    {filoOzeti.evrakSorunu} aracın muayene / kasko / sigorta tarihi 15 gün içinde doluyor.
-                                </AlertDescription>
-                            </div>
-                        </Alert>
+                        <div
+                            onClick={() => navigate('/vehicles?filtre=evrak')}
+                            className="cursor-pointer hover:scale-[1.02] hover:shadow-md transition-all rounded-lg"
+                        >
+                            <Alert variant="warning">
+                                <FileWarning className="size-4" />
+                                <div>
+                                    <AlertTitle>Evrak Süresi Dolmak Üzere</AlertTitle>
+                                    <AlertDescription>
+                                        {filoOzeti.evrakSorunu} aracın muayene / kasko / sigorta tarihi 15 gün içinde doluyor.
+                                    </AlertDescription>
+                                </div>
+                            </Alert>
+                        </div>
                     )}
                 </div>
             )}
@@ -165,6 +187,14 @@ const Dashboard = () => {
                     </CardContent>
                 </Card>
             )}
+
+            <ConfirmAlertDialog
+                open={deleteId !== null}
+                onOpenChange={(open) => !open && setDeleteId(null)}
+                title="Aracı sil?"
+                description="Bu araç ve ilişkili kayıtları silinecek. Bu işlem geri alınamaz."
+                onConfirm={handleDeleteConfirm}
+            />
         </div>
     );
 };

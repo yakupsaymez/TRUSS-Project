@@ -69,11 +69,9 @@ export default function HomePage() {
       {/* ── Navbar ── */}
       <header className="sticky top-0 z-40 border-b border-border/50 bg-background/80 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link to="/" className="flex items-center gap-2 font-bold text-lg no-underline">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-[11px] font-bold text-primary-foreground">
-              T
-            </div>
-            <span className="text-gradient-accent">TRUSS</span>
+          <Link to="/" className="flex items-center no-underline font-display font-bold text-2xl tracking-tight select-none">
+            <span className="text-truss-text">TRU</span>
+            <span className="text-truss-purple">SS</span>
           </Link>
 
           <div className="flex items-center gap-2">

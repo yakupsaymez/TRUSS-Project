@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     ChartContainer,
@@ -28,6 +28,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { TrussDatePicker } from '@/components/ui/truss-date-picker';
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose,
 } from '@/components/ui/dialog';
@@ -100,6 +101,7 @@ const AracDetay = () => {
     const [isEditSubmitting, setIsEditSubmitting] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteRecord, setDeleteRecord] = useState(null);
 
     const [bakimFormData, setBakimFormData] = useState({
         bakim_tipi: 'Periyodik Bakım',
@@ -414,26 +416,27 @@ const AracDetay = () => {
     };
 
     const handleBakimSil = async (bakimId) => {
-        if (!window.confirm('Bu bakım kaydını silmek istediğinize emin misiniz?')) return;
-        try {
-            setError(null);
-            await bakimService.bakimSil(bakimId);
-            toast.success('Bakim kaydi silindi.');
-            await fetchAracVeKayitlar();
-        } catch (err) {
-            toast.error(err?.response?.data?.message || err?.message || 'Bakim kaydi silinirken bir hata olustu.');
-        }
+        setDeleteRecord({ type: 'bakim', id: bakimId });
     };
 
     const handleYakitSil = async (yakitId) => {
-        if (!window.confirm('Bu yakıt kaydını silmek istediğinize emin misiniz?')) return;
+        setDeleteRecord({ type: 'yakit', id: yakitId });
+    };
+
+    const confirmRecordDelete = async () => {
         try {
             setError(null);
-            await yakitService.yakitSil(yakitId);
-            toast.success('Yakit kaydi silindi.');
+            if (deleteRecord?.type === 'bakim') {
+                await bakimService.bakimSil(deleteRecord.id);
+                toast.success('Bakim kaydi silindi.');
+            } else {
+                await yakitService.yakitSil(deleteRecord.id);
+                toast.success('Yakit kaydi silindi.');
+            }
             await fetchAracVeKayitlar();
+            setDeleteRecord(null);
         } catch (err) {
-            toast.error(err?.response?.data?.message || err?.message || 'Yakit kaydi silinirken bir hata olustu.');
+            toast.error(err?.response?.data?.message || err?.message || 'Kayit silinirken bir hata olustu.');
         }
     };
 
@@ -537,12 +540,18 @@ const AracDetay = () => {
         }, bakimlar[0]);
     }, [bakimlar]);
 
+    const bakimPeriyodu = Number(
+        arac?.sayac_tipi === 'SMH' ? arac?.calisma_saati_bakim : arac?.onerilen_bakim_km
+    ) || (arac?.sayac_tipi === 'SMH' ? 250 : 15000);
+
     const guncelKm = useMemo(() => {
-        const kmDegerleri = [...bakimlar, ...yakitlar]
-            .map((kayit) => Number(kayit?.km))
-            .filter(Number.isFinite);
+        const kmDegerleri = [
+            arac?.sayac_tipi === 'SMH' ? Number(arac?.guncel_calisma_saati) : Number(arac?.guncel_km),
+            ...bakimlar.map((kayit) => Number(kayit?.km)),
+            ...yakitlar.map((kayit) => Number(kayit?.km))
+        ].filter(Number.isFinite);
         return kmDegerleri.length ? Math.max(...kmDegerleri) : 0;
-    }, [bakimlar, yakitlar]);
+    }, [arac?.guncel_calisma_saati, arac?.guncel_km, arac?.sayac_tipi, bakimlar, yakitlar]);
 
     const bakimUyari = useMemo(() => {
         const mesajlar = [];
@@ -552,15 +561,13 @@ const AracDetay = () => {
             mesajlar.push('Bu araca ait bakım kaydı bulunmuyor. Takibe başlamak için ilk bakımı ekleyin.');
             tip = 'bilgi';
         } else {
-            // Mevcut KM bazlı bakım kuralını aynen koruyoruz.
-            const periyodikBakimAraligi = 10000;
             const sonBakimKm = Number(sonBakim.km) || 0;
-            const kalanKm = (sonBakimKm + periyodikBakimAraligi) - guncelKm;
+            const kalanKm = (sonBakimKm + bakimPeriyodu) - guncelKm;
 
             if (kalanKm <= 0) {
                 mesajlar.push(`DİKKAT! Bakım zamanı ${Math.abs(kalanKm).toLocaleString('tr-TR')} KM geçmiş! Lütfen en kısa sürede bakım yaptırın.`);
                 tip = 'tehlike';
-            } else if (kalanKm <= 1500) {
+            } else if (kalanKm <= Math.min(1500, bakimPeriyodu * 0.1)) {
                 mesajlar.push(`Uyarı: Bakım zamanı yaklaştı! Sonraki bakıma ortalama ${kalanKm.toLocaleString('tr-TR')} KM kaldı.`);
                 tip = 'uyari';
             }
@@ -597,7 +604,7 @@ const AracDetay = () => {
 
         if (!mesajlar.length) return null;
         return { tip: tip || 'bilgi', mesaj: mesajlar.join(' | ') };
-    }, [arac, guncelKm, sonBakim]);
+    }, [arac, bakimPeriyodu, guncelKm, sonBakim]);
 
     const yakitOzeti = useMemo(() => {
         const toplamTutar = yakitlar.reduce((toplam, yakit) => toplam + (Number(yakit.tutar) || 0), 0);
@@ -819,7 +826,7 @@ const AracDetay = () => {
                 kalanGun: null,
                 gunlukOrtalamaKm: null,
                 progress: 0,
-                hedefKm: (Number(sonBakim.km) || 0) + 10000
+                hedefKm: (Number(sonBakim.km) || 0) + bakimPeriyodu
             };
         }
 
@@ -840,18 +847,18 @@ const AracDetay = () => {
                 kalanGun: null,
                 gunlukOrtalamaKm: null,
                 progress: 0,
-                hedefKm: (Number(sonBakim.km) || 0) + 10000
+                hedefKm: (Number(sonBakim.km) || 0) + bakimPeriyodu
             };
         }
 
-        const hedefKm = (Number(sonBakim.km) || 0) + 10000;
+        const hedefKm = (Number(sonBakim.km) || 0) + bakimPeriyodu;
         const kalanKm = hedefKm - guncelKm;
         const kalanGun = Math.ceil(kalanKm / gunlukOrtalamaKm);
         const tahminiTarih = new Date();
         tahminiTarih.setDate(tahminiTarih.getDate() + Math.max(0, kalanGun));
 
-        const progress = Math.max(0, Math.min(((guncelKm - (Number(sonBakim.km) || 0)) / 10000) * 100, 100));
-        const tip = kalanKm <= 0 ? 'tehlike' : (kalanKm <= 1500 || kalanGun <= 7 ? 'uyari' : 'bilgi');
+        const progress = Math.max(0, Math.min(((guncelKm - (Number(sonBakim.km) || 0)) / bakimPeriyodu) * 100, 100));
+        const tip = kalanKm <= 0 ? 'tehlike' : (kalanKm <= Math.min(1500, bakimPeriyodu * 0.1) || kalanGun <= 7 ? 'uyari' : 'bilgi');
 
         let mesaj = `Günlük ortalama ${gunlukOrtalamaKm.toFixed(1)} KM ile bakım için yaklaşık ${Math.max(0, kalanGun)} gün kaldı.`;
         if (kalanKm <= 0) {
@@ -870,7 +877,7 @@ const AracDetay = () => {
             progress,
             hedefKm
         };
-    }, [bakimlar, formatUzunTarih, guncelKm, yakitlar, sonBakim]);
+    }, [bakimPeriyodu, bakimlar, formatUzunTarih, guncelKm, yakitlar, sonBakim]);
 
     useEffect(() => {
         if (!bakimOngorusu || bakimOngorusu.kalanGun === null || bakimOngorusu.kalanGun > 7) return;
@@ -1034,7 +1041,7 @@ const AracDetay = () => {
 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(16);
-        doc.text('truss Arac Raporu', 14, 16);
+        doc.text('TRUSS Arac Raporu', 14, 16);
 
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
@@ -1329,7 +1336,7 @@ const AracDetay = () => {
                                                 </div>
                                                 <div>
                                                     <label className={labelCls}>Tarih</label>
-                                                    <input type="date" name="tarih" value={bakimFormData.tarih} onChange={handleBakimInputChange} className={inputCls} />
+                                                    <TrussDatePicker name="tarih" value={bakimFormData.tarih} onChange={handleBakimInputChange} placeholder="Bakım tarihi seçin" />
                                                 </div>
                                                 <div>
                                                     <label className={labelCls}>KM</label>
@@ -1425,7 +1432,7 @@ const AracDetay = () => {
                                             <form onSubmit={handleYakitEkle} onKeyDown={handleFormEnterKeyDown} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 <div>
                                                     <label className={labelCls}>Tarih</label>
-                                                    <input type="date" name="tarih" value={yakitFormData.tarih} onChange={handleYakitInputChange} className={inputCls} />
+                                                    <TrussDatePicker name="tarih" value={yakitFormData.tarih} onChange={handleYakitInputChange} placeholder="Yakıt tarihi seçin" />
                                                 </div>
                                                 <div>
                                                     <label className={labelCls}>Yakıt Tipi</label>
@@ -1667,15 +1674,15 @@ const AracDetay = () => {
                         </div>
                         <div>
                             <label className={labelCls}>Muayene Tarihi</label>
-                            <input type="date" value={editFormData.muayene_tarihi} onChange={e => setEditFormData(p => ({...p, muayene_tarihi: e.target.value}))} className={inputCls} />
+                            <TrussDatePicker name="muayene_tarihi" value={editFormData.muayene_tarihi} onChange={e => setEditFormData(p => ({...p, muayene_tarihi: e.target.value}))} placeholder="Muayene tarihi seçin" />
                         </div>
                         <div>
                             <label className={labelCls}>Kasko Tarihi</label>
-                            <input type="date" value={editFormData.kasko_tarihi} onChange={e => setEditFormData(p => ({...p, kasko_tarihi: e.target.value}))} className={inputCls} />
+                            <TrussDatePicker name="kasko_tarihi" value={editFormData.kasko_tarihi} onChange={e => setEditFormData(p => ({...p, kasko_tarihi: e.target.value}))} placeholder="Kasko tarihi seçin" />
                         </div>
                         <div className="col-span-2">
                             <label className={labelCls}>Sigorta Tarihi</label>
-                            <input type="date" value={editFormData.sigorta_tarihi} onChange={e => setEditFormData(p => ({...p, sigorta_tarihi: e.target.value}))} className={inputCls} />
+                            <TrussDatePicker name="sigorta_tarihi" value={editFormData.sigorta_tarihi} onChange={e => setEditFormData(p => ({...p, sigorta_tarihi: e.target.value}))} placeholder="Sigorta tarihi seçin" />
                         </div>
                         <DialogFooter className="col-span-2 mt-2">
                             <DialogClose asChild><Button variant="outline" type="button">İptal</Button></DialogClose>
@@ -1699,6 +1706,18 @@ const AracDetay = () => {
                         <AlertDialogAction variant="destructive" onClick={handleDelete} disabled={isDeleting}>
                             {isDeleting ? 'Siliniyor…' : 'Evet, Sil'}
                         </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            <AlertDialog open={deleteRecord !== null} onOpenChange={(open) => !open && setDeleteRecord(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{deleteRecord?.type === 'bakim' ? 'Bakım kaydını sil?' : 'Yakıt kaydını sil?'}</AlertDialogTitle>
+                        <AlertDialogDescription>Bu kayıt kalıcı olarak silinecek.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+                        <AlertDialogAction variant="destructive" onClick={confirmRecordDelete}>Sil</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
@@ -1732,7 +1751,7 @@ const AracDetay = () => {
                                 </div>
                                 <div>
                                     <label className={labelCls}>Son Değişim Tarihi</label>
-                                    <input type="date" name="son_degisim_tarihi" value={yeniParcaFormu.son_degisim_tarihi} onChange={handleYeniParcaInputChange} className={inputCls} />
+                                    <TrussDatePicker name="son_degisim_tarihi" value={yeniParcaFormu.son_degisim_tarihi} onChange={handleYeniParcaInputChange} placeholder="Son değişim tarihi seçin" />
                                 </div>
                                 <div className="flex justify-end gap-2 pt-2">
                                     <Button type="button" variant="outline" onClick={closeYeniParcaModal}>Vazgeç</Button>

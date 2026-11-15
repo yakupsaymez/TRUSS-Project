@@ -22,11 +22,12 @@ import {
 } from '@/components/ui/alert-dialog'
 
 const defaultPrefs = {
-  dil: 'tr',
+  dil: 'TR',
   para_birimi: 'TRY',
-  olcu_birimi: 'km',
+  olcu_birimi: 'KM',
 }
 const defaultNotifs = {
+  telefon: '',
   email_bildirim_aktif: true,
   sms_bildirim_aktif: false,
   bakim_uyarisi: true,
@@ -51,10 +52,22 @@ export default function Settings() {
         api.get('/users/settings/notifications'),
       ])
       if (pRes.status === 'fulfilled') {
-        setPrefs(prev => ({ ...prev, ...pRes.value.data }))
+        const prefData = pRes.value.data?.preferences || pRes.value.data || {}
+        setPrefs(prev => ({
+          ...prev,
+          dil: String(prefData.dil || prev.dil).toUpperCase(),
+          para_birimi: String(prefData.para_birimi || prev.para_birimi).toUpperCase(),
+          olcu_birimi: String(prefData.olcu_birimi || prev.olcu_birimi).toUpperCase(),
+        }))
       }
       if (nRes.status === 'fulfilled') {
-        setNotifs(prev => ({ ...prev, ...nRes.value.data }))
+        const userData = nRes.value.data?.user || nRes.value.data || {}
+        setNotifs(prev => ({
+          ...prev,
+          telefon: userData.telefon ?? prev.telefon,
+          email_bildirim_aktif: userData.email_bildirim_aktif !== undefined ? Boolean(userData.email_bildirim_aktif) : prev.email_bildirim_aktif,
+          sms_bildirim_aktif: userData.sms_bildirim_aktif !== undefined ? Boolean(userData.sms_bildirim_aktif) : prev.sms_bildirim_aktif,
+        }))
       }
     } catch {
       // silently ignore — defaults remain
@@ -68,7 +81,11 @@ export default function Settings() {
   const handleSavePrefs = async () => {
     try {
       setSavingPrefs(true)
-      await api.put('/users/settings/preferences', prefs)
+      await api.put('/users/settings/preferences', {
+        dil: String(prefs.dil || 'TR').toUpperCase(),
+        para_birimi: String(prefs.para_birimi || 'TRY').toUpperCase(),
+        olcu_birimi: String(prefs.olcu_birimi || 'KM').toUpperCase(),
+      })
       toast.success('Tercihler kaydedildi.')
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Tercihler kaydedilemedi.')
@@ -80,7 +97,11 @@ export default function Settings() {
   const handleSaveNotifs = async () => {
     try {
       setSavingNotifs(true)
-      await api.put('/users/settings/notifications', notifs)
+      await api.put('/users/settings/notifications', {
+        telefon: notifs.telefon || null,
+        email_bildirim_aktif: Boolean(notifs.email_bildirim_aktif),
+        sms_bildirim_aktif: Boolean(notifs.sms_bildirim_aktif),
+      })
       toast.success('Bildirim ayarları kaydedildi.')
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Bildirim ayarları kaydedilemedi.')
@@ -91,8 +112,9 @@ export default function Settings() {
 
   const handleDeleteAccount = async () => {
     try {
-      await api.delete('/users/me')
+      await api.delete('/users/settings/account')
       localStorage.removeItem('token')
+      localStorage.removeItem('user')
       navigate('/')
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Hesap silinemedi.')
@@ -101,7 +123,7 @@ export default function Settings() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
+      <div className="flex items-center justify-center h-48 text-truss-muted text-sm">
         Ayarlar yükleniyor…
       </div>
     )
@@ -109,16 +131,11 @@ export default function Settings() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Ayarlar</h1>
-        <p className="text-sm text-muted-foreground mt-1">Hesap ve uygulama tercihlerinizi yönetin.</p>
-      </div>
-
       {/* Genel Tercihler */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <Globe className="size-4 text-muted-foreground" />
+            <Globe className="size-4 text-truss-muted" />
             <CardTitle className="text-base">Genel Tercihler</CardTitle>
           </div>
           <CardDescription>Dil, para birimi ve ölçü birimi ayarları.</CardDescription>
@@ -132,8 +149,9 @@ export default function Settings() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="tr">Türkçe</SelectItem>
-                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="TR">Türkçe (TR)</SelectItem>
+                  <SelectItem value="EN">English (EN)</SelectItem>
+                  <SelectItem value="RU">Русский (RU)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -157,8 +175,8 @@ export default function Settings() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="km">Kilometre (km)</SelectItem>
-                  <SelectItem value="mi">Mil (mi)</SelectItem>
+                  <SelectItem value="KM">Kilometre (KM)</SelectItem>
+                  <SelectItem value="MI">Mil (MI)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

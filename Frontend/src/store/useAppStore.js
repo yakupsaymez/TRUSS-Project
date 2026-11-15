@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
+import useAuthStore from '@/store/useAuthStore';
+import useVehicleStore from '@/store/useVehicleStore';
 
 const defaultSettingsForm = {
   ad_soyad: '',
@@ -19,6 +21,7 @@ let settingsCloseTimer = null;
 const useAppStore = create((set, get) => ({
   isSettingsOpen: false,
   isSettingsVisible: false,
+  isDiscardConfirmOpen: false,
   isSaving: false,
   settingsForm: defaultSettingsForm,
   activeSettingsTab: 'hesap',
@@ -48,7 +51,12 @@ const useAppStore = create((set, get) => ({
   },
 
   openSettings: async (isAuthenticated) => {
-    if (!isAuthenticated) {
+    return get().openSettingsModal(isAuthenticated);
+  },
+
+  openSettingsModal: async (isAuthenticated) => {
+    const authStatus = isAuthenticated ?? Boolean(localStorage.getItem('token'));
+    if (!authStatus) {
       toast.error('Ayarlar icin once giris yapmalisiniz.');
       return;
     }
@@ -87,13 +95,14 @@ const useAppStore = create((set, get) => ({
       activeSettingsTab: 'hesap',
       deleteConfirmText: '',
       isDirty: false,
+      isDiscardConfirmOpen: false,
       isSettingsOpen: true,
       isSettingsVisible: true
     });
   },
 
   closeSettings: () => {
-    set({ isSettingsVisible: false });
+    set({ isSettingsVisible: false, isDiscardConfirmOpen: false });
 
     if (settingsCloseTimer) {
       clearTimeout(settingsCloseTimer);
@@ -119,9 +128,18 @@ const useAppStore = create((set, get) => ({
 
   handleAttemptCloseSettings: () => {
     if (get().isDirty) {
-      const onay = window.confirm('Kaydedilmemis degisiklikleriniz var, cikmak istediginize emin misiniz?');
-      if (!onay) return;
+      set({ isDiscardConfirmOpen: true });
+      return;
     }
+    get().closeSettings();
+  },
+
+  setDiscardConfirmOpen: (open) => {
+    set({ isDiscardConfirmOpen: Boolean(open) });
+  },
+
+  confirmDiscardSettings: () => {
+    set({ isDiscardConfirmOpen: false, isDirty: false });
     get().closeSettings();
   },
 
@@ -197,7 +215,8 @@ const useAppStore = create((set, get) => ({
       set({ isSaving: true });
       await api.delete('/users/settings/account');
       toast.success('Hesabiniz silindi.');
-      localStorage.removeItem('token');
+      useAuthStore.getState().logout();
+      useVehicleStore.getState().reset();
       navigate('/login');
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Hesap silinemedi.');
@@ -207,6 +226,8 @@ const useAppStore = create((set, get) => ({
   },
 
   handleLogout: (navigate) => {
+    useAuthStore.getState().logout();
+    useVehicleStore.getState().reset();
     localStorage.clear();
     navigate('/login');
   }

@@ -101,6 +101,7 @@ const getParcaAdaylari = async () => {
       u.email_bildirim_aktif,
       u.sms_bildirim_aktif,
       GREATEST(
+        COALESCE(CASE WHEN a.sayac_tipi = 'SMH' THEN a.guncel_calisma_saati ELSE a.guncel_km END, 0),
         COALESCE((SELECT MAX(y.km) FROM yakitlar y WHERE y.arac_id = a.arac_id), 0),
         COALESCE((SELECT MAX(b.km) FROM bakimlar b WHERE b.arac_id = a.arac_id), 0)
       ) AS guncel_km
@@ -125,8 +126,8 @@ const notifyEvraklar = async () => {
 
     if (!alerts.length) continue;
 
-    const subject = `truss Hatirlatma - ${item.plaka} evrak durumu`;
-    const text = `Merhaba ${item.ad_soyad || ''},\n\n${item.plaka} plakali araciniz icin:\n- ${alerts.join('\n- ')}\n\ntruss ekibi`;
+    const subject = `TRUSS Hatirlatma - ${item.plaka} evrak durumu`;
+    const text = `Merhaba ${item.ad_soyad || ''},\n\n${item.plaka} plakali araciniz icin:\n- ${alerts.join('\n- ')}\n\nTRUSS ekibi`;
 
     await dispatchNotifications(item, subject, text, `${item.plaka} icin: ${alerts.join(' | ')}`);
   }
@@ -177,59 +178,71 @@ const notifyParcalar = async () => {
 
     if (!alerts.length) continue;
 
-    const subject = `truss Parca Omur Uyarisi - ${item.plaka}`;
-    const text = `Merhaba ${item.ad_soyad || ''},\n\n${item.plaka} plakali aracinizda:\n- ${alerts.join('\n- ')}\n\ntruss ekibi`;
+    const subject = `TRUSS Parca Omur Uyarisi - ${item.plaka}`;
+    const text = `Merhaba ${item.ad_soyad || ''},\n\n${item.plaka} plakali aracinizda:\n- ${alerts.join('\n- ')}\n\nTRUSS ekibi`;
 
     await dispatchNotifications(item, subject, text, `${item.plaka}: ${alerts.join(' | ')}`);
   }
 };
 
-const getPredictiveCandidates = async () => {
+const getPredictiveCandidatesWithSummary = async () => {
   const query = `
     SELECT
       a.arac_id,
       a.plaka,
+      COALESCE(NULLIF(a.onerilen_bakim_km, 0), 15000) AS bakim_periyodu,
       u.user_id,
       u.ad_soyad,
       u.email,
       u.telefon,
       u.email_bildirim_aktif,
-      u.sms_bildirim_aktif
+      u.sms_bildirim_aktif,
+      GREATEST(
+        COALESCE(CASE WHEN a.sayac_tipi = 'SMH' THEN a.guncel_calisma_saati ELSE a.guncel_km END, 0),
+        COALESCE(bm.max_km, 0),
+        COALESCE(ym.max_km, 0)
+      ) AS guncel_km,
+      lb.son_bakim_km,
+      lb.son_bakim_tarihi,
+      rh.kayitlar AS recent_rows
     FROM araclar a
     INNER JOIN users u ON u.user_id = a.kullanici_id
+    LEFT JOIN LATERAL (
+      SELECT MAX(km) AS max_km FROM bakimlar WHERE arac_id = a.arac_id
+    ) bm ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT MAX(km) AS max_km FROM yakitlar WHERE arac_id = a.arac_id
+    ) ym ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT km AS son_bakim_km, tarih AS son_bakim_tarihi
+      FROM bakimlar
+      WHERE arac_id = a.arac_id
+      ORDER BY tarih DESC, bakim_id DESC
+      LIMIT 1
+    ) lb ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT COALESCE(json_agg(t), '[]'::json) AS kayitlar
+      FROM (
+        SELECT km, tarih FROM (
+          SELECT bakim_id AS kayit_id, km, tarih FROM bakimlar WHERE arac_id = a.arac_id AND km IS NOT NULL AND tarih IS NOT NULL
+          UNION ALL
+          SELECT yakit_id AS kayit_id, km, tarih FROM yakitlar WHERE arac_id = a.arac_id AND km IS NOT NULL AND tarih IS NOT NULL
+        ) tum_kayitlar
+        ORDER BY tarih DESC, kayit_id DESC
+        LIMIT 2
+      ) t
+    ) rh ON TRUE
   `;
 
   const result = await pool.query(query);
   return result.rows;
 };
 
-const getPredictiveSummary = async (aracId) => {
-  const [currentKmResult, lastBakimResult, recentHistoryResult] = await Promise.all([
-    pool.query(
-      `SELECT GREATEST(
-         COALESCE((SELECT MAX(km) FROM bakimlar WHERE arac_id = $1), 0),
-         COALESCE((SELECT MAX(km) FROM yakitlar WHERE arac_id = $1), 0)
-       ) AS guncel_km`,
-      [aracId]
-    ),
-    pool.query('SELECT km, tarih FROM bakimlar WHERE arac_id = $1 ORDER BY tarih DESC, bakim_id DESC LIMIT 1', [aracId]),
-    pool.query(
-      `SELECT kaynak, km, tarih FROM (
-         SELECT 'bakim' AS kaynak, bakim_id AS kayit_id, km, tarih FROM bakimlar WHERE arac_id = $1 AND km IS NOT NULL AND tarih IS NOT NULL
-         UNION ALL
-         SELECT 'yakit' AS kaynak, yakit_id AS kayit_id, km, tarih FROM yakitlar WHERE arac_id = $1 AND km IS NOT NULL AND tarih IS NOT NULL
-       ) tum_kayitlar
-       ORDER BY tarih DESC, kayit_id DESC
-       LIMIT 2`,
-      [aracId]
-    )
-  ]);
+const computePredictiveSummaryFromRow = (row) => {
+  const currentKm = Number(row.guncel_km) || 0;
+  const recentRows = Array.isArray(row.recent_rows) ? row.recent_rows : [];
 
-  const currentKm = Number(currentKmResult.rows[0]?.guncel_km) || 0;
-  const lastBakim = lastBakimResult.rows[0] || null;
-  const recentRows = recentHistoryResult.rows || [];
-
-  if (!lastBakim || recentRows.length < 2) {
+  if (row.son_bakim_km === null || row.son_bakim_km === undefined || recentRows.length < 2) {
     return null;
   }
 
@@ -242,7 +255,8 @@ const getPredictiveSummary = async (aracId) => {
     return null;
   }
 
-  const hedefKm = (Number(lastBakim.km) || 0) + 10000;
+  const periyot = Number(row.bakim_periyodu) || 15000;
+  const hedefKm = (Number(row.son_bakim_km) || 0) + periyot;
   const kalanKm = hedefKm - currentKm;
   const kalanGun = Math.ceil(kalanKm / gunlukOrtalamaKm);
 
@@ -257,18 +271,18 @@ const getPredictiveSummary = async (aracId) => {
 };
 
 const notifyPredictiveMaintenance = async () => {
-  const araclar = await getPredictiveCandidates();
+  const araclar = await getPredictiveCandidatesWithSummary();
 
   for (const item of araclar) {
     try {
-      const prediction = await getPredictiveSummary(item.arac_id);
+      const prediction = computePredictiveSummaryFromRow(item);
       if (!prediction || prediction.kalanGun > PREDICTIVE_NOTIFY_DAY_THRESHOLD) continue;
 
       const tahminiTarih = prediction.tahminiTarih.toLocaleDateString('tr-TR');
-      const subject = `truss Tahmini Bakim Hatirlatmasi - ${item.plaka}`;
+      const subject = `TRUSS Tahmini Bakim Hatirlatmasi - ${item.plaka}`;
       const text = prediction.kalanKm <= 0
-        ? `Merhaba ${item.ad_soyad || ''},\n\n${item.plaka} plakali araciniz icin tahmini bakim kilometresi ${Math.abs(prediction.kalanKm).toLocaleString('tr-TR')} KM asildi. Tahmini bakim tarihi: ${tahminiTarih}.\n\ntruss ekibi`
-        : `Merhaba ${item.ad_soyad || ''},\n\n${item.plaka} plakali araciniz icin tahmini bakim tarihi ${tahminiTarih} olarak hesaplandi. Kalan mesafe: ${Math.max(0, prediction.kalanKm).toLocaleString('tr-TR')} KM.\nGununluk ortalama kullanim: ${prediction.gunlukOrtalamaKm.toFixed(1)} KM.\n\ntruss ekibi`;
+        ? `Merhaba ${item.ad_soyad || ''},\n\n${item.plaka} plakali araciniz icin tahmini bakim kilometresi ${Math.abs(prediction.kalanKm).toLocaleString('tr-TR')} KM asildi. Tahmini bakim tarihi: ${tahminiTarih}.\n\nTRUSS ekibi`
+        : `Merhaba ${item.ad_soyad || ''},\n\n${item.plaka} plakali araciniz icin tahmini bakim tarihi ${tahminiTarih} olarak hesaplandi. Kalan mesafe: ${Math.max(0, prediction.kalanKm).toLocaleString('tr-TR')} KM.\nGununluk ortalama kullanim: ${prediction.gunlukOrtalamaKm.toFixed(1)} KM.\n\nTRUSS ekibi`;
 
       const smsText = prediction.kalanKm <= 0
         ? `${item.plaka}: Bakim kilometresi asildi. Tahmini tarih ${tahminiTarih}.`

@@ -2,6 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { TrussDatePicker } from '@/components/ui/truss-date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const QuickFuelModal = ({
@@ -20,20 +21,23 @@ const QuickFuelModal = ({
 }) => {
   if (!isQuickFuelModalOpen) return null;
 
+  const inputClassName =
+    'h-10 rounded-xl border-truss-border bg-truss-bg px-3.5 text-truss-text placeholder:text-truss-muted focus:border-truss-purple focus:ring-2 focus:ring-truss-purple/25';
+
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm ${isQuickFuelModalVisible ? 'modal-backdrop-enter' : 'modal-backdrop-exit'}`}>
-      <div className={`glass-card w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl p-6 sm:p-7 text-slate-900 shadow-2xl ${isQuickFuelModalVisible ? 'modal-panel-enter' : 'modal-panel-exit'}`}>
-        <h3 className="mb-5 text-xl font-bold text-slate-900">Hızlı Yakıt Kaydı</h3>
+    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-truss-bg/80 px-4 backdrop-blur-sm ${isQuickFuelModalVisible ? 'modal-backdrop-enter' : 'modal-backdrop-exit'}`}>
+      <div className={`w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-truss-border bg-truss-surface p-6 sm:p-7 text-truss-text shadow-2xl backdrop-blur-xl ${isQuickFuelModalVisible ? 'modal-panel-enter' : 'modal-panel-exit'}`}>
+        <h3 className="mb-5 text-xl font-bold text-truss-text">Hızlı Yakıt Kaydı</h3>
 
         {quickFuelError && (
-          <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <div className="mb-4 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {quickFuelError}
           </div>
         )}
 
         <form onSubmit={handleQuickFuelSubmit} onKeyDown={handleFormEnterKeyDown} className="space-y-4">
           <div>
-            <Label className="mb-1.5 block">Araç Seç</Label>
+            <Label className="mb-1.5 block text-xs font-medium text-truss-muted">Araç Seç</Label>
             <Select
               value={quickFuelData.arac_id}
               onValueChange={(value) => handleQuickFuelInputChange({ target: { name: 'arac_id', value } })}
@@ -41,7 +45,7 @@ const QuickFuelModal = ({
               <SelectTrigger
                 ref={quickFuelAracSelectRef}
                 autoFocus
-                className="neon-focus border-slate-200 bg-white text-slate-900 placeholder:text-slate-400"
+                className={inputClassName}
               >
                 <SelectValue placeholder="Araç seçiniz" />
               </SelectTrigger>
@@ -56,72 +60,71 @@ const QuickFuelModal = ({
           </div>
 
           <div>
-            <Label className="mb-1.5 block">Tarih</Label>
-            <Input
-              type="date"
+            <Label className="mb-1.5 block text-xs font-medium text-truss-muted">Tarih</Label>
+            <TrussDatePicker
               name="tarih"
               value={quickFuelData.tarih}
               onChange={handleQuickFuelInputChange}
-              className="neon-focus border-slate-200 bg-white text-slate-900 placeholder:text-slate-400"
+              placeholder="Yakıt tarihi seçin"
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
             <div>
-            <Label className="mb-1.5 block">Litre</Label>
-            <Input
-              type="text"
-              inputMode="decimal"
-              name="litre"
-              value={quickFuelData.litre}
-              onChange={handleQuickFuelInputChange}
-              className="neon-focus border-slate-200 bg-white text-slate-900 placeholder:text-slate-400"
-              placeholder="45.5"
-            />
+              <Label className="mb-1.5 block text-xs font-medium text-truss-muted">Litre</Label>
+              <Input
+                type="text"
+                inputMode="decimal"
+                name="litre"
+                value={quickFuelData.litre}
+                onChange={handleQuickFuelInputChange}
+                className={inputClassName}
+                placeholder="45.5"
+              />
             </div>
 
             <div>
-            <Label className="mb-1.5 block">Tutar</Label>
-            <Input
-              type="text"
-              inputMode="decimal"
-              name="tutar"
-              value={quickFuelData.tutar}
-              onChange={handleQuickFuelInputChange}
-              onBlur={handleQuickFuelNumberBlur}
-              className="neon-focus border-slate-200 bg-white text-slate-900 placeholder:text-slate-400"
-              placeholder="2500"
-            />
+              <Label className="mb-1.5 block text-xs font-medium text-truss-muted">Tutar</Label>
+              <Input
+                type="text"
+                inputMode="decimal"
+                name="tutar"
+                value={quickFuelData.tutar}
+                onChange={handleQuickFuelInputChange}
+                onBlur={handleQuickFuelNumberBlur}
+                className={inputClassName}
+                placeholder="2500"
+              />
             </div>
 
             <div>
-            <Label className="mb-1.5 block">KM</Label>
-            <Input
-              type="text"
-              inputMode="numeric"
-              name="km"
-              value={quickFuelData.km}
-              onChange={handleQuickFuelInputChange}
-              onBlur={handleQuickFuelNumberBlur}
-              className="neon-focus border-slate-200 bg-white text-slate-900 placeholder:text-slate-400"
-              placeholder="125000"
-            />
+              <Label className="mb-1.5 block text-xs font-medium text-truss-muted">KM</Label>
+              <Input
+                type="text"
+                inputMode="numeric"
+                name="km"
+                value={quickFuelData.km}
+                onChange={handleQuickFuelInputChange}
+                onBlur={handleQuickFuelNumberBlur}
+                className={inputClassName}
+                placeholder="125000"
+              />
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex justify-end gap-2.5 pt-3 border-t border-truss-border">
             <Button
               type="button"
               variant="outline"
               onClick={closeQuickFuelModal}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-slate-900 hover:bg-slate-100"
+              className="rounded-xl border border-truss-border bg-truss-bg px-4 py-2 text-truss-muted hover:border-truss-purple/50 hover:bg-truss-purple/15 hover:text-truss-text"
             >
               İptal
             </Button>
             <Button
               type="submit"
               disabled={isQuickFuelSubmitting}
-              className="neo-btn bg-indigo-500 font-semibold text-white shadow-md hover:bg-indigo-400"
+              className="neo-btn rounded-xl bg-truss-purple px-5 py-2 font-semibold text-truss-text shadow-md shadow-truss-purple/20 hover:bg-truss-purple-hover"
             >
               {isQuickFuelSubmitting ? 'Kaydediliyor...' : 'Yakıt Kaydet'}
             </Button>
@@ -133,4 +136,5 @@ const QuickFuelModal = ({
 };
 
 export default QuickFuelModal;
+
 

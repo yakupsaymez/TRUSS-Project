@@ -1,0 +1,276 @@
+const pool = require('../db');
+const { buildVehicleAccessFilter } = require('../middlewares/rbacMiddleware');
+
+// KULLANICININ ERİŞEBİLDİĞİ TÜM BAKIMLARI LİSTELE (RBAC Filtreli)
+const getAllBakimlar = async (req, res) => {
+  try {
+    const { clause, params } = buildVehicleAccessFilter(req.user);
+    const query = `
+      SELECT b.*, a.plaka, a.marka, a.model, a.sayac_tipi
+      FROM bakimlar b
+      INNER JOIN araclar a ON a.arac_id = b.arac_id
+      WHERE ${clause}
+      ORDER BY b.tarih DESC, b.bakim_id DESC
+    `;
+    const result = await pool.query(query, params);
+    return res.status(200).json({ message: 'Bakımlar listelendi', bakimlar: result.rows });
+  } catch (err) {
+    console.error('Bakım listeleme hatası:', err);
+    return res.status(500).json({ message: 'Sunucu hatası' });
+  }
+};
+
+// BELİRLİ ARACIN TÜM BAKIMLARINI LİSTELE (RBAC Filtreli)
+const getBakimlarByArac = async (req, res) => {
+  const { arac_id } = req.params;
+
+  try {
+    const { clause, params } = buildVehicleAccessFilter(req.user, 2);
+    const sahiplik = await pool.query(
+      `SELECT a.arac_id FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
+      [arac_id, ...params]
+    );
+
+    if (sahiplik.rowCount === 0) {
+      return res.status(403).json({ message: 'Bu araca erişim yetkiniz yoktur.' });
+    }
+
+    const query = `
+      SELECT b.*, a.plaka, a.marka, a.model, a.sayac_tipi
+      FROM bakimlar b
+      INNER JOIN araclar a ON a.arac_id = b.arac_id
+      WHERE b.arac_id = $1 AND (${clause})
+      ORDER BY b.tarih DESC, b.bakim_id DESC
+    `;
+    const result = await pool.query(query, [arac_id, ...params]);
+
+    return res.status(200).json({ message: 'Bakimlar listelendi', bakimlar: result.rows });
+  } catch (err) {
+    console.error('Araç bakımları listeleme hatası:', err);
+    return res.status(500).json({ message: 'Sunucu hatasi' });
+  }
+};
+
+// YENİ BAKIM KAYDI EKLE (RBAC + Pozitif Değer + Odometer Rollback 422 Validasyonu)
+const createBakim = async (req, res) => {
+  const { arac_id, bakim_tipi, tarih, km, maliyet, notlar, aciklama } = req.body;
+
+  if (!arac_id || !bakim_tipi || !tarih || km === undefined || km === '' || maliyet === undefined || maliyet === '') {
+    return res.status(400).json({ message: 'Gerekli alanlar eksik.' });
+  }
+
+  const bugun = new Date().toISOString().slice(0, 10);
+  if (String(tarih).slice(0, 10) > bugun) {
+    return res.status(400).json({ message: 'İleri tarihli kayıt girilemez.' });
+  }
+
+  const sayisalKm = Number(km);
+  const sayisalMaliyet = Number(maliyet);
+
+  if (!Number.isFinite(sayisalKm) || sayisalKm < 0 || !Number.isFinite(sayisalMaliyet) || sayisalMaliyet <= 0) {
+    return res.status(400).json({ message: 'Girilen tutar/maliyet 0\'dan büyük ve KM/Saat değeri geçerli olmalıdır.' });
+  }
+
+  try {
+    const { clause, params } = buildVehicleAccessFilter(req.user, 2);
+    const aracOwnershipCheck = await pool.query(
+      `SELECT a.arac_id, a.sayac_tipi, a.guncel_km, a.guncel_calisma_saati
+       FROM araclar a
+       WHERE a.arac_id = $1 AND (${clause})`,
+      [arac_id, ...params]
+    );
+
+    if (aracOwnershipCheck.rowCount === 0) {
+      return res.status(403).json({ message: 'Bu aracı duzenlemek icin yetkiniz yoktur.' });
+    }
+
+    const aracRow = aracOwnershipCheck.rows[0];
+
+    // KM / SMH Düşürme (Odometer Rollback) Kontrolü
+    const kmCheck = await pool.query(
+      `SELECT GREATEST(
+         COALESCE((SELECT MAX(km) FROM yakitlar WHERE arac_id = $1 AND tarih <= $2), 0),
+         COALESCE((SELECT MAX(km) FROM bakimlar WHERE arac_id = $1 AND tarih <= $2), 0),
+         COALESCE($3::int, 0)
+       ) AS max_gecmis_km`,
+      [
+        Number(arac_id),
+        tarih,
+        aracRow.sayac_tipi === 'SMH' ? aracRow.guncel_calisma_saati : aracRow.guncel_km,
+      ]
+    );
+
+    const maxGecmisKm = Number(kmCheck.rows[0]?.max_gecmis_km || 0);
+    if (sayisalKm < maxGecmisKm) {
+      const birimEtiketi = aracRow.sayac_tipi === 'SMH' ? 'Saat' : 'km';
+      return res.status(422).json({
+        message: `Girilen sayaç değeri (${sayisalKm.toLocaleString('tr-TR')} ${birimEtiketi}), aracın mevcut/önceki kayıtlı değerinden (${maxGecmisKm.toLocaleString('tr-TR')} ${birimEtiketi}) düşük olamaz.`,
+      });
+    }
+
+    const query = `
+      INSERT INTO bakimlar (arac_id, bakim_tipi, tarih, km, maliyet, notlar)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `;
+
+    const result = await pool.query(query, [
+      Number(arac_id),
+      bakim_tipi,
+      tarih,
+      sayisalKm,
+      sayisalMaliyet,
+      notlar || aciklama || null,
+    ]);
+
+    // Periyodik Bakım / Yağ / Filtre bakımında ilgili parça sayaçlarını otomatik sıfırla
+    const aramaMetni = `${bakim_tipi || ''} ${notlar || ''} ${aciklama || ''}`.toLocaleLowerCase('tr-TR');
+    const isPeriyodikBakim =
+      bakim_tipi === 'Periyodik Bakım' ||
+      aramaMetni.includes('periyodik') ||
+      aramaMetni.includes('yağ') ||
+      aramaMetni.includes('yag') ||
+      aramaMetni.includes('filtre');
+
+    if (isPeriyodikBakim) {
+      await pool.query(
+        `UPDATE parca_takip
+         SET son_degisim_km = $1,
+             son_degisim_tarihi = $2
+         WHERE arac_id = $3
+           AND parca_adi IN (
+             'Motor Yağı',
+             'Yağ Filtresi',
+             'Hava Filtresi',
+             'Polen Filtresi',
+             'Polen / Kabin Filtresi'
+           )`,
+        [sayisalKm, tarih, Number(arac_id)]
+      );
+    }
+
+    if (aracRow.sayac_tipi === 'SMH') {
+      await pool.query(
+        'UPDATE araclar SET guncel_calisma_saati = GREATEST(COALESCE(guncel_calisma_saati, 0), $1) WHERE arac_id = $2',
+        [sayisalKm, Number(arac_id)]
+      );
+    } else {
+      await pool.query(
+        'UPDATE araclar SET guncel_km = GREATEST(COALESCE(guncel_km, 0), $1) WHERE arac_id = $2',
+        [sayisalKm, Number(arac_id)]
+      );
+    }
+
+    return res.status(201).json({ message: 'Bakim kaydi eklendi', bakim: result.rows[0] });
+  } catch (err) {
+    console.error('Bakım ekleme hatası:', err);
+    return res.status(500).json({ message: 'Sunucu hatasi' });
+  }
+};
+
+// BELİRLİ BAKIM KAYDINI GÜNCELLE
+const updateBakim = async (req, res) => {
+  const { bakim_id } = req.params;
+  const { arac_id, bakim_tipi, tarih, km, maliyet, notlar } = req.body;
+
+  if (!bakim_tipi || !tarih || km === undefined || km === '' || maliyet === undefined || maliyet === '') {
+    return res.status(400).json({ message: 'Gerekli alanlar eksik.' });
+  }
+
+  const bugun = new Date().toISOString().slice(0, 10);
+  if (String(tarih).slice(0, 10) > bugun) {
+    return res.status(400).json({ message: 'İleri tarihli kayıt girilemez.' });
+  }
+
+  const sayisalKm = Number(km);
+  const sayisalMaliyet = Number(maliyet);
+
+  if (!Number.isFinite(sayisalKm) || sayisalKm < 0 || !Number.isFinite(sayisalMaliyet) || sayisalMaliyet <= 0) {
+    return res.status(400).json({ message: 'Girilen tutar/maliyet 0\'dan büyük ve KM/Saat değeri geçerli olmalıdır.' });
+  }
+
+  try {
+    const { clause, params } = buildVehicleAccessFilter(req.user, 2);
+    const bakimOwnershipCheck = await pool.query(
+      `SELECT b.bakim_id, b.arac_id
+       FROM bakimlar b
+       INNER JOIN araclar a ON b.arac_id = a.arac_id
+       WHERE b.bakim_id = $1 AND (${clause})`,
+      [bakim_id, ...params]
+    );
+
+    if (bakimOwnershipCheck.rowCount === 0) {
+      return res.status(404).json({ message: 'Bakim kaydi bulunamadi veya yetkiniz yok.' });
+    }
+
+    const hedefAracId = arac_id || bakimOwnershipCheck.rows[0].arac_id;
+
+    if (arac_id) {
+      const yeniAracCheck = await pool.query(
+        `SELECT a.arac_id FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
+        [arac_id, ...params]
+      );
+      if (yeniAracCheck.rowCount === 0) {
+        return res.status(403).json({ message: 'Hedef araca erişim yetkiniz yoktur.' });
+      }
+    }
+
+    const query = `
+      UPDATE bakimlar
+      SET arac_id = $1, bakim_tipi = $2, tarih = $3, km = $4, maliyet = $5, notlar = $6
+      WHERE bakim_id = $7
+      RETURNING *
+    `;
+
+    const result = await pool.query(query, [
+      hedefAracId,
+      bakim_tipi,
+      tarih,
+      sayisalKm,
+      sayisalMaliyet,
+      notlar || null,
+      bakim_id,
+    ]);
+
+    return res.status(200).json({ message: 'Bakim kaydi guncellendi', bakim: result.rows[0] });
+  } catch (err) {
+    console.error('Bakım güncelleme hatası:', err);
+    return res.status(500).json({ message: 'Sunucu hatasi' });
+  }
+};
+
+// BELİRLİ BAKIM KAYDINI SİL
+const deleteBakim = async (req, res) => {
+  const { bakim_id } = req.params;
+
+  try {
+    const { clause, params } = buildVehicleAccessFilter(req.user, 2);
+    const result = await pool.query(
+      `DELETE FROM bakimlar b
+       USING araclar a
+       WHERE b.arac_id = a.arac_id
+         AND b.bakim_id = $1
+         AND (${clause})
+       RETURNING b.bakim_id`,
+      [bakim_id, ...params]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Bakim kaydi bulunamadi' });
+    }
+
+    return res.status(200).json({ message: 'Bakim kaydi silindi' });
+  } catch (err) {
+    console.error('Bakım silme hatası:', err);
+    return res.status(500).json({ message: 'Sunucu hatasi' });
+  }
+};
+
+module.exports = {
+  getAllBakimlar,
+  getBakimlarByArac,
+  createBakim,
+  updateBakim,
+  deleteBakim,
+};
+

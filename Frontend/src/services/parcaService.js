@@ -1,24 +1,35 @@
 import api from '@/services/api';
 
 const parcaService = {
-    // Aracin tum parca takip kayitlarini getirir.
-    getParcalarByArac: async (aracId) => {
-        const response = await api.get(`/parca-takip/arac/${aracId}`);
+    // Kullanicinin tum parca takip kayitlarini getirir.
+    getAllParcalar: async () => {
+        const response = await api.get('/parcalar');
         return response.data;
     },
 
-    // Parcanin son degisim km/tarih bilgilerini gunceller.
-    parcaGuncelle: async (parcaId, veriler) => {
-        const response = await api.put(`/parca-takip/${parcaId}`, veriler);
+    // Aracin tum parca takip kayitlarini getirir.
+    getParcalarByArac: async (aracId) => {
+        const response = await api.get(`/parcalar/arac/${aracId}`);
         return response.data;
     },
 
     // Yeni bir parcayi takibe alir.
     parcaEkle: async (veriler) => {
-        const response = await api.post('/parca-takip', veriler);
+        const response = await api.post('/parcalar', veriler);
+        return response.data;
+    },
+
+    // Parca takip kaydini gunceller.
+    parcaGuncelle: async (parcaId, veriler) => {
+        const response = await api.put(`/parcalar/${parcaId}`, veriler);
+        return response.data;
+    },
+
+    // Parca takip kaydini siler.
+    parcaSil: async (parcaId) => {
+        const response = await api.delete(`/parcalar/${parcaId}`);
         return response.data;
     }
 };
 
 export default parcaService;
-

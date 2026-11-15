@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard, Truck, Fuel, Wrench, BarChart3, Settings,
-  Moon, Sun, Monitor, LogOut, Menu, ChevronDown, List, Car
+  LayoutDashboard, Fuel, Wrench, BarChart3, Settings,
+  Moon, Sun, Monitor, LogOut, Menu, Car, Cog, Users
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible'
 import { useTheme } from '@/components/theme-provider'
 import useAppStore from '@/store/useAppStore'
+import useAuthStore from '@/store/useAuthStore'
 import { useShallow } from 'zustand/react/shallow'
 
 const linkBase = 'relative flex items-center gap-3.5 rounded-lg border-l-2 px-3 py-2.5 text-sm font-medium transition-all duration-150'
@@ -40,91 +40,58 @@ function NavLink({ icon: Icon, label, href, exact = false, disabled = false, bad
   )
 }
 
-function AraclarGroup() {
-  const location = useLocation()
-  const isVehiclePage = location.pathname.startsWith('/arac/') || location.pathname.startsWith('/vehicle/')
-  const isVehiclesList = location.pathname === '/vehicles'
-  const isGroupActive = isVehiclesList || isVehiclePage
-
-  const [open, setOpen] = useState(isGroupActive)
-
-  useEffect(() => {
-    if (isGroupActive) setOpen(true)
-  }, [isGroupActive])
-
-  return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger
-        className={cn(
-          linkBase, 'w-full text-left',
-          isGroupActive ? activeClass : inactiveClass
-        )}
-      >
-        <Truck className="size-4 shrink-0" />
-        <span className="flex-1">Araçlar</span>
-        <ChevronDown className={cn('size-3.5 shrink-0 transition-transform duration-200', open && 'rotate-180')} />
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div className="ml-5 mt-0.5 mb-0.5 flex flex-col gap-0.5 border-l border-border/50 pl-3">
-          <Link
-            to="/vehicles"
-            className={cn(
-              'flex items-center gap-2.5 rounded-md border-l-2 px-2 py-1.5 text-xs font-medium transition-all duration-150',
-              location.pathname === '/vehicles'
-                ? 'border-primary bg-accent/50 text-foreground'
-                : 'border-transparent text-muted-foreground hover:bg-accent/40 hover:text-foreground'
-            )}
-          >
-            <List className="size-3.5 shrink-0" />
-            <span>Araç Listesi</span>
-          </Link>
-          {isVehiclePage && (
-            <span
-              className="flex items-center gap-2.5 rounded-md border-l-2 border-primary bg-accent/50 px-2 py-1.5 text-xs font-medium text-foreground"
-            >
-              <Car className="size-3.5 shrink-0" />
-              <span>Araç Detayı</span>
-            </span>
-          )}
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
-  )
-}
-
 const bottomBtnBase = 'w-full justify-start gap-3 text-muted-foreground hover:bg-accent/40 hover:text-foreground'
 
-function SidebarContent() {
+function SidebarContent({ onNavigate }) {
   const navigate = useNavigate()
-  const location = useLocation()
   const { theme, setTheme } = useTheme()
-  const { handleLogout } = useAppStore(
-    useShallow(s => ({ handleLogout: s.handleLogout }))
+  const { handleLogout, openSettingsModal, isSettingsOpen } = useAppStore(
+    useShallow(s => ({
+      handleLogout: s.handleLogout,
+      openSettingsModal: s.openSettingsModal,
+      isSettingsOpen: s.isSettingsOpen,
+    }))
   )
-  const isAuthenticated = Boolean(localStorage.getItem('token'))
+  const { user, isAuthenticated } = useAuthStore(
+    useShallow(s => ({
+      user: s.user,
+      isAuthenticated: s.isAuthenticated,
+    }))
+  )
+  const userRole = user?.role || 'FLEET_MANAGER'
+  const canAccessManagement = ['FLEET_MANAGER', 'SYSTEM_ADMIN'].includes(userRole)
+
   const ThemeIcon = theme === 'dark' ? Moon : theme === 'light' ? Sun : Monitor
-  const isSettings = location.pathname === '/settings'
+
+  const handleOpenSettings = () => {
+    onNavigate?.()
+    openSettingsModal(isAuthenticated)
+  }
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       {/* Logo */}
       <div className="flex h-14 items-center border-b border-sidebar-border px-4 shrink-0">
-        <Link to="/" className="flex items-center gap-2.5 no-underline">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-[11px] font-bold text-primary-foreground shrink-0">
-            T
-          </div>
-          <span className="text-sm font-bold tracking-widest text-gradient-accent">TRUSS</span>
+        <Link to="/" className="flex items-center no-underline font-display font-bold text-2xl tracking-tight select-none">
+          <span className="text-truss-text">TRU</span>
+          <span className="text-truss-purple">SS</span>
         </Link>
       </div>
 
       {/* Nav */}
       <ScrollArea className="flex-1 py-3">
         <nav className="flex flex-col gap-0.5 px-2">
-          <NavLink icon={LayoutDashboard} label="Dashboard" href="/dashboard" exact />
-          <AraclarGroup />
-          <NavLink icon={Fuel}      label="Yakıt"    href="/yakit"    disabled badge="Yakında" />
-          <NavLink icon={Wrench}    label="Bakım"    href="/bakim"    disabled badge="Yakında" />
-          <NavLink icon={BarChart3} label="Raporlar" href="/raporlar" disabled badge="Yakında" />
+          <NavLink icon={LayoutDashboard} label="Dashboard"    href="/dashboard" exact />
+          <NavLink icon={Car}             label="Araçlar"      href="/vehicles" />
+          <NavLink icon={Fuel}      label="Yakıt"        href="/yakitlar" />
+          <NavLink icon={Wrench}    label="Bakım"        href="/bakim" />
+          <NavLink icon={Cog}       label="Parça Takibi" href="/parcalar" />
+          {canAccessManagement && (
+            <>
+              <NavLink icon={BarChart3} label="Raporlar"      href="/raporlar" />
+              <NavLink icon={Users}     label="Ekip Yönetimi" href="/ekip" />
+            </>
+          )}
         </nav>
       </ScrollArea>
 
@@ -153,10 +120,12 @@ function SidebarContent() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => navigate('/settings')}
+          onClick={handleOpenSettings}
+          aria-haspopup="dialog"
+          aria-expanded={isSettingsOpen}
           className={cn(
             bottomBtnBase,
-            isSettings && 'text-foreground bg-accent/50'
+            isSettingsOpen && 'text-foreground bg-accent/50'
           )}
         >
           <Settings className="size-4 shrink-0" />
@@ -180,8 +149,9 @@ function SidebarContent() {
 }
 
 export function MobileSidebar() {
+  const [open, setOpen] = React.useState(false)
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" className="md:hidden">
           <Menu className="h-5 w-5" />
@@ -192,7 +162,7 @@ export function MobileSidebar() {
         <SheetHeader className="sr-only">
           <SheetTitle>Navigasyon</SheetTitle>
         </SheetHeader>
-        <SidebarContent />
+        <SidebarContent onNavigate={() => setOpen(false)} />
       </SheetContent>
     </Sheet>
   )

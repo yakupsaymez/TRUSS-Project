@@ -1,0 +1,54 @@
+# 1. Dependency Directories
+node_modules/
+.pnp
+.pnp.js
+
+# 2. Build & Production Outputs
+dist/
+build/
+out/
+.next/
+.nuxt/
+*.tsbuildinfo
+
+# 3. Lockfiles & Package Managers (Huge token wasters)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+
+# 4. Logs & Databases
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.sql.gz
+*.sqlite
+*.db
+
+# 5. Environment & Security (CRITICAL)
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+*.pem
+*.key
+*.cert
+
+# 6. Assets & Media (AI cannot read these anyway)
+public/assets/
+*.svg
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.mp4
+*.webm
+*.pdf
+
+# 7. OS & Editor Files
+.DS_Store
+*.map

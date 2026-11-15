@@ -1,6 +1,6 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, Clock, CheckCircle2, FileWarning, TrendingUp } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 const STATS = [
   {
@@ -9,8 +9,7 @@ const STATS = [
     icon: AlertTriangle,
     iconClass: 'text-destructive',
     valueClass: 'text-destructive',
-    filtre: 'tehlike',
-    clickable: true,
+    href: '/vehicles?filtre=tehlike',
   },
   {
     key: 'uyari',
@@ -18,8 +17,7 @@ const STATS = [
     icon: Clock,
     iconClass: 'text-orange-400',
     valueClass: 'text-foreground',
-    filtre: null,
-    clickable: false,
+    href: '/parcalar',
   },
   {
     key: 'sorunsuz',
@@ -27,8 +25,7 @@ const STATS = [
     icon: CheckCircle2,
     iconClass: 'text-emerald-500',
     valueClass: 'text-foreground',
-    filtre: null,
-    clickable: false,
+    href: '/vehicles',
   },
   {
     key: 'evrakSorunu',
@@ -36,8 +33,7 @@ const STATS = [
     icon: FileWarning,
     iconClass: 'text-orange-500',
     valueClass: 'text-foreground',
-    filtre: 'evrak',
-    clickable: true,
+    href: '/vehicles?filtre=evrak',
   },
   {
     key: 'gelecekAyTahmin',
@@ -45,46 +41,32 @@ const STATS = [
     icon: TrendingUp,
     iconClass: 'text-primary',
     valueClass: 'text-foreground',
-    filtre: null,
-    clickable: false,
+    href: '/raporlar',
     isCurrency: true,
   },
 ]
 
-const DashboardStats = ({ filoOzeti, setAktifFiltre, formatTahminTL }) => {
+const DashboardStats = ({ filoOzeti, formatTahminTL }) => {
+  const navigate = useNavigate()
+
   return (
-    <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-      {STATS.map(({ key, label, icon: Icon, iconClass, valueClass, filtre, clickable, isCurrency }) => {
+    <section className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+      {STATS.map(({ key, label, icon: Icon, iconClass, valueClass, href, isCurrency }) => {
         const raw = filoOzeti[key] ?? 0
         const display = isCurrency ? formatTahminTL(raw) : raw
 
-        const inner = (
-          <>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs font-medium text-muted-foreground">{label}</CardTitle>
-              <Icon className={`size-4 shrink-0 ${iconClass}`} />
-            </CardHeader>
-            <CardContent>
-              <p className={`text-2xl font-bold tracking-tight ${valueClass}`}>{display}</p>
-            </CardContent>
-          </>
-        )
-
-        return clickable ? (
-          <button
+        return (
+          <div
             key={key}
-            type="button"
-            onClick={() => setAktifFiltre(filtre)}
-            className="text-left"
+            onClick={() => navigate(href)}
+            className="cursor-pointer hover:scale-[1.02] hover:shadow-md transition-all rounded-xl"
           >
-            <Card className="h-full transition-shadow hover:shadow-md hover:border-border cursor-pointer">
-              {inner}
-            </Card>
-          </button>
-        ) : (
-          <Card key={key}>
-            {inner}
-          </Card>
+            <div className="flex items-center justify-between rounded-lg border border-border bg-card p-3.5 transition-colors hover:border-primary/40">
+                <span className="text-xs font-medium text-muted-foreground">{label}</span>
+                <Icon className={`size-4 shrink-0 ${iconClass}`} />
+                <p className={`ml-2 text-lg font-bold tabular-nums tracking-tight ${valueClass}`}>{display}</p>
+            </div>
+          </div>
         )
       })}
     </section>

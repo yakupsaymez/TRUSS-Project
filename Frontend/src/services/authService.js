@@ -8,20 +8,11 @@ const authService = {
         return response.data;
     },
 
-    // Giriş Yapma
+    // Giriş Yapma (token kalıcılığı useAuthStore tarafından yönetilir)
     login: async (credentials) => {
         const response = await api.post('/users/login', credentials);
-        // Eğer giriş başarılıysa token'ı saklıyoruz
-        if (response.data.token) {
-            localStorage.setItem('token', response.data.token);
-        }
         return response.data;
     },
-
-    // Çıkış Yapma
-    logout: () => {
-        localStorage.removeItem('token');
-    }
 };
 
 export default authService;

@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Github, Mail, Loader2, ArrowLeft } from "lucide-react"
-import authService from "@/services/authService"
+import useAuthStore from "@/store/useAuthStore"
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const login = useAuthStore((state) => state.login)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
@@ -22,7 +23,7 @@ export default function LoginPage() {
     }
     setLoading(true)
     try {
-      await authService.login({ email, sifre: password })
+      await login({ email, sifre: password })
       toast.success("Giriş başarılı! Yönlendiriliyorsunuz...")
       navigate("/dashboard")
     } catch (err) {
@@ -34,26 +35,24 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center bg-background p-4">
+    <div className="relative min-h-screen flex flex-col items-center justify-center bg-background p-4 font-sans text-foreground">
       <Link
         to="/"
-        className="absolute top-6 left-6 flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+        className="absolute top-6 left-6 flex items-center text-sm font-sans font-medium text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
         TRUSS Ana Sayfa
       </Link>
 
-      <div className="mb-8 flex items-center gap-2 font-semibold text-lg">
-        <div className="w-6 h-6 rounded bg-primary flex items-center justify-center text-[10px] text-primary-foreground">
-          T
-        </div>
-        TRUSS Inc.
+      <div className="mb-8 flex items-center font-display font-bold text-2xl tracking-tight select-none">
+        <span className="text-truss-text">TRU</span>
+        <span className="text-truss-purple">SS</span>
       </div>
 
-      <Card className="w-full max-w-sm">
+      <Card className="w-full max-w-sm font-sans">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-semibold tracking-tight">Welcome back</CardTitle>
-          <CardDescription>Login with your Apple or Google account</CardDescription>
+          <CardTitle className="font-display text-2xl font-bold tracking-tight">Welcome back</CardTitle>
+          <CardDescription className="font-sans">Login with your Apple or Google account</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">

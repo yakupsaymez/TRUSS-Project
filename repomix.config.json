@@ -1,0 +1,22 @@
+{
+  "output": {
+    "filePath": "truss-repo-audit.txt",
+    "style": "markdown",
+    "removeComments": false,
+    "removeEmptyLines": true
+  },
+  "ignore": {
+    "useGitignore": true,
+    "customPatterns": [
+      ".aiignore", 
+      ".cursorignore", 
+      "node_modules/**", 
+      "dist/**", 
+      "public/**", 
+      "*.svg", 
+      "*.map",
+      "*.lock",
+      "truss-repo-audit.txt"
+    ]
+  }
+}

@@ -7,7 +7,7 @@ const sendSMS = async (phoneNumber, message) => {
   }
 
   const safeMessage = message || 'Bildirim içeriği yok.';
-  console.log(`${green}[truss SMS GATEWAY] -> Alıcı: ${phoneNumber} | Mesaj: ${safeMessage} | Durum: Başarılı${reset}`);
+  console.log(`${green}[TRUSS SMS GATEWAY] -> Alıcı: ${phoneNumber} | Mesaj: ${safeMessage} | Durum: Başarılı${reset}`);
 
   return {
     success: true,

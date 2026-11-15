@@ -1,10 +1,11 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'http://localhost:5000/api', // Backend'in ana kapısı
+    baseURL: 'http://localhost:5001/api', // Backend'in ana kapısı
 });
 
-// 1. İSTEK (REQUEST) MÜFETTİŞİ: Giden her kuryenin cebine Token koyar.
+// 1. İSTEK (REQUEST) MÜFETTİŞİ: Giden her isteğe Bearer token ekler.
+// Not: useAuthStore token'ı localStorage ile senkron tutar; store'u import etmek döngüsel bağımlılık yaratacağı için buradan okunur.
 api.interceptors.request.use((config) => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -13,6 +14,8 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
+const AUTH_ENDPOINTS = ['/users/login', '/users/register'];
+
 // 2. CEVAP (RESPONSE) MÜFETTİŞİ: Gelen cevapları denetler.
 api.interceptors.response.use(
     (response) => {
@@ -20,12 +23,16 @@ api.interceptors.response.use(
         return response;
     },
     (error) => {
-        // Eğer hata 401 (Yetkisiz) veya 403 (Yasaklı) ise:
-        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+        const status = error.response?.status;
+        const isAuthEndpoint = AUTH_ENDPOINTS.some((path) => error.config?.url?.includes(path));
+
+        // Login/Register'daki 401 "hatalı şifre" demektir; yönlendirme yapılmaz, hata forma iletilir.
+        if (!isAuthEndpoint && (status === 401 || status === 403)) {
             console.warn("🚨 Şantiye Güvenliği: Kimlik süresi doldu, dışarı atılıyorsunuz.");
 
-            // Çürümüş token'ı temizle
+            // Çürümüş oturumu temizle
             localStorage.removeItem('token');
+            localStorage.removeItem('user');
 
             // React dışı bir dosyada olduğumuz için useNavigate kullanamayız, bu yüzden doğrudan window objesiyle yönlendiriyoruz.
             window.location.href = '/login';

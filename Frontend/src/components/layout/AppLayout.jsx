@@ -1,50 +1,35 @@
 import React, { useEffect, useMemo } from 'react'
-import { useLocation, Link } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import { useShallow } from 'zustand/react/shallow'
 import Sidebar, { MobileSidebar } from './Sidebar'
 import SettingsModal from '@/components/SettingsModal'
 import useAppStore from '@/store/useAppStore'
+import useAuthStore from '@/store/useAuthStore'
 
-const breadcrumbMap = {
+const routeTitleMap = {
   '/dashboard': 'Dashboard',
-  '/arac':      'Araç Detay',
-}
-
-function Breadcrumb() {
-  const location = useLocation()
-
-  const crumbs = useMemo(() => {
-    const list = [{ label: 'TRUSS', href: '/' }]
-    if (location.pathname.startsWith('/arac/') || location.pathname.startsWith('/vehicle/')) {
-      list.push({ label: 'Dashboard', href: '/dashboard' })
-      list.push({ label: 'Araç Detay', href: null })
-    } else if (location.pathname.startsWith('/settings')) {
-      list.push({ label: 'Ayarlar', href: null })
-    } else if (location.pathname.startsWith('/vehicles')) {
-      list.push({ label: 'Araç Listesi', href: null })
-    } else if (location.pathname.startsWith('/dashboard')) {
-      list.push({ label: 'Dashboard', href: null })
-    }
-    return list
-  }, [location.pathname])
-
-  return (
-    <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-muted-foreground">
-      {crumbs.map((crumb, i) => (
-        <React.Fragment key={crumb.label}>
-          {i > 0 && <span className="select-none text-border">•</span>}
-          {crumb.href
-            ? <Link to={crumb.href} className="hover:text-foreground transition-colors">{crumb.label}</Link>
-            : <span className="font-medium text-foreground">{crumb.label}</span>
-          }
-        </React.Fragment>
-      ))}
-    </nav>
-  )
+  '/vehicles': 'Araçlar',
+  '/yakit': 'Yakıt',
+  '/yakitlar': 'Yakıt',
+  '/bakim': 'Bakım',
+  '/bakimlar': 'Bakım',
+  '/parcalar': 'Parça Takibi',
+  '/parts': 'Parça Takibi',
+  '/raporlar': 'Raporlar',
+  '/reports': 'Raporlar',
+  '/ekip': 'Ekip Yönetimi',
+  '/settings': 'Ayarlar',
 }
 
 export default function AppLayout({ children }) {
   const location = useLocation()
+
+  const title = useMemo(() => {
+    if (location.pathname.startsWith('/arac/') || location.pathname.startsWith('/vehicle/')) {
+      return 'Araç Detay'
+    }
+    return routeTitleMap[location.pathname] || 'Dashboard'
+  }, [location.pathname])
 
   const { syncPreferenceSummary, cleanupSettingsTimer } = useAppStore(
     useShallow(s => ({
@@ -53,7 +38,7 @@ export default function AppLayout({ children }) {
     }))
   )
 
-  const isAuthenticated = Boolean(localStorage.getItem('token'))
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 
   useEffect(() => {
     syncPreferenceSummary(isAuthenticated)
@@ -73,8 +58,8 @@ export default function AppLayout({ children }) {
           {/* Mobile hamburger */}
           <MobileSidebar />
 
-          {/* Breadcrumb */}
-          <Breadcrumb />
+          {/* Dynamic Title */}
+          <h1 className="font-display text-lg font-bold tracking-tight text-foreground sm:text-xl">{title}</h1>
         </header>
 
         {/* Page content */}

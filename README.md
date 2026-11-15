@@ -55,7 +55,7 @@ Uygulama varsayılan olarak `http://localhost:5173` adresinde çalışır.
 ## Proje Yapısı
 
 ```
-ABTS/
+TRUSS/
 ├── Backend/
 │   ├── routes/          # API rotaları
 │   ├── services/        # E-posta, SMS, bildirim servisleri

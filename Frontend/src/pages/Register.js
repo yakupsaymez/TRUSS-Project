@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Github, Mail, Facebook, Image as ImageIcon, Loader2, ArrowLeft } from "lucide-react"
 import authService from "@/services/authService"
+import useAuthStore from "@/store/useAuthStore"
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -38,7 +39,7 @@ export default function RegisterPage() {
     try {
       await authService.register({ ad_soyad: fullName.trim(), email, sifre: password })
       toast.success("Hesap oluşturuldu! Giriş yapılıyor...")
-      await authService.login({ email, sifre: password })
+      await useAuthStore.getState().login({ email, sifre: password })
       navigate("/dashboard")
     } catch (err) {
       const message = err?.response?.data?.message || "Kayıt başarısız. Lütfen tekrar deneyin."
@@ -49,20 +50,24 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="relative min-h-screen flex items-center justify-center bg-background p-4 font-sans text-foreground">
       <Link
         to="/"
-        className="absolute top-6 left-6 flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+        className="absolute top-6 left-6 flex items-center text-sm font-sans font-medium text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
         TRUSS Ana Sayfa
       </Link>
 
-      <Card className="w-full max-w-4xl overflow-hidden flex flex-col md:flex-row p-0 gap-0 border-border/50 shadow-sm">
+      <Card className="w-full max-w-4xl overflow-hidden flex flex-col md:flex-row p-0 gap-0 border-border/50 shadow-sm font-sans">
         <div className="flex-1 p-6 md:p-10">
           <CardHeader className="p-0 mb-6">
-            <CardTitle className="text-2xl font-semibold tracking-tight">Create your account</CardTitle>
-            <CardDescription>Enter your details below to create your account</CardDescription>
+            <div className="mb-2 flex items-center font-display font-bold text-2xl tracking-tight select-none">
+              <span className="text-truss-text">TRU</span>
+              <span className="text-truss-purple">SS</span>
+            </div>
+            <CardTitle className="font-display text-2xl font-bold tracking-tight">Create your account</CardTitle>
+            <CardDescription className="font-sans">Enter your details below to create your account</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <form onSubmit={handleSubmit}>
