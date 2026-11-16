@@ -16,4 +16,10 @@ router.post('/users', adminController.createDriver);
 // POST /api/admin/assign
 router.post('/assign', adminController.assignVehicleToDriver);
 
+// PUT /api/admin/users/:id/role
+router.put('/users/:id/role', adminController.updateUserRole);
+
+// PUT /api/admin/users/:id/permissions
+router.put('/users/:id/permissions', adminController.updateUserPermissions);
+
 module.exports = router;

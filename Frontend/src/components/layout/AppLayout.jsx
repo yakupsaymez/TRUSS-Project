@@ -21,7 +21,7 @@ const routeTitleMap = {
   '/settings': 'Ayarlar',
 }
 
-export default function AppLayout({ children }) {
+export default function AppLayout({ children, onEnterChrono }) {
   const location = useLocation()
 
   const title = useMemo(() => {
@@ -54,12 +54,24 @@ export default function AppLayout({ children }) {
       {/* Main area — offset by sidebar width on md+ */}
       <div className="flex flex-1 flex-col md:ml-60">
         {/* Top header bar */}
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border/50 bg-background/80 backdrop-blur-sm px-4 sm:px-6">
-          {/* Mobile hamburger */}
-          <MobileSidebar />
+        <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-3 border-b border-border/50 bg-background/80 backdrop-blur-sm px-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            {/* Mobile hamburger */}
+            <MobileSidebar />
 
-          {/* Dynamic Title */}
-          <h1 className="font-display text-lg font-bold tracking-tight text-foreground sm:text-xl">{title}</h1>
+            {/* Dynamic Title */}
+            <h1 className="font-display text-lg font-bold tracking-tight text-foreground sm:text-xl">{title}</h1>
+          </div>
+
+          {onEnterChrono && (
+            <button
+              type="button"
+              onClick={onEnterChrono}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-truss-purple/50 bg-truss-surface px-3 text-xs font-semibold text-truss-text transition-colors hover:bg-truss-purple hover:text-truss-text"
+            >
+              🌌 Chrono-Ledger OS&apos;e Geç
+            </button>
+          )}
         </header>
 
         {/* Page content */}

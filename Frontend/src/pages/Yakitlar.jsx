@@ -42,6 +42,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import YakitlarBeta from '@/pages/YakitlarBeta';
 
 const YAKIT_TIPLERI = ['Dizel', 'Benzin', 'LPG', 'Elektrik', 'Diğer'];
 
@@ -56,6 +57,7 @@ const bosForm = {
 };
 
 export default function Yakitlar() {
+  const [showBeta, setShowBeta] = useState(false);
   const navigate = useNavigate();
 
   const [araclar, setAraclar] = useState([]);
@@ -238,6 +240,10 @@ export default function Yakitlar() {
     }
   };
 
+  if (showBeta) {
+    return <YakitlarBeta onRevert={() => setShowBeta(false)} />;
+  }
+
   return (
     <div className="space-y-3 bg-truss-bg text-truss-text">
       {/* Compact Toolbar (Sol: Başlık + Araç Filtresi, Sağ: Arama + Yeni Ekle) */}
@@ -265,6 +271,14 @@ export default function Yakitlar() {
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 rounded-lg border-truss-border bg-truss-bg px-3 text-xs text-truss-muted hover:border-truss-purple hover:text-truss-text"
+            onClick={() => setShowBeta(true)}
+          >
+            ⚡ Command OS Beta Dene
+          </Button>
           <div className="relative w-full sm:w-60">
             <Search className="pointer-events-none absolute left-2.5 top-2 size-3.5 text-truss-muted" />
             <Input

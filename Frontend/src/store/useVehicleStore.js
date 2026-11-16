@@ -49,6 +49,10 @@ const useVehicleStore = create((set, get) => ({
   error: null,
   riskliAracIdler: bosRisk,
 
+  // Chrono-OS Zaman Merceği (global araç filtresi)
+  seciliAracId: 'tum',
+  setSeciliAracId: (aracId) => set({ seciliAracId: aracId ?? 'tum' }),
+
   // Ekle/Düzenle modalı
   isModalOpen: false,
   isModalVisible: false,
@@ -84,7 +88,18 @@ const useVehicleStore = create((set, get) => ({
         }
       });
 
-      set({ araclar: liste, vehicles: liste, riskliAracIdler: { tehlike, evrak }, hasLoaded: true });
+      set((state) => {
+        const secimGecerli =
+          state.seciliAracId === 'tum' ||
+          liste.some((a) => String(a.arac_id) === String(state.seciliAracId));
+        return {
+          araclar: liste,
+          vehicles: liste,
+          riskliAracIdler: { tehlike, evrak },
+          hasLoaded: true,
+          seciliAracId: secimGecerli ? state.seciliAracId : 'tum',
+        };
+      });
     } catch (err) {
       const message = err?.response?.data?.message || 'Araçlar yüklenemedi.';
       set({ error: message });
@@ -186,6 +201,7 @@ const useVehicleStore = create((set, get) => ({
           tehlike: state.riskliAracIdler.tehlike.filter((rid) => rid !== id),
           evrak: state.riskliAracIdler.evrak.filter((rid) => rid !== id),
         },
+        seciliAracId: String(state.seciliAracId) === String(id) ? 'tum' : state.seciliAracId,
       }));
       toast.success('Araç silindi.');
       return true;
@@ -210,6 +226,7 @@ const useVehicleStore = create((set, get) => ({
       hasLoaded: false,
       error: null,
       riskliAracIdler: bosRisk,
+      seciliAracId: 'tum',
       isModalOpen: false,
       isModalVisible: false,
       editingAracId: null,

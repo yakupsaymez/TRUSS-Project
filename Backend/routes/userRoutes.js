@@ -15,6 +15,38 @@ router.post('/register', userController.register);
 // GİRİŞ ROTASI (Login)
 router.post('/login', userController.login);
 
+// MEVCUT KULLANICI (Frontend refreshUser için; login cevabındaki user ile aynı şekil)
+router.get('/me', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT user_id, ad_soyad, email, org_id, role, yetkiler
+       FROM users
+       WHERE user_id = $1
+       LIMIT 1`,
+      [req.user.user_id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(401).json({ message: 'Kullanıcı bulunamadı', code: 'USER_NOT_FOUND' });
+    }
+
+    const row = result.rows[0];
+    return res.status(200).json({
+      user: {
+        user_id: row.user_id,
+        ad_soyad: row.ad_soyad,
+        email: row.email,
+        org_id: row.org_id || null,
+        role: row.role || 'FLEET_MANAGER',
+        yetkiler: row.yetkiler || {},
+      },
+    });
+  } catch (err) {
+    console.error('Mevcut kullanıcı okuma hatası:', err);
+    return res.status(500).json({ message: 'Kullanıcı bilgisi alınamadı' });
+  }
+});
+
 // BILDIRIM AYARLARI GUNCELLEME
 router.get('/settings/notifications', authMiddleware, async (req, res) => {
   try {

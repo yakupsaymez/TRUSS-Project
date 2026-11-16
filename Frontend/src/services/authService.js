@@ -13,6 +13,13 @@ const authService = {
         const response = await api.post('/users/login', credentials);
         return response.data;
     },
+
+    // Oturumdaki kullanıcının güncel rol/yetki bilgisi → { user: { user_id, ad_soyad, email, org_id, role, yetkiler } }
+    // silent403: arka plan isteği; yetki hatasında toast gösterilmez.
+    getMe: async () => {
+        const response = await api.get('/users/me', { silent403: true });
+        return response.data;
+    },
 };
 
 export default authService;

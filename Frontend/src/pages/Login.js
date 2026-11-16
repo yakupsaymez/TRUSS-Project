@@ -1,15 +1,17 @@
 import React, { useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import toast from "react-hot-toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Github, Mail, Loader2, ArrowLeft } from "lucide-react"
+import { Github, Mail, Loader2, ArrowLeft, ShieldAlert } from "lucide-react"
 import useAuthStore from "@/store/useAuthStore"
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const sessionExpired = searchParams.get("reason") === "expired"
   const login = useAuthStore((state) => state.login)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -48,6 +50,16 @@ export default function LoginPage() {
         <span className="text-truss-text">TRU</span>
         <span className="text-truss-purple">SS</span>
       </div>
+
+      {sessionExpired && (
+        <div
+          role="status"
+          className="mb-4 flex w-full max-w-sm items-start gap-2.5 rounded-xl border border-truss-purple bg-truss-surface px-3.5 py-3 text-xs text-truss-text"
+        >
+          <ShieldAlert className="mt-0.5 size-4 shrink-0 text-truss-purple" />
+          <span>Güvenliğiniz için oturumunuz sonlandırıldı, lütfen tekrar giriş yapın.</span>
+        </div>
+      )}
 
       <Card className="w-full max-w-sm font-sans">
         <CardHeader className="text-center">

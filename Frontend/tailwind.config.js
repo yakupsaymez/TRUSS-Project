@@ -20,27 +20,13 @@ module.exports = {
         mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace']
       },
       colors: {
-        'truss-bg': '#09090B', // Seamless Dark ana arkaplan
-        'truss-surface': '#18181B', // Kart ve Modal arkaplanları
-        'truss-purple': '#8B5CF6', // SS Mor (Ana marka rengi)
-        'truss-purple-hover': '#7C3AED', // Buton hover
-        'truss-text': '#FAFAFA', // Ana metin
-        'truss-muted': '#A1A1AA', // İkincil/Pasif metin
-        'truss-border': '#27272A', // İnce çerçeve ve ayırıcılar
-        obsidian: {
-          950: '#09090B', // Seamless Canvas / Card / Sidebar
-          900: '#09090B', // Unified Primary Surface
-          850: '#121215', // Subtle Elevated Input Surface
-          800: '#18181B', // Hover / Active Surface
-          700: 'rgba(255, 255, 255, 0.05)' // Hairline Divider
-        },
-        truss: {
-          DEFAULT: '#7C3AED', // TRUSS Electric Violet (Primary Signature)
-          light: '#A78BFA',   // SS Logotype & Glow Highlight
-          vivid: '#8B5CF6',   // Interactive Hover
-          deep: '#5B21B6',    // Pressed / Active State
-          cyan: '#06B6D4'     // Telemetry / Secondary Accent
-        },
+        'truss-bg': 'var(--truss-bg)',
+        'truss-surface': 'var(--truss-surface)',
+        'truss-purple': 'var(--truss-purple)',
+        'truss-purple-hover': 'var(--truss-purple-hover)',
+        'truss-text': 'var(--truss-text)',
+        'truss-muted': 'var(--truss-muted)',
+        'truss-border': 'var(--truss-border)',
         status: {
           success: '#10B981', // Emerald 500
           warning: '#F59E0B', // Amber 500

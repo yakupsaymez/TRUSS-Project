@@ -1,6 +1,7 @@
 const pool = require('../db');
 const bcrypt = require('bcrypt');
 const Joi = require('joi');
+const { buildVehicleAccessFilter } = require('../middlewares/rbacMiddleware');
 
 // Yöneticinin org_id bilgisini getirir (eski kayıtlar için otomatik organizasyon oluşturur)
 const ensureManagerOrgId = async (userId) => {
@@ -46,6 +47,7 @@ const getOrgUsers = async (req, res) => {
         u.email,
         u.telefon,
         u.role,
+        u.yetkiler,
         u.org_id,
         u.kayit_tarihi,
         COALESCE(
@@ -144,6 +146,7 @@ const assignVehicleToDriver = async (req, res) => {
   const schema = Joi.object({
     arac_id: Joi.number().integer().positive().required(),
     sofor_user_id: Joi.number().integer().positive().required(),
+    atanma_tarihi: Joi.date().iso().max('now').optional().allow(null, ''),
   });
 
   const { error, value } = schema.validate(req.body);
@@ -152,22 +155,37 @@ const assignVehicleToDriver = async (req, res) => {
   }
 
   const { arac_id, sofor_user_id } = value;
+  const atanmaTarihi = value.atanma_tarihi ? value.atanma_tarihi : null;
 
+  const client = await pool.connect();
   try {
     const managerId = req.user?.user_id;
     const orgId = await ensureManagerOrgId(managerId);
 
-    // Aracın yöneticiye ait olduğunu doğrula
-    const aracCheck = await pool.query(
-      'SELECT arac_id, plaka, marka, model FROM araclar WHERE arac_id = $1 AND kullanici_id = $2',
-      [arac_id, managerId]
+    if (!orgId) {
+      return res.status(404).json({ message: 'Yönetici organizasyonu bulunamadı.' });
+    }
+
+    // Araç erişimi RBAC filtresiyle; ek olarak aracın sahibi aynı organizasyonda olmalı (çapraz kurum atamasını engeller)
+    const { clause, params } = buildVehicleAccessFilter(req.user, 2);
+    const orgParamIdx = 2 + params.length;
+    const aracCheck = await client.query(
+      `SELECT a.arac_id, a.plaka, a.marka, a.model
+       FROM araclar a
+       WHERE a.arac_id = $1
+         AND (${clause})
+         AND EXISTS (
+           SELECT 1 FROM users o
+           WHERE o.user_id = a.kullanici_id AND o.org_id = $${orgParamIdx}
+         )`,
+      [arac_id, ...params, orgId]
     );
     if (aracCheck.rowCount === 0) {
       return res.status(403).json({ message: 'Bu araç filonuza ait değil veya yetkiniz yok.' });
     }
 
     // Şoförün aynı organizasyonda olduğunu doğrula
-    const driverCheck = await pool.query(
+    const driverCheck = await client.query(
       'SELECT user_id, ad_soyad, role FROM users WHERE user_id = $1 AND org_id = $2',
       [sofor_user_id, orgId]
     );
@@ -175,29 +193,159 @@ const assignVehicleToDriver = async (req, res) => {
       return res.status(404).json({ message: 'Şoför filonuzda bulunamadı.' });
     }
 
+    await client.query('BEGIN');
+
     // Aynı araçta önceki aktif zimmeti pasife çek ve yeni zimmet oluştur
-    await pool.query(
+    await client.query(
       `UPDATE arac_sofor_atamalari
        SET aktif = FALSE, teslim_tarihi = NOW()
        WHERE arac_id = $1 AND aktif = TRUE`,
       [arac_id]
     );
 
-    const assignResult = await pool.query(
-      `INSERT INTO arac_sofor_atamalari (arac_id, sofor_user_id, aktif)
-       VALUES ($1, $2, TRUE)
+    const assignResult = await client.query(
+      `INSERT INTO arac_sofor_atamalari (arac_id, sofor_user_id, aktif, atanma_tarihi)
+       VALUES ($1, $2, TRUE, COALESCE($3::timestamptz, NOW()))
        ON CONFLICT (arac_id) WHERE aktif = TRUE
-       DO UPDATE SET sofor_user_id = EXCLUDED.sofor_user_id, atanma_tarihi = NOW(), teslim_tarihi = NULL
+       DO UPDATE SET sofor_user_id = EXCLUDED.sofor_user_id,
+                     atanma_tarihi = EXCLUDED.atanma_tarihi,
+                     teslim_tarihi = NULL
        RETURNING *`,
-      [arac_id, sofor_user_id]
+      [arac_id, sofor_user_id, atanmaTarihi]
     );
+
+    await client.query('COMMIT');
 
     return res.status(201).json({
       message: 'Araç şoföre başarıyla zimmetlendi.',
       assignment: assignResult.rows[0],
     });
   } catch (err) {
+    await client.query('ROLLBACK').catch(() => null);
     console.error('Araç zimmetleme hatası:', err);
+    return res.status(500).json({ message: 'Sunucu hatası oluştu.' });
+  } finally {
+    client.release();
+  }
+};
+
+const USER_ID_PARAM_SCHEMA = Joi.object({
+  id: Joi.number().integer().positive().required(),
+});
+
+const PERMISSION_KEYS = ['yakit', 'bakim', 'finans', 'zimmet', 'envanter', 'ekip'];
+
+// Hedef kullanıcıyı aynı organizasyon içinde bulur ve yetki hiyerarşisini doğrular
+const resolveManageableUser = async (req, res, targetId) => {
+  const orgId = await ensureManagerOrgId(req.user?.user_id);
+  if (!orgId) {
+    res.status(404).json({ message: 'Yönetici organizasyonu bulunamadı.' });
+    return null;
+  }
+
+  const targetRes = await pool.query(
+    'SELECT user_id, role FROM users WHERE user_id = $1 AND org_id = $2 LIMIT 1',
+    [targetId, orgId]
+  );
+  if (targetRes.rowCount === 0) {
+    res.status(404).json({ message: 'Kullanıcı organizasyonunuzda bulunamadı.' });
+    return null;
+  }
+
+  const target = targetRes.rows[0];
+  // FLEET_MANAGER, SYSTEM_ADMIN hesaplarını yönetemez
+  if (req.user.role !== 'SYSTEM_ADMIN' && target.role === 'SYSTEM_ADMIN') {
+    res.status(403).json({ message: 'SYSTEM_ADMIN hesabını yönetme yetkiniz yok.' });
+    return null;
+  }
+
+  return { orgId, target };
+};
+
+// 4. PUT /api/admin/users/:id/role — Kullanıcı rolünü güncelle
+const updateUserRole = async (req, res) => {
+  const paramCheck = USER_ID_PARAM_SCHEMA.validate(req.params);
+  if (paramCheck.error) {
+    return res.status(400).json({ message: paramCheck.error.details[0].message });
+  }
+
+  const { error, value } = Joi.object({
+    role: Joi.string().valid('SYSTEM_ADMIN', 'FLEET_MANAGER', 'DRIVER').required(),
+  }).validate(req.body);
+  if (error) {
+    return res.status(400).json({ message: error.details[0].message });
+  }
+
+  const targetId = paramCheck.value.id;
+
+  try {
+    if (targetId === req.user?.user_id) {
+      return res.status(403).json({ message: 'Kendi rolünüzü değiştiremezsiniz.' });
+    }
+    if (req.user.role !== 'SYSTEM_ADMIN' && value.role === 'SYSTEM_ADMIN') {
+      return res.status(403).json({ message: 'SYSTEM_ADMIN rolünü yalnızca SYSTEM_ADMIN atayabilir.' });
+    }
+
+    const ctx = await resolveManageableUser(req, res, targetId);
+    if (!ctx) return;
+
+    const result = await pool.query(
+      `UPDATE users
+       SET role = $1::user_role_type
+       WHERE user_id = $2 AND org_id = $3
+       RETURNING user_id, ad_soyad, email, telefon, role, org_id, yetkiler`,
+      [value.role, targetId, ctx.orgId]
+    );
+
+    return res.status(200).json({
+      message: 'Kullanıcı rolü güncellendi.',
+      user: result.rows[0],
+    });
+  } catch (err) {
+    console.error('Rol güncelleme hatası:', err);
+    return res.status(500).json({ message: 'Sunucu hatası oluştu.' });
+  }
+};
+
+// 5. PUT /api/admin/users/:id/permissions — Kullanıcı yetki anahtarlarını güncelle (mevcut yetkilerle birleştirir)
+const updateUserPermissions = async (req, res) => {
+  const paramCheck = USER_ID_PARAM_SCHEMA.validate(req.params);
+  if (paramCheck.error) {
+    return res.status(400).json({ message: paramCheck.error.details[0].message });
+  }
+
+  const permissionShape = PERMISSION_KEYS.reduce((acc, key) => {
+    acc[key] = Joi.boolean().optional();
+    return acc;
+  }, {});
+
+  const { error, value } = Joi.object({
+    yetkiler: Joi.object(permissionShape).min(1).unknown(false).required(),
+  }).validate(req.body);
+  if (error) {
+    return res.status(400).json({ message: error.details[0].message });
+  }
+
+  const targetId = paramCheck.value.id;
+
+  try {
+    const ctx = await resolveManageableUser(req, res, targetId);
+    if (!ctx) return;
+
+    const result = await pool.query(
+      `UPDATE users
+       SET yetkiler = COALESCE(yetkiler, '{}'::jsonb) || $1::jsonb
+       WHERE user_id = $2 AND org_id = $3
+       RETURNING user_id, ad_soyad, email, telefon, role, org_id, yetkiler`,
+      [JSON.stringify(value.yetkiler), targetId, ctx.orgId]
+    );
+
+    return res.status(200).json({
+      message: 'Kullanıcı yetkileri güncellendi.',
+      user: result.rows[0],
+    });
+  } catch (err) {
+    console.error('Yetki güncelleme hatası:', err);
     return res.status(500).json({ message: 'Sunucu hatası oluştu.' });
   }
 };
@@ -206,4 +354,6 @@ module.exports = {
   getOrgUsers,
   createDriver,
   assignVehicleToDriver,
+  updateUserRole,
+  updateUserPermissions,
 };

@@ -15,6 +15,16 @@ const adminService = {
     const response = await api.post('/admin/assign', assignData);
     return response.data;
   },
+
+  updateUserRole: async (userId, role) => {
+    const response = await api.put(`/admin/users/${userId}/role`, { role });
+    return response.data;
+  },
+
+  updateUserPermissions: async (userId, yetkiler) => {
+    const response = await api.put(`/admin/users/${userId}/permissions`, { yetkiler });
+    return response.data;
+  },
 };
 
 export default adminService;

@@ -189,9 +189,10 @@ const updateBakim = async (req, res) => {
     return res.status(400).json({ message: 'Girilen tutar/maliyet 0\'dan büyük ve KM/Saat değeri geçerli olmalıdır.' });
   }
 
+  const client = await pool.connect();
   try {
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
-    const bakimOwnershipCheck = await pool.query(
+    const bakimOwnershipCheck = await client.query(
       `SELECT b.bakim_id, b.arac_id
        FROM bakimlar b
        INNER JOIN araclar a ON b.arac_id = a.arac_id
@@ -203,39 +204,73 @@ const updateBakim = async (req, res) => {
       return res.status(404).json({ message: 'Bakim kaydi bulunamadi veya yetkiniz yok.' });
     }
 
-    const hedefAracId = arac_id || bakimOwnershipCheck.rows[0].arac_id;
+    const hedefAracId = Number(arac_id || bakimOwnershipCheck.rows[0].arac_id);
 
-    if (arac_id) {
-      const yeniAracCheck = await pool.query(
-        `SELECT a.arac_id FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
-        [arac_id, ...params]
-      );
-      if (yeniAracCheck.rowCount === 0) {
-        return res.status(403).json({ message: 'Hedef araca erişim yetkiniz yoktur.' });
-      }
+    // Hedef araca erişim + sayaç tipi (araç değişmese de tek sorguda doğrulanır)
+    const hedefAracCheck = await client.query(
+      `SELECT a.arac_id, a.sayac_tipi FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
+      [hedefAracId, ...params]
+    );
+    if (hedefAracCheck.rowCount === 0) {
+      return res.status(403).json({ message: 'Hedef araca erişim yetkiniz yoktur.' });
+    }
+    const aracRow = hedefAracCheck.rows[0];
+
+    // KM / SMH Düşürme (Odometer Rollback) Kontrolü: güncellenen kaydın kendisi hariç, ilgili tarihe kadarki en yüksek sayaç
+    const kmCheck = await client.query(
+      `SELECT GREATEST(
+         COALESCE((SELECT MAX(km) FROM yakitlar WHERE arac_id = $1 AND tarih <= $2), 0),
+         COALESCE((SELECT MAX(km) FROM bakimlar WHERE arac_id = $1 AND tarih <= $2 AND bakim_id <> $3), 0)
+       ) AS max_gecmis_km`,
+      [hedefAracId, tarih, bakim_id]
+    );
+
+    const maxGecmisKm = Number(kmCheck.rows[0]?.max_gecmis_km || 0);
+    if (sayisalKm < maxGecmisKm) {
+      const birimEtiketi = aracRow.sayac_tipi === 'SMH' ? 'Saat' : 'km';
+      return res.status(422).json({
+        message: `Girilen sayaç değeri (${sayisalKm.toLocaleString('tr-TR')} ${birimEtiketi}), aracın önceki kayıtlı değerinden (${maxGecmisKm.toLocaleString('tr-TR')} ${birimEtiketi}) düşük olamaz.`,
+      });
     }
 
-    const query = `
-      UPDATE bakimlar
-      SET arac_id = $1, bakim_tipi = $2, tarih = $3, km = $4, maliyet = $5, notlar = $6
-      WHERE bakim_id = $7
-      RETURNING *
-    `;
+    await client.query('BEGIN');
 
-    const result = await pool.query(query, [
-      hedefAracId,
-      bakim_tipi,
-      tarih,
-      sayisalKm,
-      sayisalMaliyet,
-      notlar || null,
-      bakim_id,
-    ]);
+    const result = await client.query(
+      `UPDATE bakimlar
+       SET arac_id = $1, bakim_tipi = $2, tarih = $3, km = $4, maliyet = $5, notlar = $6
+       WHERE bakim_id = $7
+       RETURNING *`,
+      [hedefAracId, bakim_tipi, tarih, sayisalKm, sayisalMaliyet, notlar || null, bakim_id]
+    );
+
+    // araclar sayacını GREATEST ile yeniden senkronize et
+    await client.query(
+      `UPDATE araclar a
+       SET guncel_km = CASE WHEN a.sayac_tipi = 'SMH'
+                            THEN a.guncel_km
+                            ELSE GREATEST(COALESCE(a.guncel_km, 0), s.max_km) END,
+           guncel_calisma_saati = CASE WHEN a.sayac_tipi = 'SMH'
+                                       THEN GREATEST(COALESCE(a.guncel_calisma_saati, 0), s.max_km)
+                                       ELSE a.guncel_calisma_saati END
+       FROM (
+         SELECT GREATEST(
+           COALESCE((SELECT MAX(km) FROM yakitlar WHERE arac_id = $1), 0),
+           COALESCE((SELECT MAX(km) FROM bakimlar WHERE arac_id = $1), 0)
+         ) AS max_km
+       ) s
+       WHERE a.arac_id = $1`,
+      [hedefAracId]
+    );
+
+    await client.query('COMMIT');
 
     return res.status(200).json({ message: 'Bakim kaydi guncellendi', bakim: result.rows[0] });
   } catch (err) {
+    await client.query('ROLLBACK').catch(() => null);
     console.error('Bakım güncelleme hatası:', err);
     return res.status(500).json({ message: 'Sunucu hatasi' });
+  } finally {
+    client.release();
   }
 };
 

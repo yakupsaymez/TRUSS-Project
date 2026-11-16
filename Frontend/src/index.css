@@ -60,6 +60,15 @@ html[data-theme='dark'] {
     --font-sans: 'Plus Jakarta Sans', 'Inter Variable', sans-serif;
   }
   :root {
+    /* Açık (Light) Mod Standartları */
+    --truss-bg: #F4F4F5;
+    --truss-surface: #FFFFFF;
+    --truss-purple: #8B5CF6;
+    --truss-purple-hover: #7C3AED;
+    --truss-text: #09090B;
+    --truss-muted: #71717A;
+    --truss-border: #E4E4E7;
+
     --background: #F8FAFC;
     --foreground: #09090B;
     --card: #FFFFFF;
@@ -94,6 +103,15 @@ html[data-theme='dark'] {
     --sidebar-ring: #7C3AED;
   }
   .dark {
+    /* Koyu (Dark) Mod Standartları */
+    --truss-bg: #09090B;
+    --truss-surface: #18181B;
+    --truss-purple: #8B5CF6;
+    --truss-purple-hover: #7C3AED;
+    --truss-text: #FAFAFA;
+    --truss-muted: #A1A1AA;
+    --truss-border: #27272A;
+
     --background: #09090B;
     --foreground: #FAFAFA;
     --card: #09090B;

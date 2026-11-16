@@ -14,6 +14,7 @@ import {
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, FileWarning, Car, Wrench, Fuel } from 'lucide-react';
+import DashboardBeta from '@/pages/DashboardBeta';
 
 const aracChartConfig = {
     yakit: { label: 'Yakıt (TL)', color: 'var(--chart-1)' },
@@ -23,6 +24,7 @@ const aracChartConfig = {
 const MILLISECONDS_IN_DAY = 1000 * 60 * 60 * 24;
 
 const Dashboard = () => {
+    const [showBeta, setShowBeta] = useState(false);
     const navigate = useNavigate();
     const deleteVehicle = useVehicleStore((s) => s.deleteVehicle);
 
@@ -110,18 +112,32 @@ const Dashboard = () => {
 
     const formatTahminTL = (v) => formatCurrency(v || 0);
 
+    if (showBeta) {
+        return <DashboardBeta onRevert={() => setShowBeta(false)} />;
+    }
+
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-end gap-2">
-                <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => navigate('/yakitlar')}>
-                    <Fuel className="size-3.5" /> Yakıt Kaydı
+            <div className="flex items-center justify-between gap-2">
+                <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5 border-truss-border bg-truss-surface text-xs text-truss-muted hover:border-truss-purple hover:text-truss-text"
+                    onClick={() => setShowBeta(true)}
+                >
+                    🚀 Chrono-Ledger Beta Dene
                 </Button>
-                <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => navigate('/bakim')}>
-                    <Wrench className="size-3.5" /> Bakım Kaydı
-                </Button>
-                <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => navigate('/vehicles')}>
-                    <Car className="size-3.5" /> Araçlar
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => navigate('/yakitlar')}>
+                        <Fuel className="size-3.5" /> Yakıt Kaydı
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => navigate('/bakim')}>
+                        <Wrench className="size-3.5" /> Bakım Kaydı
+                    </Button>
+                    <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => navigate('/vehicles')}>
+                        <Car className="size-3.5" /> Araçlar
+                    </Button>
+                </div>
             </div>
 
             <DashboardStats

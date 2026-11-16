@@ -1,6 +1,12 @@
 const authorizeRoles = (...allowedRoles) => {
   return (req, res, next) => {
-    if (!req.user || !allowedRoles.includes(req.user.role)) {
+    if (!req.user) {
+      return res.status(401).json({
+        code: 'TOKEN_MISSING',
+        message: 'Oturum bulunamadı'
+      });
+    }
+    if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({
         code: 'FORBIDDEN_INSUFFICIENT_ROLE',
         message: 'Bu işlem için yetkiniz bulunmamaktadır.'

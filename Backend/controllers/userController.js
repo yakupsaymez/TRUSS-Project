@@ -107,6 +107,7 @@ const login = async (req, res) => {
         email: user.email,
         org_id: user.org_id || null,
         role: user.role || 'FLEET_MANAGER',
+        yetkiler: user.yetkiler || {},
       },
     });
   } catch (err) {

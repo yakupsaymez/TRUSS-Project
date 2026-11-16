@@ -46,6 +46,8 @@ CREATE TABLE IF NOT EXISTS parca_takip ( -- Araca bagli parca omur takibini tuta
     son_degisim_km INT, -- Parcanin en son degistigi kilometre bilgisini tutar.
     degisim_araligi_km INT, -- Parcanin kac kilometrede bir degismesi gerektigini tutar.
     son_degisim_tarihi DATE, -- Parcanin son degisim tarihini tutar.
+    maliyet NUMERIC(12, 2) NOT NULL DEFAULT 0, -- Parca degisim maliyetini tutar.
+    notlar TEXT, -- Ek aciklama ve notlari tutar.
     CONSTRAINT fk_parca_takip_arac -- Dis anahtar kisitina isim verir.
     FOREIGN KEY (arac_id) REFERENCES araclar(arac_id)
     ON DELETE CASCADE,
@@ -218,3 +220,35 @@ CREATE INDEX IF NOT EXISTS idx_ref_varyantlar_model ON ref_arac_varyantlari (mod
 
 
 
+
+-- MIGRATION: Kontrat Kilidi (MP-1R)
+-- Bu blok tekrar tekrar calistirilabilir (idempotent).
+
+-- Parca maliyet ve not kolonlarini canli tabloya ekler.
+ALTER TABLE parca_takip
+    ADD COLUMN IF NOT EXISTS maliyet NUMERIC(12, 2) NOT NULL DEFAULT 0, -- Parca degisim maliyetini tutar.
+    ADD COLUMN IF NOT EXISTS notlar TEXT; -- Parca ek aciklamasini tutar.
+
+-- Kullanici yetki anahtarlari kolonunu ekler.
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS yetkiler JSONB NOT NULL DEFAULT '{}'::jsonb; -- Yetki toggle'larini JSON olarak tutar.
+
+-- Gecersiz veya bos sayac tiplerini KM'ye cevirir.
+UPDATE araclar SET sayac_tipi = 'KM'
+WHERE sayac_tipi IS NULL OR sayac_tipi NOT IN ('KM', 'SMH');
+
+-- Sayac tipi CHECK kisitini yoksa ekler.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_araclar_sayac_tipi') THEN -- Kisit var mi bakar.
+        ALTER TABLE araclar ADD CONSTRAINT chk_araclar_sayac_tipi CHECK (sayac_tipi IN ('KM', 'SMH')); -- Sadece KM/SMH'ye izin verir.
+    END IF;
+END$$;
+
+-- Parca maliyeti CHECK kisitini yoksa ekler.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_parca_maliyet_pozitif') THEN -- Kisit var mi bakar.
+        ALTER TABLE parca_takip ADD CONSTRAINT chk_parca_maliyet_pozitif CHECK (maliyet >= 0); -- Negatif maliyeti engeller.
+    END IF;
+END$$;

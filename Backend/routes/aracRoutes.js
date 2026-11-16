@@ -397,6 +397,24 @@ router.put('/:arac_id', authMiddleware, authorizeRoles('SYSTEM_ADMIN', 'FLEET_MA
         ? Number(guncel_calisma_saati)
         : mevcut.guncel_calisma_saati || 0;
 
+    // Odometer Rollback Engeli: Mevcut en yüksek yakıt/bakım kaydının altına düşülemez
+    const maxSayacRes = await client.query(
+      `SELECT GREATEST(
+         COALESCE((SELECT MAX(km) FROM yakitlar WHERE arac_id = $1), 0),
+         COALESCE((SELECT MAX(km) FROM bakimlar WHERE arac_id = $1), 0)
+       )::int AS max_kayitli_sayac`,
+      [Number(arac_id)]
+    );
+    const maxKayitliSayac = Number(maxSayacRes.rows[0]?.max_kayitli_sayac || 0);
+    const hedefSayacDegeri = sayacTipi === 'SMH' ? yeniGuncelSaat : yeniGuncelKm;
+
+    if (hedefSayacDegeri < maxKayitliSayac) {
+      return res.status(422).json({
+        message: `Sayaç geri sarılamaz (Odometer Rollback engeli). Girilen değer (${hedefSayacDegeri}), mevcut en yüksek yakıt/bakım kaydından (${maxKayitliSayac}) düşük olamaz.`,
+        max_kayitli_sayac: maxKayitliSayac,
+      });
+    }
+
     const updateQuery = `
       UPDATE araclar
       SET plaka = $1,

@@ -23,6 +23,7 @@ import {
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import AraclarBeta from '@/pages/AraclarBeta';
 
 function AracDurumBadge({ arac, riskliIdler }) {
     const tehlikede = riskliIdler.tehlike.includes(arac.arac_id);
@@ -33,6 +34,7 @@ function AracDurumBadge({ arac, riskliIdler }) {
 }
 
 export default function Vehicles() {
+    const [showBeta, setShowBeta] = useState(false);
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
 
@@ -165,6 +167,10 @@ export default function Vehicles() {
         { key: 'evrak', label: 'Evrak Sorunu', count: riskliAracIdler.evrak.length },
     ];
 
+    if (showBeta) {
+        return <AraclarBeta onRevert={() => setShowBeta(false)} />;
+    }
+
     return (
         <>
         <div className="space-y-4">
@@ -187,6 +193,14 @@ export default function Vehicles() {
                     ))}
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 gap-1.5 border-truss-border bg-truss-surface text-xs text-truss-muted hover:border-truss-purple hover:text-truss-text"
+                        onClick={() => setShowBeta(true)}
+                    >
+                        🛸 Digital Garage Beta Dene
+                    </Button>
                     <Input
                         type="search"
                         placeholder="Plaka, marka, model ara…"

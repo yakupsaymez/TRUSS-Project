@@ -1,20 +1,50 @@
 const jwt = require('jsonwebtoken'); // JWT token doğrulamak için kütüphaneyi dahil eder.
+const pool = require('../db'); // Kullanıcıyı her istekte DB'den okumak için havuzu dahil eder.
 
-const authMiddleware = (req, res, next) => { // Korunan rotalar için kimlik doğrulama ara katmanını tanımlar.
-  const authHeader = req.headers.authorization; // Authorization başlığını alır.
+const authMiddleware = async (req, res, next) => { // Korunan rotalar için async kimlik doğrulama ara katmanını tanımlar.
+  try { // Async hatalar Express 4'te yakalanmadığı için tüm gövde try/catch içindedir.
+    const authHeader = req.headers.authorization; // Authorization başlığını alır.
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) { // Başlık yoksa veya Bearer ile başlamıyorsa kontrol eder.
-    return res.status(401).json({ message: 'Token bulunamadı' }); // Token yoksa 401 Unauthorized döner.
-  }
+    if (!authHeader || !authHeader.startsWith('Bearer ')) { // Başlık yoksa veya Bearer ile başlamıyorsa kontrol eder.
+      return res.status(401).json({ message: 'Oturum bulunamadı', code: 'TOKEN_MISSING' }); // Oturum yoksa 401 döner.
+    }
 
-  const token = authHeader.split(' ')[1]; // Bearer kısmını atıp token değerini ayırır.
-  const secret = process.env.JWT_SECRET || 'gizli_anahtar_gecici'; // JWT secret'ı .env'den alır, yoksa varsayılanı kullanır.
+    const token = authHeader.split(' ')[1]; // Bearer kısmını atıp token değerini ayırır.
+    const secret = process.env.JWT_SECRET || 'gizli_anahtar_gecici'; // JWT secret'ı .env'den alır, yoksa varsayılanı kullanır.
 
-  try {
-    req.user = jwt.verify(token, secret); // Token'ı doğrular ve çözülen payload'ı req.user içine yazar.
-    next(); // İstek akışını bir sonraki adıma geçirir.
+    let decoded; // Çözülen token payload'ını tutar.
+    try {
+      decoded = jwt.verify(token, secret); // Token'ı doğrular ve payload'ı çözer.
+    } catch (verifyError) {
+      if (verifyError.name === 'TokenExpiredError') { // Süresi dolmuş token'ı ayırt eder.
+        return res.status(401).json({ message: 'Oturum süresi doldu', code: 'TOKEN_EXPIRED' }); // Süre dolduysa 401 döner.
+      }
+      return res.status(401).json({ message: 'Geçersiz oturum', code: 'TOKEN_INVALID' }); // Diğer tüm doğrulama hataları için 401 döner.
+    }
+
+    const result = await pool.query( // Güncel rol ve yetkiyi DB'den okur (yeniden giriş gerekmez).
+      'SELECT user_id, email, org_id, role, yetkiler FROM users WHERE user_id = $1',
+      [decoded.user_id]
+    );
+
+    if (result.rowCount === 0) { // Kullanıcı silinmişse oturum geçersizdir.
+      return res.status(401).json({ message: 'Kullanıcı bulunamadı', code: 'USER_NOT_FOUND' }); // Kullanıcı yoksa 401 döner.
+    }
+
+    const row = result.rows[0]; // DB'deki güncel kullanıcı kaydını alır.
+    req.user = { // Token payload'ını güncel DB değerleriyle birleştirir.
+      ...decoded,
+      user_id: row.user_id,
+      email: row.email,
+      org_id: row.org_id,
+      role: row.role,
+      yetkiler: row.yetkiler || {},
+    };
+
+    return next(); // İstek akışını bir sonraki adıma geçirir.
   } catch (error) {
-    return res.status(403).json({ message: 'Geçersiz veya süresi dolmuş token' }); // Hatalı veya süresi dolmuş token için 403 döner.
+    console.error('Kimlik doğrulama hatası:', error); // DB/sistem hatasını loglar.
+    return res.status(500).json({ message: 'Kimlik doğrulama servisi hatası' }); // DB/sistem hatasında asla 401 dönmez.
   }
 };
 
