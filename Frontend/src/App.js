@@ -8,6 +8,7 @@ import AppShell from '@/components/v2/AppShell';
 import ChannelGuard from '@/components/v2/ChannelGuard';
 import GenelBakis from '@/pages/v2/GenelBakis';
 import Filo from '@/pages/v2/Filo';
+import Harita from '@/pages/v2/Harita';
 import Hareketler from '@/pages/v2/Hareketler';
 import Parcalar from '@/pages/v2/Parcalar';
 import Takvim from '@/pages/v2/Takvim';
@@ -73,6 +74,14 @@ function App() {
                             element={
                                 <ChannelGuard channel="horizon">
                                     <Filo />
+                                </ChannelGuard>
+                            }
+                        />
+                        <Route
+                            path="harita"
+                            element={
+                                <ChannelGuard channel="horizon">
+                                    <Harita />
                                 </ChannelGuard>
                             }
                         />

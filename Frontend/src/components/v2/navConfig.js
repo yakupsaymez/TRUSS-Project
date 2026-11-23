@@ -1,4 +1,4 @@
-import { LayoutDashboard, Truck, Receipt, Cog, CalendarDays, Users } from 'lucide-react';
+import { LayoutDashboard, Truck, MapPin, Receipt, Cog, CalendarDays, Users } from 'lucide-react';
 
 export const navConfig = [
   {
@@ -11,6 +11,12 @@ export const navConfig = [
     label: 'Filo',
     path: '/app/filo',
     icon: Truck,
+    channel: 'horizon',
+  },
+  {
+    label: 'Harita',
+    path: '/app/harita',
+    icon: MapPin,
     channel: 'horizon',
   },
   {

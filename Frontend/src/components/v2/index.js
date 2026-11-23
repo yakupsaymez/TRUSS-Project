@@ -31,4 +31,6 @@ export { default as FleetCalendar } from '@/components/v2/FleetCalendar';
 export { default as CrewRoleSummaryStrip } from '@/components/v2/CrewRoleSummaryStrip';
 export { default as ResetPasswordSheet } from '@/components/v2/ResetPasswordSheet';
 export { default as BudgetVarianceCard } from '@/components/v2/BudgetVarianceCard';
+export { default as FleetLiveMap } from '@/components/v2/FleetLiveMap';
+
 

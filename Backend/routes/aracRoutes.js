@@ -270,10 +270,25 @@ router.post('/ekle', authMiddleware, authorizeRoles('SYSTEM_ADMIN', 'FLEET_MANAG
   }
 });
 
+let locationColsEnsured = false;
+const ensureLocationColumns = async () => {
+  if (locationColsEnsured) return;
+  await pool.query(`
+    ALTER TABLE araclar
+      ADD COLUMN IF NOT EXISTS son_enlem NUMERIC(9, 6),
+      ADD COLUMN IF NOT EXISTS son_boylam NUMERIC(9, 6),
+      ADD COLUMN IF NOT EXISTS son_konum_adi VARCHAR(160),
+      ADD COLUMN IF NOT EXISTS son_konum_zamani TIMESTAMPTZ
+  `);
+  locationColsEnsured = true;
+};
+
 // ARAÇLARI LİSTELE (RBAC Filtreli: SYSTEM_ADMIN, FLEET_MANAGER, DRIVER)
 // Son bakım, güncel sayaç, bakım periyodu ve son 30 gün yakıt gideri tek sorguda döner (N+1 engeli)
 router.get('/', authMiddleware, async (req, res) => {
   try {
+    await ensureLocationColumns();
+
     const { clause, params } = buildVehicleAccessFilter(req.user);
     const result = await pool.query(
       `SELECT
@@ -324,6 +339,65 @@ router.get('/', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('Araç Listeleme Hatası:', err);
     res.status(500).json({ message: 'Sunucu hatası' });
+  }
+});
+
+// ARAÇ CANLI KONUM / SÜRÜCÜ CHECK-IN GÜNCELLE (SYSTEM_ADMIN, FLEET_MANAGER ve zimmetli DRIVER)
+router.put('/:id/konum', authMiddleware, async (req, res) => {
+  const paramCheck = Joi.object({
+    id: Joi.number().integer().positive().required(),
+  }).validate(req.params);
+  if (paramCheck.error) {
+    return res.status(400).json({ message: paramCheck.error.details[0].message });
+  }
+
+  const schema = Joi.object({
+    enlem: Joi.number().min(-90).max(90).required(),
+    boylam: Joi.number().min(-180).max(180).required(),
+    konum_adi: Joi.string().trim().max(160).allow('', null).optional(),
+  });
+  const { error, value } = schema.validate(req.body);
+  if (error) {
+    return res.status(400).json({ message: error.details[0].message });
+  }
+
+  const aracId = paramCheck.value.id;
+
+  try {
+    await ensureLocationColumns();
+
+    const { clause, params } = buildVehicleAccessFilter(req.user, 2);
+    const accessCheck = await pool.query(
+      `SELECT arac_id, plaka FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
+      [aracId, ...params]
+    );
+
+    if (accessCheck.rowCount === 0) {
+      return res.status(403).json({
+        code: 'FORBIDDEN_VEHICLE_ACCESS',
+        message: 'Bu aracın konumunu güncelleme yetkiniz yok.',
+      });
+    }
+
+    const konumAdi = value.konum_adi ? value.konum_adi.trim() : null;
+    const result = await pool.query(
+      `UPDATE araclar
+       SET son_enlem = $1,
+           son_boylam = $2,
+           son_konum_adi = $3,
+           son_konum_zamani = NOW()
+       WHERE arac_id = $4
+       RETURNING arac_id, plaka, son_enlem, son_boylam, son_konum_adi, son_konum_zamani`,
+      [value.enlem, value.boylam, konumAdi, aracId]
+    );
+
+    return res.status(200).json({
+      message: 'Araç konumu güncellendi.',
+      arac: result.rows[0],
+    });
+  } catch (err) {
+    console.error('Araç Konum Güncelleme Hatası:', err);
+    return res.status(500).json({ message: 'Sunucu hatası' });
   }
 });
 

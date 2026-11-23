@@ -76,6 +76,7 @@ const ALL_VEHICLES_VALUE = '__ALL__';
 const ROUTE_LABELS = {
   '/app': 'Genel Bakış',
   '/app/filo': 'Filo',
+  '/app/harita': 'Harita',
   '/app/hareketler': 'Hareketler',
   '/app/parcalar': 'Parçalar',
   '/app/takvim': 'Takvim',
