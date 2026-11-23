@@ -16,6 +16,8 @@ import Parcalar from '@/pages/v2/Parcalar';
 import Ekip from '@/pages/v2/Ekip';
 import Ayarlar from '@/pages/v2/Ayarlar';
 import LoginV2 from '@/pages/v2/LoginV2';
+import RegisterV2 from '@/pages/v2/RegisterV2';
+import ForgotPasswordV2 from '@/pages/v2/ForgotPasswordV2';
 
 function ProtectedRoute({ children }) {
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -99,6 +101,8 @@ function App() {
                         <Route path="*" element={<Navigate to="/app" replace />} />
                     </Route>
                     <Route path="/v2/login" element={<LoginV2 />} />
+                    <Route path="/v2/register" element={<RegisterV2 />} />
+                    <Route path="/v2/forgot-password" element={<ForgotPasswordV2 />} />
                     <Route
                         path="*"
                         element={
