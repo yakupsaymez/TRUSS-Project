@@ -162,7 +162,7 @@ const EkipYonetimi = () => {
           <button
             type="button"
             onClick={() => openAssignModalForDriver('')}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-medium text-foreground shadow-sm hover:bg-accent transition-colors"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-medium text-foreground shadow-xs hover:bg-accent transition-colors"
           >
             <Link2 className="size-3.5 text-primary" />
             Araç Zimmetle
@@ -171,7 +171,7 @@ const EkipYonetimi = () => {
           <button
             type="button"
             onClick={() => setIsAddDriverOpen(true)}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition-colors"
           >
             <UserPlus className="size-3.5" />
             Yeni Şoför Ekle
@@ -207,7 +207,7 @@ const EkipYonetimi = () => {
       </div>
 
       {/* Ekip Tablosu */}
-      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="rounded-xl border border-border bg-card shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-border bg-muted/40 text-xs uppercase text-muted-foreground">

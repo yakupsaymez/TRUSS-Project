@@ -11,6 +11,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TrussDatePicker } from '@/components/ui/truss-date-picker';
+import { notifyApiError } from '@/utils/apiError';
+import {
+  parseSayacHatasi,
+  getSayacBirimEtiketi,
+  sayacAria,
+  sayacInputSinifi,
+} from '@/utils/sayacHatasi';
+import SayacHatasi from './SayacHatasi';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -298,6 +306,7 @@ export default function TheLedger({ seciliAracId = 'tum' }) {
     notlar: '',
   });
   const [isUpdatingInline, setIsUpdatingInline] = useState(false);
+  const [sayacHata, setSayacHata] = useState(null);
 
   // Silme Onayı (Shadcn AlertDialog - Tarayıcı confirm yasak)
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -497,7 +506,9 @@ export default function TheLedger({ seciliAracId = 'tum' }) {
           : 'Takip Kaydı',
         tutar: Number(p.maliyet || 0),
         sayac: p.son_degisim_km ?? p.degisim_km ? Number(p.son_degisim_km ?? p.degisim_km) : null,
-        aciklama: `Ömür limiti: ${formatLocaleNumber(p.degisim_araligi_km || p.omur_km || 0)} KM`,
+        aciklama: `Ömür limiti: ${formatLocaleNumber(p.degisim_araligi_km || p.omur_km || 0)} ${getSayacBirimEtiketi(
+          araclar.find((a) => String(a.arac_id) === String(p.arac_id))
+        )}`,
         timestamp: degisimTarihi ? new Date(degisimTarihi).getTime() : 0,
       });
     });
@@ -521,8 +532,9 @@ export default function TheLedger({ seciliAracId = 'tum' }) {
   // "ŞİMDİ" Kuşağından Anında Kayıt (Enter ile - NLP Yakıt Tipi & İşlem Türü Destekli)
   const handleNowRecord = async () => {
     if (!parsedNow.hazirMi || isRecording) {
+      const ob = getSayacBirimEtiketi(parsedNow.arac || araclar[0]);
       toast.error(
-        'Örnek komut: "34 ABC 123 Benzin 45L 1950TL 128000KM" veya "34 ABC 123 Arıza 6500TL 128000KM"'
+        `Örnek komut: "34 ABC 123 Benzin 45L 1950TL 128000${ob}" veya "34 ABC 123 Arıza 6500TL 128000${ob}"`
       );
       return;
     }
@@ -566,7 +578,12 @@ export default function TheLedger({ seciliAracId = 'tum' }) {
       setNowCommand('');
       await Promise.all([verileriSenkronizeEt(), fetchAraclar()]);
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Zaman akışına kayıt eklenemedi.');
+      const sh = parseSayacHatasi(err);
+      if (sh) {
+        toast.error(sh.ipucu ? `${sh.alanHatasi} ${sh.ipucu}` : sh.alanHatasi);
+      } else {
+        notifyApiError(err, 'Zaman akışına kayıt eklenemedi.');
+      }
     } finally {
       setIsRecording(false);
     }
@@ -635,14 +652,12 @@ export default function TheLedger({ seciliAracId = 'tum' }) {
         toast.success(`${futItem.plaka} • ${futItem.baslik} bugüne işlendi.`);
       }
     } catch (err) {
-      if (bakimKaydedildi) {
-        toast.error(
-          err?.response?.data?.message ||
-            'Bakım kaydı eklendi ancak evrak vade tarihi güncellenemedi. Aracı Filo Ufku’ndan düzeltin.'
-        );
-      } else {
-        toast.error(err?.response?.data?.message || 'İşlem tamamlanamadı.');
-      }
+      notifyApiError(
+        err,
+        bakimKaydedildi
+          ? 'Bakım kaydı eklendi ancak evrak vade tarihi güncellenemedi. Aracı Filo Ufku’ndan düzeltin.'
+          : 'İşlem tamamlanamadı.'
+      );
     } finally {
       materializeLockRef.current.delete(futItem.id);
       await Promise.all([verileriSenkronizeEt(), fetchAraclar()]);
@@ -650,6 +665,7 @@ export default function TheLedger({ seciliAracId = 'tum' }) {
   };
 
   const handleExpandToggle = (item) => {
+    setSayacHata(null);
     if (expandedId === item.id) {
       setExpandedId(null);
       return;
@@ -683,6 +699,7 @@ export default function TheLedger({ seciliAracId = 'tum' }) {
       return;
     }
 
+    setSayacHata(null);
     setIsUpdatingInline(true);
     try {
       const tarihStr =
@@ -727,7 +744,12 @@ export default function TheLedger({ seciliAracId = 'tum' }) {
       setExpandedId(null);
       await Promise.all([verileriSenkronizeEt(), fetchAraclar()]);
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Kayıt güncellenemedi.');
+      const sh = parseSayacHatasi(err);
+      if (sh) {
+        setSayacHata(sh);
+      } else {
+        notifyApiError(err, 'Kayıt güncellenemedi.');
+      }
     } finally {
       setIsUpdatingInline(false);
     }
@@ -748,9 +770,13 @@ export default function TheLedger({ seciliAracId = 'tum' }) {
       setExpandedId(null);
       await Promise.all([verileriSenkronizeEt(), fetchAraclar()]);
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Silme işlemi başarısız.');
+      notifyApiError(err, 'Silme işlemi başarısız.');
     }
   };
+
+  const inlineArac = araclar.find((a) => String(a.arac_id) === String(inlineEditState.arac_id));
+  const inlineBirim = getSayacBirimEtiketi(inlineArac);
+  const omniBirim = getSayacBirimEtiketi(parsedNow.arac || araclar[0]);
 
   return (
     <div className="space-y-6">
@@ -894,8 +920,8 @@ export default function TheLedger({ seciliAracId = 'tum' }) {
           </span>
           <div className="flex flex-wrap items-center gap-1.5">
             {[
-              `${araclar[0]?.plaka || '34 ABC 123'} Benzin 45L 1950TL 128500KM Fatura:FT-104`,
-              `${araclar[0]?.plaka || '34 ABC 123'} Arıza 6400TL 128500KM Alternatör Onarımı`,
+              `${araclar[0]?.plaka || '34 ABC 123'} Benzin 45L 1950TL 128500${omniBirim} Fatura:FT-104`,
+              `${araclar[0]?.plaka || '34 ABC 123'} Arıza 6400TL 128500${omniBirim} Alternatör Onarımı`,
             ].map((ornek, i) => (
               <button
                 key={i}
@@ -920,7 +946,7 @@ export default function TheLedger({ seciliAracId = 'tum' }) {
                 handleNowRecord();
               }
             }}
-            placeholder='Komut: "34 ABC 123 LPG 50L 1450TL 132000KM" veya "34 ABC 123 Lastik 8500TL 132000KM Fatura:LS-99"'
+            placeholder={`Komut: "34 ABC 123 LPG 50L 1450TL 132000${omniBirim}" veya "34 ABC 123 Lastik 8500TL 132000${omniBirim} Fatura:LS-99"`}
             className="h-10 flex-1 rounded-xl border border-truss-border bg-truss-bg px-3.5 font-mono text-sm text-truss-text placeholder:text-truss-muted focus:border-truss-purple focus:outline-none"
           />
 
@@ -970,7 +996,7 @@ export default function TheLedger({ seciliAracId = 'tum' }) {
             </Badge>
             {parsedNow.km !== null && (
               <Badge variant="outline" className="border-truss-border bg-truss-bg text-truss-text">
-                Sayaç: {formatLocaleNumber(parsedNow.km, 0)} KM
+                Sayaç: {formatLocaleNumber(parsedNow.km, 0)} {omniBirim}
               </Badge>
             )}
             {parsedNow.fatura_bilgisi && (
@@ -1078,7 +1104,10 @@ export default function TheLedger({ seciliAracId = 'tum' }) {
                             {item.sayac !== null && (
                               <span className="inline-flex items-center gap-1 font-mono tabular-nums text-truss-text">
                                 <Gauge className="size-3.5 text-truss-purple" />
-                                {formatLocaleNumber(item.sayac, 0)} KM
+                                {formatLocaleNumber(item.sayac, 0)}{' '}
+                                {getSayacBirimEtiketi(
+                                  araclar.find((a) => String(a.arac_id) === String(item.arac_id))
+                                )}
                               </span>
                             )}
                           </div>
@@ -1094,10 +1123,13 @@ export default function TheLedger({ seciliAracId = 'tum' }) {
                                   <select
                                     value={inlineEditState.arac_id}
                                     onChange={(e) =>
+                                    {
+                                      setSayacHata(null);
                                       setInlineEditState((p) => ({
                                         ...p,
                                         arac_id: e.target.value,
-                                      }))
+                                      }));
+                                    }
                                     }
                                     className="h-10 w-full rounded-xl border border-truss-border bg-truss-surface px-3 font-mono text-xs text-truss-text focus:border-truss-purple focus:outline-none"
                                   >
@@ -1237,18 +1269,21 @@ export default function TheLedger({ seciliAracId = 'tum' }) {
 
                                 <div className="space-y-1">
                                   <span className="block text-[11px] font-medium text-truss-muted">
-                                    Güncel Sayaç (KM / SMH)
+                                    Güncel Sayaç ({inlineBirim})
                                   </span>
                                   <input
                                     type="text"
                                     inputMode="numeric"
                                     value={inlineEditState.km}
-                                    onChange={(e) =>
-                                      setInlineEditState((p) => ({ ...p, km: e.target.value }))
-                                    }
-                                    placeholder="Sayaç (KM)"
-                                    className="h-10 w-full rounded-xl border border-truss-border bg-truss-surface px-3 font-mono text-xs tabular-nums text-truss-text focus:border-truss-purple focus:outline-none"
+                                    onChange={(e) => {
+                                      setSayacHata(null);
+                                      setInlineEditState((p) => ({ ...p, km: e.target.value }));
+                                    }}
+                                    placeholder={`Sayaç (${inlineBirim})`}
+                                    {...sayacAria(sayacHata, 'ledger-sayac-hata')}
+                                    className={`h-10 w-full rounded-xl border bg-truss-surface px-3 font-mono text-xs tabular-nums text-truss-text focus:outline-none ${sayacInputSinifi(sayacHata)}`}
                                   />
+                                  <SayacHatasi id="ledger-sayac-hata" hata={sayacHata} />
                                 </div>
 
                                 <div className="space-y-1">

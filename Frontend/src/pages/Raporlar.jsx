@@ -203,7 +203,7 @@ export default function Raporlar() {
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           {/* Sol: Son 6 Ay Harcama Trendi (AreaChart) */}
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm lg:col-span-2">
+          <div className="rounded-xl border border-border bg-card p-5 shadow-xs lg:col-span-2">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h2 className="flex items-center gap-2 text-base font-semibold">
@@ -265,7 +265,7 @@ export default function Raporlar() {
           </div>
 
           {/* Sağ: Maliyet Dağılımı (Donut / PieChart) */}
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <div className="rounded-xl border border-border bg-card p-5 shadow-xs">
             <div className="mb-4">
               <h2 className="flex items-center gap-2 text-base font-semibold">
                 <PieChartIcon className="size-4 text-primary" />
@@ -311,7 +311,7 @@ export default function Raporlar() {
       )}
 
       {/* Alt Bölüm: Araç Bazlı Maliyet Tablosu */}
-      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
         <div className="border-b border-border px-5 py-4">
           <h2 className="text-base font-semibold">Araç Bazlı Maliyet Özeti</h2>
           <p className="text-xs text-muted-foreground">

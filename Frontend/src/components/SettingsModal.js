@@ -285,7 +285,7 @@ const SettingsModal = () => {
               >
                 Kapat
               </Button>
-              <Button type="submit" variant="default" disabled={isSaving} className="neo-btn bg-truss-purple text-truss-text shadow-sm hover:bg-truss-purple-hover">
+              <Button type="submit" variant="default" disabled={isSaving} className="neo-btn bg-truss-purple text-truss-text shadow-xs hover:bg-truss-purple-hover">
                 {isSaving ? 'Kaydediliyor...' : 'Kaydet'}
               </Button>
             </div>

@@ -244,7 +244,7 @@ export default function CrewCommand() {
       setUsers(uList);
       setLocalVehicles(aList);
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Ekip verileri yüklenemedi.');
+      notifyApiError(error, 'Ekip verileri yüklenemedi.');
     } finally {
       if (!silent) setLoading(false);
     }

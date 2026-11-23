@@ -8,12 +8,29 @@ const {
 
 const router = express.Router();
 
-router.get('/genel-ozet', authMiddleware, getGenelOzet);
-router.get('/aylik-trend', authMiddleware, getAylikHarcamaTrendi);
-router.get('/arac-maliyet', authMiddleware, getAracMaliyetDagilimi);
+// Finansal rapor erişimi: SYSTEM_ADMIN/FLEET_MANAGER veya yetkiler.finans === true
+const requireFinanceAccess = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ code: 'TOKEN_MISSING', message: 'Oturum bulunamadı' });
+  }
+  if (req.user.role === 'SYSTEM_ADMIN' || req.user.role === 'FLEET_MANAGER') {
+    return next();
+  }
+  if (req.user.yetkiler?.finans === true) {
+    return next();
+  }
+  return res.status(403).json({
+    code: 'FORBIDDEN_INSUFFICIENT_ROLE',
+    message: 'Finansal raporlara erişim yetkiniz yok.',
+  });
+};
+
+router.get('/genel-ozet', authMiddleware, requireFinanceAccess, getGenelOzet);
+router.get('/aylik-trend', authMiddleware, requireFinanceAccess, getAylikHarcamaTrendi);
+router.get('/arac-maliyet', authMiddleware, requireFinanceAccess, getAracMaliyetDagilimi);
 
 // Geriye donuk uyumluluk (Dashboard.js icin)
-router.get('/aylik-ozet', authMiddleware, getAylikHarcamaTrendi);
-router.get('/arac-giderleri', authMiddleware, getAracMaliyetDagilimi);
+router.get('/aylik-ozet', authMiddleware, requireFinanceAccess, getAylikHarcamaTrendi);
+router.get('/arac-giderleri', authMiddleware, requireFinanceAccess, getAracMaliyetDagilimi);
 
 module.exports = router;

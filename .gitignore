@@ -33,3 +33,5 @@ yarn-error.log*
 
 # İşletim Sistemi Dosyaları
 Thumbs.db
+scratch/
+*.tgz

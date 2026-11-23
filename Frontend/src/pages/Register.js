@@ -59,7 +59,7 @@ export default function RegisterPage() {
         TRUSS Ana Sayfa
       </Link>
 
-      <Card className="w-full max-w-4xl overflow-hidden flex flex-col md:flex-row p-0 gap-0 border-border/50 shadow-sm font-sans">
+      <Card className="w-full max-w-4xl overflow-hidden flex flex-col md:flex-row p-0 gap-0 border-border/50 shadow-xs font-sans">
         <div className="flex-1 p-6 md:p-10">
           <CardHeader className="p-0 mb-6">
             <div className="mb-2 flex items-center font-display font-bold text-2xl tracking-tight select-none">
