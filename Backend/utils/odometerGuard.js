@@ -13,7 +13,7 @@ const araclariKilitle = async (client, aracIdler) => {
     .sort((a, b) => a - b);
   if (idler.length === 0) return [];
   const result = await client.query(
-    `SELECT arac_id, sayac_tipi
+    `SELECT arac_id, sayac_tipi, guncel_km, guncel_calisma_saati
      FROM araclar
      WHERE arac_id = ANY($1::int[])
      ORDER BY arac_id
@@ -77,10 +77,67 @@ const sayac422Govdesi = (deger, sinirlar, sayacTipi) => {
   };
 };
 
+// Güncelleme/silme sonrası araclar.guncel_km veya guncel_calisma_saati değerini yeniden hesaplar
+const aracSayaciniSenkronizeEt = async (client, { aracId, eskiKm = null }) => {
+  const aracRes = await client.query(
+    `SELECT sayac_tipi,
+            COALESCE(guncel_km, 0)::int AS guncel_km,
+            COALESCE(guncel_calisma_saati, 0)::int AS guncel_calisma_saati
+     FROM araclar
+     WHERE arac_id = $1`,
+    [aracId]
+  );
+  if (aracRes.rowCount === 0) return;
+
+  const ozetRes = await client.query(
+    `SELECT COUNT(*)::int AS kayit_sayisi,
+            COALESCE(MAX(km), 0)::int AS max_kayit
+     FROM (
+       SELECT km FROM yakitlar WHERE arac_id = $1 AND km IS NOT NULL
+       UNION ALL
+       SELECT km FROM bakimlar WHERE arac_id = $1 AND km IS NOT NULL
+     ) t`,
+    [aracId]
+  );
+
+  const arac = aracRes.rows[0];
+  const isSmh = arac.sayac_tipi === 'SMH';
+  const mevcutSayac = Number(isSmh ? arac.guncel_calisma_saati : arac.guncel_km);
+  const eski = eskiKm != null ? Number(eskiKm) : null;
+  const kayitSayisi = Number(ozetRes.rows[0]?.kayit_sayisi || 0);
+  const maxKayit = Number(ozetRes.rows[0]?.max_kayit || 0);
+
+  let yeniSayac;
+  if (eski !== null && mevcutSayac === eski) {
+    if (kayitSayisi > 0) {
+      yeniSayac = maxKayit;
+    } else {
+      const parcaRes = await client.query(
+        `SELECT COALESCE(MAX(son_degisim_km), 0)::int AS max_parca
+         FROM parca_takip
+         WHERE arac_id = $1 AND son_degisim_km IS NOT NULL`,
+        [aracId]
+      );
+      yeniSayac = Number(parcaRes.rows[0]?.max_parca || 0);
+    }
+  } else {
+    yeniSayac = Math.max(mevcutSayac, maxKayit);
+  }
+
+  if (yeniSayac !== mevcutSayac) {
+    if (isSmh) {
+      await client.query('UPDATE araclar SET guncel_calisma_saati = $1 WHERE arac_id = $2', [yeniSayac, aracId]);
+    } else {
+      await client.query('UPDATE araclar SET guncel_km = $1 WHERE arac_id = $2', [yeniSayac, aracId]);
+    }
+  }
+};
+
 module.exports = {
   SAYAC_KAYNAKLARI,
   sayacBirimi,
   araclariKilitle,
+  aracSayaciniSenkronizeEt,
   sayacSinirlari,
   sayacIhlaliMi,
   sayac422Govdesi,

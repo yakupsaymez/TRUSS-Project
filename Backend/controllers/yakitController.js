@@ -1,7 +1,7 @@
 const pool = require('../db');
 const { buildVehicleAccessFilter } = require('../middlewares/rbacMiddleware');
 const { ileriTarihMi, tarihStr } = require('../utils/dateUtils');
-const { araclariKilitle, sayacSinirlari, sayacIhlaliMi, sayac422Govdesi, sayacBirimi } = require('../utils/odometerGuard');
+const { araclariKilitle, aracSayaciniSenkronizeEt, sayacSinirlari, sayacIhlaliMi, sayac422Govdesi, sayacBirimi } = require('../utils/odometerGuard');
 
 // KULLANICININ ERİŞEBİLDİĞİ TÜM YAKIT KAYITLARINI LİSTELE (RBAC Filtreli)
 const getAllYakitlar = async (req, res) => {
@@ -201,7 +201,7 @@ const updateYakit = async (req, res) => {
     // Kaydı kilitle: eşzamanlı güncelleme araya giremez
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
     const yakitOwnershipCheck = await client.query(
-      `SELECT y.yakit_id, y.arac_id
+      `SELECT y.yakit_id, y.arac_id, y.km
        FROM yakitlar y
        INNER JOIN araclar a ON y.arac_id = a.arac_id
        WHERE y.yakit_id = $1 AND (${clause})
@@ -215,6 +215,7 @@ const updateYakit = async (req, res) => {
     }
 
     const kaynakAracId = Number(yakitOwnershipCheck.rows[0].arac_id);
+    const eskiKm = yakitOwnershipCheck.rows[0].km;
     const hedefAracId = Number(arac_id || kaynakAracId);
     if (!Number.isInteger(hedefAracId) || hedefAracId <= 0) {
       await client.query('ROLLBACK');
@@ -287,25 +288,12 @@ const updateYakit = async (req, res) => {
       ]
     );
 
-    // araclar sayacını GREATEST ile yeniden senkronize et
-    if (sayisalKm !== null) {
-      await client.query(
-        `UPDATE araclar a
-         SET guncel_km = CASE WHEN a.sayac_tipi = 'SMH'
-                              THEN a.guncel_km
-                              ELSE GREATEST(COALESCE(a.guncel_km, 0), s.max_km) END,
-             guncel_calisma_saati = CASE WHEN a.sayac_tipi = 'SMH'
-                                         THEN GREATEST(COALESCE(a.guncel_calisma_saati, 0), s.max_km)
-                                         ELSE a.guncel_calisma_saati END
-         FROM (
-           SELECT GREATEST(
-             COALESCE((SELECT MAX(km) FROM yakitlar WHERE arac_id = $1), 0),
-             COALESCE((SELECT MAX(km) FROM bakimlar WHERE arac_id = $1), 0)
-           ) AS max_km
-         ) s
-         WHERE a.arac_id = $1`,
-        [hedefAracId]
-      );
+    await aracSayaciniSenkronizeEt(client, {
+      aracId: hedefAracId,
+      eskiKm: kaynakAracId === hedefAracId ? eskiKm : null,
+    });
+    if (kaynakAracId !== hedefAracId) {
+      await aracSayaciniSenkronizeEt(client, { aracId: kaynakAracId, eskiKm });
     }
 
     await client.query('COMMIT');
@@ -324,26 +312,46 @@ const updateYakit = async (req, res) => {
 const deleteYakit = async (req, res) => {
   const { yakit_id } = req.params;
 
+  const yakitId = Number(yakit_id);
+  if (!Number.isInteger(yakitId) || yakitId <= 0) {
+    return res.status(400).json({ message: 'Geçersiz yakıt kimliği.' });
+  }
+
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
-    const result = await pool.query(
-      `DELETE FROM yakitlar y
-       USING araclar a
-       WHERE y.arac_id = a.arac_id
-         AND y.yakit_id = $1
-         AND (${clause})
-       RETURNING y.yakit_id`,
-      [yakit_id, ...params]
+    const yakitCheck = await client.query(
+      `SELECT y.yakit_id, y.arac_id, y.km
+       FROM yakitlar y
+       INNER JOIN araclar a ON y.arac_id = a.arac_id
+       WHERE y.yakit_id = $1 AND (${clause})
+       FOR UPDATE OF y`,
+      [yakitId, ...params]
     );
 
-    if (result.rowCount === 0) {
+    if (yakitCheck.rowCount === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ message: 'Yakit kaydi bulunamadi' });
     }
 
+    const aracId = Number(yakitCheck.rows[0].arac_id);
+    const eskiKm = yakitCheck.rows[0].km;
+
+    await araclariKilitle(client, [aracId]);
+    await client.query('DELETE FROM yakitlar WHERE yakit_id = $1', [yakitId]);
+    await aracSayaciniSenkronizeEt(client, { aracId, eskiKm });
+
+    await client.query('COMMIT');
+
     return res.status(200).json({ message: 'Yakit kaydi silindi' });
   } catch (err) {
+    await client.query('ROLLBACK').catch(() => null);
     console.error('Yakıt silme hatası:', err);
     return res.status(500).json({ message: 'Sunucu hatasi' });
+  } finally {
+    client.release();
   }
 };
 

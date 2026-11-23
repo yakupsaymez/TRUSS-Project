@@ -3,6 +3,7 @@ const { buildVehicleAccessFilter } = require('../middlewares/rbacMiddleware');
 const { ileriTarihMi, tarihStr } = require('../utils/dateUtils');
 const {
   araclariKilitle,
+  aracSayaciniSenkronizeEt,
   sayacSinirlari,
   sayacIhlaliMi,
   sayac422Govdesi,
@@ -230,7 +231,7 @@ const updateBakim = async (req, res) => {
     // Kaydı kilitle: eşzamanlı güncelleme araya giremez
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
     const bakimOwnershipCheck = await client.query(
-      `SELECT b.bakim_id, b.arac_id
+      `SELECT b.bakim_id, b.arac_id, b.km
        FROM bakimlar b
        INNER JOIN araclar a ON b.arac_id = a.arac_id
        WHERE b.bakim_id = $1 AND (${clause})
@@ -244,6 +245,7 @@ const updateBakim = async (req, res) => {
     }
 
     const kaynakAracId = Number(bakimOwnershipCheck.rows[0].arac_id);
+    const eskiKm = bakimOwnershipCheck.rows[0].km;
     const hedefAracId = Number(arac_id || kaynakAracId);
     if (!Number.isInteger(hedefAracId) || hedefAracId <= 0) {
       await client.query('ROLLBACK');
@@ -299,24 +301,13 @@ const updateBakim = async (req, res) => {
       [hedefAracId, bakim_tipi, gun, sayisalKm, sayisalMaliyet, notlar || null, bakimId]
     );
 
-    // araclar sayacını GREATEST ile yeniden senkronize et
-    await client.query(
-      `UPDATE araclar a
-       SET guncel_km = CASE WHEN a.sayac_tipi = 'SMH'
-                            THEN a.guncel_km
-                            ELSE GREATEST(COALESCE(a.guncel_km, 0), s.max_km) END,
-           guncel_calisma_saati = CASE WHEN a.sayac_tipi = 'SMH'
-                                       THEN GREATEST(COALESCE(a.guncel_calisma_saati, 0), s.max_km)
-                                       ELSE a.guncel_calisma_saati END
-       FROM (
-         SELECT GREATEST(
-           COALESCE((SELECT MAX(km) FROM yakitlar WHERE arac_id = $1), 0),
-           COALESCE((SELECT MAX(km) FROM bakimlar WHERE arac_id = $1), 0)
-         ) AS max_km
-       ) s
-       WHERE a.arac_id = $1`,
-      [hedefAracId]
-    );
+    await aracSayaciniSenkronizeEt(client, {
+      aracId: hedefAracId,
+      eskiKm: kaynakAracId === hedefAracId ? eskiKm : null,
+    });
+    if (kaynakAracId !== hedefAracId) {
+      await aracSayaciniSenkronizeEt(client, { aracId: kaynakAracId, eskiKm });
+    }
 
     await client.query('COMMIT');
 
@@ -334,26 +325,46 @@ const updateBakim = async (req, res) => {
 const deleteBakim = async (req, res) => {
   const { bakim_id } = req.params;
 
+  const bakimId = Number(bakim_id);
+  if (!Number.isInteger(bakimId) || bakimId <= 0) {
+    return res.status(400).json({ message: 'Geçersiz bakım kimliği.' });
+  }
+
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
-    const result = await pool.query(
-      `DELETE FROM bakimlar b
-       USING araclar a
-       WHERE b.arac_id = a.arac_id
-         AND b.bakim_id = $1
-         AND (${clause})
-       RETURNING b.bakim_id`,
-      [bakim_id, ...params]
+    const bakimCheck = await client.query(
+      `SELECT b.bakim_id, b.arac_id, b.km
+       FROM bakimlar b
+       INNER JOIN araclar a ON b.arac_id = a.arac_id
+       WHERE b.bakim_id = $1 AND (${clause})
+       FOR UPDATE OF b`,
+      [bakimId, ...params]
     );
 
-    if (result.rowCount === 0) {
+    if (bakimCheck.rowCount === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ message: 'Bakim kaydi bulunamadi' });
     }
 
+    const aracId = Number(bakimCheck.rows[0].arac_id);
+    const eskiKm = bakimCheck.rows[0].km;
+
+    await araclariKilitle(client, [aracId]);
+    await client.query('DELETE FROM bakimlar WHERE bakim_id = $1', [bakimId]);
+    await aracSayaciniSenkronizeEt(client, { aracId, eskiKm });
+
+    await client.query('COMMIT');
+
     return res.status(200).json({ message: 'Bakim kaydi silindi' });
   } catch (err) {
+    await client.query('ROLLBACK').catch(() => null);
     console.error('Bakım silme hatası:', err);
     return res.status(500).json({ message: 'Sunucu hatasi' });
+  } finally {
+    client.release();
   }
 };
 
