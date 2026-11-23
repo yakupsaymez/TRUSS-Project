@@ -5,6 +5,8 @@ import {
   AlertCircle,
   AlertTriangle,
   Bell,
+  Building2,
+  CalendarDays,
   Eye,
   EyeOff,
   Info,
@@ -19,13 +21,16 @@ import {
   Sun,
   Trash2,
   User,
+  Users,
 } from 'lucide-react';
 import api from '@/services/api';
+import adminService from '@/services/adminService';
 import useAuthStore from '@/store/useAuthStore';
 import useAppStore from '@/store/useAppStore';
 import useVehicleStore from '@/store/useVehicleStore';
 import { resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { notifyApiError } from '@/utils/apiError';
+import { formatLocaleNumber } from '@/utils/formatters';
 import { useTheme } from '@/components/theme-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -44,12 +49,29 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
-const SETTINGS_TABS = [
+const BASE_SETTINGS_TABS = [
   { id: 'genel', label: 'Genel', icon: SlidersHorizontal },
   { id: 'profil', label: 'Profil', icon: User },
   { id: 'guvenlik', label: 'Güvenlik', icon: ShieldCheck },
   { id: 'bildirimler', label: 'Bildirimler', icon: Bell },
 ];
+
+const TAX_NUMBER_RE = /^\d{10,11}$/;
+
+function formatOrgDate(isoLike) {
+  if (!isoLike) return '—';
+  const date = new Date(isoLike);
+  if (Number.isNaN(date.getTime())) {
+    const str = String(isoLike).slice(0, 10);
+    const [y, m, d] = str.split('-');
+    return y && m && d ? `${d}.${m}.${y}` : '—';
+  }
+  return new Intl.DateTimeFormat('tr-TR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date);
+}
 
 const THEME_OPTIONS = [
   { value: 'light', label: 'Açık', icon: Sun },
@@ -120,6 +142,14 @@ export default function Ayarlar() {
   const isManager = [ROLES.SYSTEM_ADMIN, ROLES.FLEET_MANAGER].includes(role);
   const isSystemAdmin = role === ROLES.SYSTEM_ADMIN;
 
+  const settingsTabs = useMemo(
+    () =>
+      isManager
+        ? [...BASE_SETTINGS_TABS, { id: 'organizasyon', label: 'Organizasyon', icon: Building2 }]
+        : BASE_SETTINGS_TABS,
+    [isManager]
+  );
+
   const [activeTab, setActiveTab] = useState('genel');
   const [loading, setLoading] = useState(true);
 
@@ -136,6 +166,14 @@ export default function Ayarlar() {
   const [emailBildirimAktif, setEmailBildirimAktif] = useState(true);
   const [smsBildirimAktif, setSmsBildirimAktif] = useState(false);
   const [savingNotifications, setSavingNotifications] = useState(false);
+
+  // Organizasyon (yalnız SYSTEM_ADMIN & FLEET_MANAGER)
+  const [orgMeta, setOrgMeta] = useState(null);
+  const [orgUnvan, setOrgUnvan] = useState('');
+  const [orgVergiNo, setOrgVergiNo] = useState('');
+  const [orgErrors, setOrgErrors] = useState({});
+  const [orgFormError, setOrgFormError] = useState('');
+  const [savingOrganization, setSavingOrganization] = useState(false);
 
   // Güvenlik — Şifre değiştirme
   const [currentPassword, setCurrentPassword] = useState('');
@@ -162,14 +200,26 @@ export default function Ayarlar() {
   }, []);
 
   useEffect(() => {
+    if (!isManager && activeTab === 'organizasyon') {
+      setActiveTab('genel');
+    }
+  }, [isManager, activeTab]);
+
+  useEffect(() => {
     let active = true;
 
     const loadSettings = async () => {
       setLoading(true);
-      const [preferencesResult, notificationsResult] = await Promise.allSettled([
+      const promises = [
         api.get('/users/settings/preferences'),
         api.get('/users/settings/notifications'),
-      ]);
+      ];
+      if (isManager) {
+        promises.push(adminService.getOrganization());
+      }
+
+      const [preferencesResult, notificationsResult, organizationResult] =
+        await Promise.allSettled(promises);
 
       if (!active || !mountedRef.current) return;
 
@@ -193,6 +243,17 @@ export default function Ayarlar() {
         notifyApiError(notificationsResult.reason, 'Bildirim ayarları yüklenemedi.');
       }
 
+      if (isManager && organizationResult) {
+        if (organizationResult.status === 'fulfilled') {
+          const org = organizationResult.value || null;
+          setOrgMeta(org);
+          setOrgUnvan(org?.unvan || '');
+          setOrgVergiNo(org?.vergi_no || '');
+        } else {
+          notifyApiError(organizationResult.reason, 'Organizasyon profili yüklenemedi.');
+        }
+      }
+
       setLoading(false);
     };
 
@@ -201,7 +262,7 @@ export default function Ayarlar() {
     return () => {
       active = false;
     };
-  }, [user?.ad_soyad, user?.email]);
+  }, [user?.ad_soyad, user?.email, isManager]);
 
   const activePermissions = useMemo(() => {
     if (isManager) return [];
@@ -315,6 +376,75 @@ export default function Ayarlar() {
     }
   };
 
+  const clearOrgError = (key) => {
+    if (orgErrors[key]) {
+      setOrgErrors((prev) => ({ ...prev, [key]: '' }));
+    }
+    if (orgFormError) setOrgFormError('');
+  };
+
+  const handleSaveOrganization = async (e) => {
+    e.preventDefault();
+    if (!isManager || savingOrganization) return;
+
+    const trimmedUnvan = orgUnvan.trim();
+    const trimmedVergiNo = orgVergiNo.trim();
+    const errors = {};
+
+    if (!trimmedUnvan) {
+      errors.unvan = 'Organizasyon ünvanı gereklidir.';
+    } else if (trimmedUnvan.length < 2) {
+      errors.unvan = 'Organizasyon ünvanı en az 2 karakter olmalıdır.';
+    } else if (trimmedUnvan.length > 200) {
+      errors.unvan = 'Organizasyon ünvanı en fazla 200 karakter olabilir.';
+    }
+
+    if (trimmedVergiNo && !TAX_NUMBER_RE.test(trimmedVergiNo)) {
+      errors.vergi_no = 'Vergi numarası yalnızca 10 veya 11 haneli rakam olmalıdır.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setOrgErrors(errors);
+      return;
+    }
+
+    setOrgErrors({});
+    setOrgFormError('');
+    setSavingOrganization(true);
+    try {
+      const res = await adminService.updateOrganization({
+        unvan: trimmedUnvan,
+        vergi_no: trimmedVergiNo || null,
+      });
+      if (!mountedRef.current) return;
+      const updatedOrg = res?.organization || null;
+      if (updatedOrg) {
+        setOrgMeta((prev) => ({
+          ...(prev || {}),
+          ...updatedOrg,
+        }));
+        setOrgUnvan(updatedOrg.unvan || trimmedUnvan);
+        setOrgVergiNo(updatedOrg.vergi_no || '');
+      }
+      toast.success('Organizasyon profili güncellendi.');
+    } catch (err) {
+      if (!mountedRef.current) return;
+      const status = err?.response?.status;
+      const code = err?.response?.data?.code;
+      const msg = err?.response?.data?.message || 'Organizasyon profili güncellenemedi.';
+      if (status === 409 || code === 'TAX_NUMBER_EXISTS') {
+        setOrgErrors((prev) => ({ ...prev, vergi_no: msg }));
+      } else if (status === 400) {
+        setOrgFormError(msg);
+      } else {
+        setOrgFormError(msg);
+      }
+      notifyApiError(err, 'Organizasyon profili güncellenemedi.');
+    } finally {
+      if (mountedRef.current) setSavingOrganization(false);
+    }
+  };
+
   const handleDeleteAccount = async () => {
     if (!isSystemAdmin) return;
     if (confirmText.trim().toUpperCase() !== 'ONAYLIYORUM') return;
@@ -351,7 +481,7 @@ export default function Ayarlar() {
             role="tablist"
             className="flex gap-1 overflow-x-auto border-b border-border p-2.5 lg:hidden"
           >
-            {SETTINGS_TABS.map((tab) => {
+            {settingsTabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               return (
@@ -381,7 +511,7 @@ export default function Ayarlar() {
             role="tablist"
             className="hidden w-[220px] shrink-0 flex-col gap-1 border-r border-border p-3 lg:flex"
           >
-            {SETTINGS_TABS.map((tab) => {
+            {settingsTabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               return (
@@ -1021,6 +1151,203 @@ export default function Ayarlar() {
                           <Save className="size-4" aria-hidden="true" />
                         )}
                         <span>Bildirim Ayarlarını Kaydet</span>
+                      </Button>
+                    </div>
+                  </form>
+                )}
+
+                {/* 5. ORGANİZASYON (P0 RBAC: YALNIZCA SYSTEM_ADMIN & FLEET_MANAGER) */}
+                {isManager && activeTab === 'organizasyon' && (
+                  <form onSubmit={handleSaveOrganization} noValidate className="space-y-6">
+                    <div className="space-y-1">
+                      <h2 className="text-base font-semibold text-foreground">
+                        Organizasyon Profili
+                      </h2>
+                      <p className="text-xs text-muted-foreground">
+                        Kurumsal filo organizasyon ünvanı, vergi numarası ve çalışma alanı özeti.
+                      </p>
+                    </div>
+
+                    <Separator />
+
+                    {/* 3'lü Salt-Okunur Kurumsal Özet Şeridi */}
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <div className="flex items-start justify-between gap-2.5 rounded-xl border border-border bg-background/60 p-4">
+                        <div className="min-w-0 space-y-1.5">
+                          <p className="text-xs font-medium text-muted-foreground">Plan & Durum</p>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Badge
+                              variant="outline"
+                              className="border-primary/40 bg-primary/10 font-mono text-[11px] font-semibold uppercase tracking-wider text-primary"
+                            >
+                              {orgMeta?.plan_tipi || 'ENTERPRISE'}
+                            </Badge>
+                            <Badge
+                              variant={orgMeta?.aktif !== false ? 'secondary' : 'outline'}
+                              className="text-[11px]"
+                            >
+                              {orgMeta?.aktif !== false ? 'Aktif' : 'Pasif'}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          <Building2 className="size-4" aria-hidden="true" />
+                        </div>
+                      </div>
+
+                      <div className="flex items-start justify-between gap-2.5 rounded-xl border border-border bg-background/60 p-4">
+                        <div className="min-w-0 space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            Kayıtlı Ekip & Filo
+                          </p>
+                          <p className="truncate font-mono text-sm font-semibold tabular-nums text-foreground">
+                            {formatLocaleNumber(Number(orgMeta?.uye_sayisi || 0), 0)} üye ·{' '}
+                            {formatLocaleNumber(Number(orgMeta?.arac_sayisi || 0), 0)} araç
+                          </p>
+                        </div>
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          <Users className="size-4" aria-hidden="true" />
+                        </div>
+                      </div>
+
+                      <div className="flex items-start justify-between gap-2.5 rounded-xl border border-border bg-background/60 p-4">
+                        <div className="min-w-0 space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            Oluşturulma Tarihi
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+                              {formatOrgDate(orgMeta?.olusturulma_tarihi)}
+                            </span>
+                            <span className="rounded-md border border-border bg-muted/60 px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-muted-foreground">
+                              Org ID: #{orgMeta?.org_id ?? user?.org_id ?? '—'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          <CalendarDays className="size-4" aria-hidden="true" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* account-settings-03 tabanlı Kurumsal Bilgiler Formu */}
+                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                      <div className="space-y-1">
+                        <h3 className="text-sm font-semibold text-foreground">
+                          Kurumsal Kimlik Bilgileri
+                        </h3>
+                        <p className="text-xs leading-relaxed text-muted-foreground">
+                          Raporlarda ve çalışma alanında görünecek resmi organizasyon ünvanı ile
+                          vergi numarasını güncelleyin.
+                        </p>
+                      </div>
+
+                      <div className="space-y-4 lg:col-span-2">
+                        {orgFormError ? (
+                          <div
+                            role="alert"
+                            className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-xs leading-relaxed text-destructive"
+                          >
+                            <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                            <span>{orgFormError}</span>
+                          </div>
+                        ) : null}
+
+                        <div className="grid gap-2">
+                          <Label htmlFor="settings-org-unvan">
+                            Organizasyon / Filo Ünvanı{' '}
+                            <span className="text-destructive" aria-hidden="true">
+                              *
+                            </span>
+                          </Label>
+                          <Input
+                            id="settings-org-unvan"
+                            name="unvan"
+                            type="text"
+                            maxLength={200}
+                            placeholder="Örn: TRUSS Lojistik A.Ş."
+                            required
+                            value={orgUnvan}
+                            onChange={(e) => {
+                              setOrgUnvan(e.target.value);
+                              clearOrgError('unvan');
+                            }}
+                            disabled={savingOrganization}
+                            aria-invalid={Boolean(orgErrors.unvan)}
+                            aria-describedby={
+                              orgErrors.unvan ? 'settings-org-unvan-error' : undefined
+                            }
+                          />
+                          {orgErrors.unvan ? (
+                            <p
+                              id="settings-org-unvan-error"
+                              role="alert"
+                              className="text-xs text-destructive"
+                            >
+                              {orgErrors.unvan}
+                            </p>
+                          ) : (
+                            <p className="text-[11px] text-muted-foreground">
+                              2 ile 200 karakter arasında kurumsal ünvan.
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label htmlFor="settings-org-vergi-no">
+                            Vergi Numarası (VKN / TCKN)
+                          </Label>
+                          <Input
+                            id="settings-org-vergi-no"
+                            name="vergi_no"
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={11}
+                            placeholder="10 haneli VKN veya 11 haneli TCKN (opsiyonel)"
+                            value={orgVergiNo}
+                            onChange={(e) => {
+                              setOrgVergiNo(e.target.value);
+                              clearOrgError('vergi_no');
+                            }}
+                            disabled={savingOrganization}
+                            aria-invalid={Boolean(orgErrors.vergi_no)}
+                            aria-describedby={
+                              orgErrors.vergi_no ? 'settings-org-vergi-no-error' : undefined
+                            }
+                            className="font-mono tabular-nums"
+                          />
+                          {orgErrors.vergi_no ? (
+                            <p
+                              id="settings-org-vergi-no-error"
+                              role="alert"
+                              className="text-xs text-destructive"
+                            >
+                              {orgErrors.vergi_no}
+                            </p>
+                          ) : (
+                            <p className="text-[11px] text-muted-foreground">
+                              Opsiyonel. Doldurulursa yalnızca 10 veya 11 haneli rakam olmalıdır.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end border-t border-border pt-4">
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={savingOrganization}
+                        className="gap-2"
+                      >
+                        {savingOrganization ? (
+                          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                        ) : (
+                          <Save className="size-4" aria-hidden="true" />
+                        )}
+                        <span>Organizasyon Profilini Kaydet</span>
                       </Button>
                     </div>
                   </form>

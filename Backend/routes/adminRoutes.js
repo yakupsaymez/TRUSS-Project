@@ -28,4 +28,10 @@ router.put('/users/:id/password', adminController.resetUserPassword);
 // DELETE /api/admin/assign/:arac_id
 router.delete('/assign/:arac_id', adminController.unassignVehicle);
 
+// GET /api/admin/organization
+router.get('/organization', adminController.getOrganization);
+
+// PUT /api/admin/organization
+router.put('/organization', adminController.updateOrganization);
+
 module.exports = router;

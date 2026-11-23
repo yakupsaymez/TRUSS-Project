@@ -520,6 +520,100 @@ const unassignVehicle = async (req, res) => {
   }
 };
 
+// 8. GET /api/admin/organization — Yönetici organizasyon profilini ve özet sayılarını getir
+const getOrganization = async (req, res) => {
+  try {
+    const orgId = await ensureManagerOrgId(req.user?.user_id);
+    if (!orgId) {
+      return res.status(404).json({ message: 'Yönetici organizasyonu bulunamadı.' });
+    }
+
+    const result = await pool.query(
+      `SELECT
+         o.org_id,
+         o.unvan,
+         o.vergi_no,
+         o.plan_tipi,
+         o.aktif,
+         o.olusturulma_tarihi,
+         (SELECT COUNT(*)::int FROM users u WHERE u.org_id = o.org_id) AS uye_sayisi,
+         (SELECT COUNT(*)::int FROM araclar a JOIN users u ON u.user_id = a.kullanici_id WHERE u.org_id = o.org_id) AS arac_sayisi
+       FROM organizations o
+       WHERE o.org_id = $1
+       LIMIT 1`,
+      [orgId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Organizasyon bulunamadı.' });
+    }
+
+    return res.status(200).json({
+      message: 'Organizasyon bilgisi alındı.',
+      organization: result.rows[0],
+    });
+  } catch (err) {
+    console.error('Organizasyon okuma hatası:', err);
+    return res.status(500).json({ message: 'Sunucu hatası oluştu.' });
+  }
+};
+
+// 9. PUT /api/admin/organization — Organizasyon ünvan ve vergi numarasını güncelle
+const updateOrganization = async (req, res) => {
+  const schema = Joi.object({
+    unvan: Joi.string().trim().min(2).max(200).required(),
+    vergi_no: Joi.string()
+      .trim()
+      .pattern(/^\d{10,11}$/)
+      .allow('', null)
+      .optional()
+      .messages({
+        'string.pattern.base': 'Vergi numarası 10 veya 11 haneli rakamlardan oluşmalıdır.',
+      }),
+  });
+
+  const { error, value } = schema.validate(req.body);
+  if (error) {
+    return res.status(400).json({ message: error.details[0].message });
+  }
+
+  try {
+    const orgId = await ensureManagerOrgId(req.user?.user_id);
+    if (!orgId) {
+      return res.status(404).json({ message: 'Yönetici organizasyonu bulunamadı.' });
+    }
+
+    const vergiNo = value.vergi_no ? value.vergi_no.trim() : null;
+
+    const result = await pool.query(
+      `UPDATE organizations
+       SET unvan = $1,
+           vergi_no = $2
+       WHERE org_id = $3
+       RETURNING org_id, unvan, vergi_no, plan_tipi, aktif, olusturulma_tarihi`,
+      [value.unvan.trim(), vergiNo, orgId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Organizasyon bulunamadı.' });
+    }
+
+    return res.status(200).json({
+      message: 'Organizasyon profili güncellendi.',
+      organization: result.rows[0],
+    });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({
+        code: 'TAX_NUMBER_EXISTS',
+        message: 'Bu vergi numarası başka bir organizasyonda kayıtlı.',
+      });
+    }
+    console.error('Organizasyon güncelleme hatası:', err);
+    return res.status(500).json({ message: 'Sunucu hatası oluştu.' });
+  }
+};
+
 module.exports = {
   getOrgUsers,
   createDriver,
@@ -528,4 +622,6 @@ module.exports = {
   updateUserPermissions,
   resetUserPassword,
   unassignVehicle,
+  getOrganization,
+  updateOrganization,
 };

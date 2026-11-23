@@ -30,6 +30,10 @@ const adminService = {
     (await api.put(`/admin/users/${userId}/password`, { yeni_sifre })).data,
 
   unassignVehicle: async (aracId) => (await api.delete(`/admin/assign/${aracId}`)).data,
+
+  getOrganization: async () => (await api.get('/admin/organization')).data?.organization || null,
+
+  updateOrganization: async (payload) => (await api.put('/admin/organization', payload)).data,
 };
 
 export default adminService;
