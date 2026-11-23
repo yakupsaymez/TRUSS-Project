@@ -1,5 +1,6 @@
 const express = require('express');
 const pool = require('../db');
+const bcrypt = require('bcrypt');
 const Joi = require('joi');
 const authMiddleware = require('../middlewares/authMiddleware');
 const { authorizeRoles } = require('../middlewares/rbacMiddleware');
@@ -47,11 +48,42 @@ router.get('/me', authMiddleware, async (req, res) => {
   }
 });
 
+const DEFAULT_NOTIFICATION_MATRIX = {
+  belge_vadesi: { email: true, sms: true },
+  periyodik_bakim: { email: true, sms: true },
+  parca_omru: { email: true, sms: false },
+  maliyet_ozeti: { email: true, sms: false },
+};
+
+let notifColEnsured = false;
+const ensureNotificationMatrixColumn = async () => {
+  if (notifColEnsured) return;
+  await pool.query(
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS bildirim_tercihleri JSONB NOT NULL DEFAULT '${JSON.stringify(DEFAULT_NOTIFICATION_MATRIX)}'::jsonb`
+  );
+  notifColEnsured = true;
+};
+
+const normalizeNotificationMatrix = (raw) => {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  return Object.keys(DEFAULT_NOTIFICATION_MATRIX).reduce((acc, key) => {
+    const def = DEFAULT_NOTIFICATION_MATRIX[key];
+    const item = src[key] && typeof src[key] === 'object' ? src[key] : {};
+    acc[key] = {
+      email: typeof item.email === 'boolean' ? item.email : def.email,
+      sms: typeof item.sms === 'boolean' ? item.sms : def.sms,
+    };
+    return acc;
+  }, {});
+};
+
 // BILDIRIM AYARLARI GUNCELLEME
 router.get('/settings/notifications', authMiddleware, async (req, res) => {
   try {
+    await ensureNotificationMatrixColumn();
+
     const result = await pool.query(
-      `SELECT user_id, ad_soyad, email, telefon, email_bildirim_aktif, sms_bildirim_aktif
+      `SELECT user_id, ad_soyad, email, telefon, email_bildirim_aktif, sms_bildirim_aktif, bildirim_tercihleri
        FROM users
        WHERE user_id = $1
        LIMIT 1`,
@@ -62,7 +94,14 @@ router.get('/settings/notifications', authMiddleware, async (req, res) => {
       return res.status(404).json({ message: 'Kullanici bulunamadi.' });
     }
 
-    return res.status(200).json({ message: 'Bildirim ayarlari alindi', user: result.rows[0] });
+    const row = result.rows[0];
+    return res.status(200).json({
+      message: 'Bildirim ayarlari alindi',
+      user: {
+        ...row,
+        bildirim_tercihleri: normalizeNotificationMatrix(row.bildirim_tercihleri),
+      },
+    });
   } catch (err) {
     console.error('Bildirim ayarları okuma hatası:', err);
     return res.status(500).json({ message: 'Bildirim ayarlari alinamadi' });
@@ -143,10 +182,20 @@ router.delete('/settings/account', authMiddleware, authorizeRoles('SYSTEM_ADMIN'
 });
 
 router.put('/settings/notifications', authMiddleware, async (req, res) => {
+  const categoryToggleSchema = Joi.object({
+    email: Joi.boolean().required(),
+    sms: Joi.boolean().required(),
+  });
   const schema = Joi.object({
     telefon: Joi.string().max(20).allow('', null),
     email_bildirim_aktif: Joi.boolean().required(),
-    sms_bildirim_aktif: Joi.boolean().required()
+    sms_bildirim_aktif: Joi.boolean().required(),
+    bildirim_tercihleri: Joi.object({
+      belge_vadesi: categoryToggleSchema.required(),
+      periyodik_bakim: categoryToggleSchema.required(),
+      parca_omru: categoryToggleSchema.required(),
+      maliyet_ozeti: categoryToggleSchema.required(),
+    }).optional(),
   });
 
   const { error, value } = schema.validate(req.body);
@@ -155,17 +204,38 @@ router.put('/settings/notifications', authMiddleware, async (req, res) => {
   }
 
   try {
+    await ensureNotificationMatrixColumn();
+
+    const hasMatrix = value.bildirim_tercihleri !== undefined;
+    const matrixPayload = JSON.stringify(
+      hasMatrix
+        ? normalizeNotificationMatrix(value.bildirim_tercihleri)
+        : DEFAULT_NOTIFICATION_MATRIX
+    );
+
     const result = await pool.query(
       `UPDATE users
        SET telefon = $1,
            email_bildirim_aktif = $2,
-           sms_bildirim_aktif = $3
-       WHERE user_id = $4
-       RETURNING user_id, ad_soyad, email, telefon, email_bildirim_aktif, sms_bildirim_aktif`,
-      [value.telefon || null, value.email_bildirim_aktif, value.sms_bildirim_aktif, req.user.user_id]
+           sms_bildirim_aktif = $3,
+           bildirim_tercihleri = ${hasMatrix ? '$4::jsonb' : 'COALESCE(bildirim_tercihleri, $4::jsonb)'}
+       WHERE user_id = $5
+       RETURNING user_id, ad_soyad, email, telefon, email_bildirim_aktif, sms_bildirim_aktif, bildirim_tercihleri`,
+      [
+        value.telefon || null,
+        value.email_bildirim_aktif,
+        value.sms_bildirim_aktif,
+        matrixPayload,
+        req.user.user_id,
+      ]
     );
 
-    const updatedUser = result.rows[0];
+    const updatedUser = result.rows[0]
+      ? {
+          ...result.rows[0],
+          bildirim_tercihleri: normalizeNotificationMatrix(result.rows[0].bildirim_tercihleri),
+        }
+      : null;
     const notificationTasks = [];
 
     if (updatedUser?.email_bildirim_aktif && updatedUser?.email) {
@@ -207,10 +277,61 @@ router.put('/settings/notifications', authMiddleware, async (req, res) => {
         .forEach((item) => console.error('Bildirim testi gönderilirken hata:', item.reason?.message || item.reason));
     }
 
-    return res.status(200).json({ message: 'Bildirim ayarlari guncellendi', user: result.rows[0] });
+    return res.status(200).json({ message: 'Bildirim ayarlari guncellendi', user: updatedUser });
   } catch (err) {
     console.error('Bildirim ayarları güncelleme hatası:', err);
     return res.status(500).json({ message: 'Bildirim ayarlari guncellenemedi' });
+  }
+});
+
+// SIFRE DEGISTIRME (Mevcut şifre doğrulamalı)
+router.put('/settings/password', authMiddleware, async (req, res) => {
+  const schema = Joi.object({
+    mevcut_sifre: Joi.string().required(),
+    yeni_sifre: Joi.string().min(6).max(128).required(),
+  });
+
+  const { error, value } = schema.validate(req.body);
+  if (error) {
+    return res.status(400).json({ message: error.details[0].message });
+  }
+
+  if (value.mevcut_sifre === value.yeni_sifre) {
+    return res.status(400).json({
+      code: 'PASSWORD_SAME_AS_OLD',
+      message: 'Yeni şifre mevcut şifrenizle aynı olamaz.',
+    });
+  }
+
+  try {
+    const userRes = await pool.query(
+      'SELECT user_id, sifre FROM users WHERE user_id = $1 LIMIT 1',
+      [req.user.user_id]
+    );
+
+    if (userRes.rowCount === 0) {
+      return res.status(404).json({ message: 'Kullanıcı bulunamadı.' });
+    }
+
+    const user = userRes.rows[0];
+    const isMatch = await bcrypt.compare(value.mevcut_sifre, user.sifre);
+    if (!isMatch) {
+      return res.status(401).json({
+        code: 'CURRENT_PASSWORD_INVALID',
+        message: 'Mevcut şifreniz hatalı.',
+      });
+    }
+
+    const hashed = await bcrypt.hash(value.yeni_sifre, 10);
+    await pool.query('UPDATE users SET sifre = $1 WHERE user_id = $2', [
+      hashed,
+      req.user.user_id,
+    ]);
+
+    return res.status(200).json({ message: 'Şifreniz başarıyla güncellendi.' });
+  } catch (err) {
+    console.error('Şifre güncelleme hatası:', err);
+    return res.status(500).json({ message: 'Şifre güncellenemedi.' });
   }
 });
 

@@ -184,16 +184,24 @@ const assignVehicleToDriver = async (req, res) => {
       return res.status(403).json({ message: 'Bu araç filonuza ait değil veya yetkiniz yok.' });
     }
 
-    // Şoförün aynı organizasyonda olduğunu doğrula
+    await client.query('BEGIN');
+
+    // Şoförün aynı organizasyonda olduğunu doğrula; satır kilitlenir (eşzamanlı rol değişimi araya giremez)
     const driverCheck = await client.query(
-      'SELECT user_id, ad_soyad, role FROM users WHERE user_id = $1 AND org_id = $2',
+      'SELECT user_id, ad_soyad, role FROM users WHERE user_id = $1 AND org_id = $2 FOR UPDATE',
       [sofor_user_id, orgId]
     );
     if (driverCheck.rowCount === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ message: 'Şoför filonuzda bulunamadı.' });
     }
-
-    await client.query('BEGIN');
+    if (driverCheck.rows[0].role !== 'DRIVER') {
+      await client.query('ROLLBACK');
+      return res.status(422).json({
+        code: 'ASSIGNEE_NOT_DRIVER',
+        message: 'Araç yalnızca Şoför rolündeki kullanıcılara zimmetlenebilir.',
+      });
+    }
 
     // Aynı araçta önceki aktif zimmeti pasife çek ve yeni zimmet oluştur
     await client.query(
@@ -278,6 +286,7 @@ const updateUserRole = async (req, res) => {
 
   const targetId = paramCheck.value.id;
 
+  let client = null;
   try {
     if (targetId === req.user?.user_id) {
       return res.status(403).json({ message: 'Kendi rolünüzü değiştiremezsiniz.' });
@@ -289,7 +298,36 @@ const updateUserRole = async (req, res) => {
     const ctx = await resolveManageableUser(req, res, targetId);
     if (!ctx) return;
 
-    const result = await pool.query(
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    // Hedefi kilitle: eşzamanlı rol/zimmet değişimi araya giremez
+    const lockRes = await client.query(
+      `SELECT user_id, ad_soyad, email, telefon, role, org_id, yetkiler
+       FROM users
+       WHERE user_id = $1 AND org_id = $2
+       FOR UPDATE`,
+      [targetId, ctx.orgId]
+    );
+    if (lockRes.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        code: 'USER_NOT_FOUND',
+        message: 'Kullanıcı organizasyonunuzda bulunamadı.',
+      });
+    }
+
+    const eskiRol = lockRes.rows[0].role;
+    if (eskiRol === value.role) {
+      await client.query('COMMIT');
+      return res.status(200).json({
+        message: 'Rol zaten güncel.',
+        user: lockRes.rows[0],
+        kapatilan_zimmet_sayisi: 0,
+      });
+    }
+
+    const result = await client.query(
       `UPDATE users
        SET role = $1::user_role_type
        WHERE user_id = $2 AND org_id = $3
@@ -297,13 +335,31 @@ const updateUserRole = async (req, res) => {
       [value.role, targetId, ctx.orgId]
     );
 
+    // DRIVER rolünden çıkışta aktif zimmetler kapatılır (DRIVER'a dönüşte geri açılmaz)
+    let kapatilanZimmetSayisi = 0;
+    if (eskiRol === 'DRIVER' && value.role !== 'DRIVER') {
+      const zimmetRes = await client.query(
+        `UPDATE arac_sofor_atamalari
+         SET aktif = FALSE, teslim_tarihi = NOW()
+         WHERE sofor_user_id = $1 AND aktif = TRUE`,
+        [targetId]
+      );
+      kapatilanZimmetSayisi = zimmetRes.rowCount;
+    }
+
+    await client.query('COMMIT');
+
     return res.status(200).json({
       message: 'Kullanıcı rolü güncellendi.',
       user: result.rows[0],
+      kapatilan_zimmet_sayisi: kapatilanZimmetSayisi,
     });
   } catch (err) {
+    if (client) await client.query('ROLLBACK').catch(() => null);
     console.error('Rol güncelleme hatası:', err);
     return res.status(500).json({ message: 'Sunucu hatası oluştu.' });
+  } finally {
+    if (client) client.release();
   }
 };
 
@@ -328,6 +384,13 @@ const updateUserPermissions = async (req, res) => {
 
   const targetId = paramCheck.value.id;
 
+  if (targetId === req.user?.user_id) {
+    return res.status(403).json({
+      code: 'SELF_PERMISSION_LOCKED',
+      message: 'Kendi yetkilerinizi değiştiremezsiniz.',
+    });
+  }
+
   try {
     const ctx = await resolveManageableUser(req, res, targetId);
     if (!ctx) return;
@@ -350,10 +413,215 @@ const updateUserPermissions = async (req, res) => {
   }
 };
 
+// 6. PUT /api/admin/users/:id/password — Kullanıcı şifresini yönetici tarafından sıfırla
+const resetUserPassword = async (req, res) => {
+  const paramCheck = USER_ID_PARAM_SCHEMA.validate(req.params);
+  if (paramCheck.error) {
+    return res.status(400).json({ message: paramCheck.error.details[0].message });
+  }
+
+  const { error, value } = Joi.object({
+    yeni_sifre: Joi.string().min(6).max(128).required(),
+  }).validate(req.body);
+  if (error) {
+    return res.status(400).json({ message: error.details[0].message });
+  }
+
+  const targetId = paramCheck.value.id;
+
+  if (targetId === req.user?.user_id) {
+    return res.status(403).json({
+      code: 'SELF_PASSWORD_RESET_LOCKED',
+      message: 'Kendi şifrenizi Ayarlar > Güvenlik ekranından değiştirebilirsiniz.',
+    });
+  }
+
+  try {
+    const ctx = await resolveManageableUser(req, res, targetId);
+    if (!ctx) return;
+
+    const hashed = await bcrypt.hash(value.yeni_sifre, 10);
+    const result = await pool.query(
+      `UPDATE users
+       SET sifre = $1
+       WHERE user_id = $2 AND org_id = $3
+       RETURNING user_id, ad_soyad, email, role`,
+      [hashed, targetId, ctx.orgId]
+    );
+
+    return res.status(200).json({
+      message: 'Kullanıcı şifresi sıfırlandı.',
+      user: result.rows[0],
+    });
+  } catch (err) {
+    console.error('Şifre sıfırlama hatası:', err);
+    return res.status(500).json({ message: 'Sunucu hatası oluştu.' });
+  }
+};
+
+// 7. DELETE /api/admin/assign/:arac_id — Araç üzerindeki aktif zimmeti kaldır
+const unassignVehicle = async (req, res) => {
+  const paramCheck = Joi.object({
+    arac_id: Joi.number().integer().positive().required(),
+  }).validate(req.params);
+  if (paramCheck.error) {
+    return res.status(400).json({ message: paramCheck.error.details[0].message });
+  }
+
+  const { arac_id } = paramCheck.value;
+
+  try {
+    const managerId = req.user?.user_id;
+    const orgId = await ensureManagerOrgId(managerId);
+
+    if (!orgId) {
+      return res.status(404).json({ message: 'Yönetici organizasyonu bulunamadı.' });
+    }
+
+    const { clause, params } = buildVehicleAccessFilter(req.user, 2);
+    const orgParamIdx = 2 + params.length;
+    const aracCheck = await pool.query(
+      `SELECT a.arac_id
+       FROM araclar a
+       WHERE a.arac_id = $1
+         AND (${clause})
+         AND EXISTS (
+           SELECT 1 FROM users o
+           WHERE o.user_id = a.kullanici_id AND o.org_id = $${orgParamIdx}
+         )`,
+      [arac_id, ...params, orgId]
+    );
+    if (aracCheck.rowCount === 0) {
+      return res.status(403).json({ message: 'Bu araç filonuza ait değil veya yetkiniz yok.' });
+    }
+
+    const result = await pool.query(
+      `UPDATE arac_sofor_atamalari
+       SET aktif = FALSE, teslim_tarihi = NOW()
+       WHERE arac_id = $1 AND aktif = TRUE
+       RETURNING *`,
+      [arac_id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        code: 'ACTIVE_ASSIGNMENT_NOT_FOUND',
+        message: 'Bu araçta aktif zimmet bulunamadı.',
+      });
+    }
+
+    return res.status(200).json({
+      message: 'Araç zimmeti kaldırıldı.',
+      assignment: result.rows[0],
+    });
+  } catch (err) {
+    console.error('Araç zimmet kaldırma hatası:', err);
+    return res.status(500).json({ message: 'Sunucu hatası oluştu.' });
+  }
+};
+
+// 8. GET /api/admin/organization — Yönetici organizasyon profilini ve özet sayılarını getir
+const getOrganization = async (req, res) => {
+  try {
+    const orgId = await ensureManagerOrgId(req.user?.user_id);
+    if (!orgId) {
+      return res.status(404).json({ message: 'Yönetici organizasyonu bulunamadı.' });
+    }
+
+    const result = await pool.query(
+      `SELECT
+         o.org_id,
+         o.unvan,
+         o.vergi_no,
+         o.plan_tipi,
+         o.aktif,
+         o.olusturulma_tarihi,
+         (SELECT COUNT(*)::int FROM users u WHERE u.org_id = o.org_id) AS uye_sayisi,
+         (SELECT COUNT(*)::int FROM araclar a JOIN users u ON u.user_id = a.kullanici_id WHERE u.org_id = o.org_id) AS arac_sayisi
+       FROM organizations o
+       WHERE o.org_id = $1
+       LIMIT 1`,
+      [orgId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Organizasyon bulunamadı.' });
+    }
+
+    return res.status(200).json({
+      message: 'Organizasyon bilgisi alındı.',
+      organization: result.rows[0],
+    });
+  } catch (err) {
+    console.error('Organizasyon okuma hatası:', err);
+    return res.status(500).json({ message: 'Sunucu hatası oluştu.' });
+  }
+};
+
+// 9. PUT /api/admin/organization — Organizasyon ünvan ve vergi numarasını güncelle
+const updateOrganization = async (req, res) => {
+  const schema = Joi.object({
+    unvan: Joi.string().trim().min(2).max(200).required(),
+    vergi_no: Joi.string()
+      .trim()
+      .pattern(/^\d{10,11}$/)
+      .allow('', null)
+      .optional()
+      .messages({
+        'string.pattern.base': 'Vergi numarası 10 veya 11 haneli rakamlardan oluşmalıdır.',
+      }),
+  });
+
+  const { error, value } = schema.validate(req.body);
+  if (error) {
+    return res.status(400).json({ message: error.details[0].message });
+  }
+
+  try {
+    const orgId = await ensureManagerOrgId(req.user?.user_id);
+    if (!orgId) {
+      return res.status(404).json({ message: 'Yönetici organizasyonu bulunamadı.' });
+    }
+
+    const vergiNo = value.vergi_no ? value.vergi_no.trim() : null;
+
+    const result = await pool.query(
+      `UPDATE organizations
+       SET unvan = $1,
+           vergi_no = $2
+       WHERE org_id = $3
+       RETURNING org_id, unvan, vergi_no, plan_tipi, aktif, olusturulma_tarihi`,
+      [value.unvan.trim(), vergiNo, orgId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Organizasyon bulunamadı.' });
+    }
+
+    return res.status(200).json({
+      message: 'Organizasyon profili güncellendi.',
+      organization: result.rows[0],
+    });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({
+        code: 'TAX_NUMBER_EXISTS',
+        message: 'Bu vergi numarası başka bir organizasyonda kayıtlı.',
+      });
+    }
+    console.error('Organizasyon güncelleme hatası:', err);
+    return res.status(500).json({ message: 'Sunucu hatası oluştu.' });
+  }
+};
+
 module.exports = {
   getOrgUsers,
   createDriver,
   assignVehicleToDriver,
   updateUserRole,
   updateUserPermissions,
+  resetUserPassword,
+  unassignVehicle,
+  getOrganization,
+  updateOrganization,
 };

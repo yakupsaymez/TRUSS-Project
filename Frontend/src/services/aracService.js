@@ -23,7 +23,10 @@ const aracService = {
     aracGuncelle: async (id, aracVerisi) => {
         const response = await api.put(`/araclar/${id}`, aracVerisi);
         return response.data;
-    }
+    },
+
+    // Araç Konum (Check-In) Güncelleme fonksiyonu
+    aracKonumGuncelle: async (aracId, payload) => (await api.put(`/araclar/${aracId}/konum`, payload)).data,
 };
 
 export default aracService;

@@ -15,7 +15,7 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
-const AUTH_ENDPOINTS = ['/users/login', '/users/register'];
+const AUTH_ENDPOINTS = ['/users/login', '/users/register', '/users/settings/password'];
 
 // Aynı anda birden fazla 401 gelirse yalnızca TEK yönlendirme yapılır (sayfa yenilenince sıfırlanır).
 let isRedirecting = false;

@@ -1,5 +1,17 @@
 const pool = require('../db');
+const Joi = require('joi');
 const { buildVehicleAccessFilter } = require('../middlewares/rbacMiddleware');
+
+let budgetColsEnsured = false;
+const ensureBudgetColumns = async () => {
+  if (budgetColsEnsured) return;
+  await pool.query(`
+    ALTER TABLE organizations
+      ADD COLUMN IF NOT EXISTS aylik_yakit_butcesi NUMERIC(12, 2) NOT NULL DEFAULT 50000,
+      ADD COLUMN IF NOT EXISTS aylik_bakim_butcesi NUMERIC(12, 2) NOT NULL DEFAULT 25000
+  `);
+  budgetColsEnsured = true;
+};
 
 // 1. GENEL OZET (Toplam arac, toplam yakit gideri, toplam bakim gideri, yaklasan parca degisimi sayisi)
 const getGenelOzet = async (req, res) => {
@@ -138,9 +150,184 @@ const getAracMaliyetDagilimi = async (req, res) => {
   }
 };
 
+// 4. AYLIK FILO BUTCE / GERCEKLESEN ANALIZI
+const getButceAnalizi = async (req, res) => {
+  try {
+    await ensureBudgetColumns();
+
+    let aylikYakitButcesi = 50000;
+    let aylikBakimButcesi = 25000;
+
+    const userRes = await pool.query(
+      'SELECT org_id FROM users WHERE user_id = $1 LIMIT 1',
+      [req.user.user_id]
+    );
+    const orgId = userRes.rows[0]?.org_id || null;
+
+    if (orgId) {
+      const orgRes = await pool.query(
+        `SELECT aylik_yakit_butcesi, aylik_bakim_butcesi
+         FROM organizations
+         WHERE org_id = $1
+         LIMIT 1`,
+        [orgId]
+      );
+      if (orgRes.rowCount > 0) {
+        aylikYakitButcesi = Number(orgRes.rows[0].aylik_yakit_butcesi ?? 50000);
+        aylikBakimButcesi = Number(orgRes.rows[0].aylik_bakim_butcesi ?? 25000);
+      }
+    }
+
+    const toplamButce = aylikYakitButcesi + aylikBakimButcesi;
+
+    const { clause, params } = buildVehicleAccessFilter(req.user);
+    const trendRes = await pool.query(
+      `WITH months AS (
+         SELECT TO_CHAR(date_trunc('month', CURRENT_DATE - (n || ' months')::interval), 'YYYY-MM') AS ay
+         FROM generate_series(0, 5) AS n
+       ),
+       yakit_aylik AS (
+         SELECT TO_CHAR(date_trunc('month', y.tarih), 'YYYY-MM') AS ay,
+                SUM(y.tutar) AS toplam_yakit
+         FROM yakitlar y
+         JOIN araclar a ON a.arac_id = y.arac_id
+         WHERE (${clause})
+           AND y.tarih >= date_trunc('month', CURRENT_DATE - INTERVAL '5 months')
+         GROUP BY 1
+       ),
+       bakim_aylik AS (
+         SELECT TO_CHAR(date_trunc('month', b.tarih), 'YYYY-MM') AS ay,
+                SUM(b.maliyet) AS toplam_bakim
+         FROM bakimlar b
+         JOIN araclar a ON a.arac_id = b.arac_id
+         WHERE (${clause})
+           AND b.tarih >= date_trunc('month', CURRENT_DATE - INTERVAL '5 months')
+         GROUP BY 1
+       )
+       SELECT m.ay,
+              COALESCE(y.toplam_yakit, 0)::numeric AS toplam_yakit,
+              COALESCE(b.toplam_bakim, 0)::numeric AS toplam_bakim,
+              (COALESCE(y.toplam_yakit, 0) + COALESCE(b.toplam_bakim, 0))::numeric AS toplam_harcama
+       FROM months m
+       LEFT JOIN yakit_aylik y ON y.ay = m.ay
+       LEFT JOIN bakim_aylik b ON b.ay = m.ay
+       ORDER BY m.ay ASC`,
+      params
+    );
+
+    const aylikSerisi = trendRes.rows.map((r) => {
+      const yakitGerceklesen = Number(r.toplam_yakit || 0);
+      const bakimGerceklesen = Number(r.toplam_bakim || 0);
+      const toplamGerceklesen = Number(r.toplam_harcama || 0);
+      return {
+        ay: r.ay,
+        yakit_butce: aylikYakitButcesi,
+        bakim_butce: aylikBakimButcesi,
+        toplam_butce: toplamButce,
+        yakit_gerceklesen: yakitGerceklesen,
+        bakim_gerceklesen: bakimGerceklesen,
+        toplam_gerceklesen: toplamGerceklesen,
+        kullanim_yuzdesi:
+          toplamButce > 0 ? Math.round((toplamGerceklesen / toplamButce) * 100) : 0,
+      };
+    });
+
+    const sonEleman = aylikSerisi[aylikSerisi.length - 1] || {
+      ay: new Date().toISOString().slice(0, 7),
+      yakit_butce: aylikYakitButcesi,
+      bakim_butce: aylikBakimButcesi,
+      toplam_butce: toplamButce,
+      yakit_gerceklesen: 0,
+      bakim_gerceklesen: 0,
+      toplam_gerceklesen: 0,
+      kullanim_yuzdesi: 0,
+    };
+
+    return res.status(200).json({
+      butce: {
+        aylik_yakit_butcesi: aylikYakitButcesi,
+        aylik_bakim_butcesi: aylikBakimButcesi,
+        toplam_butce: toplamButce,
+      },
+      mevcut_ay: {
+        ay: sonEleman.ay,
+        yakit_butce: aylikYakitButcesi,
+        bakim_butce: aylikBakimButcesi,
+        toplam_butce: toplamButce,
+        yakit_gerceklesen: sonEleman.yakit_gerceklesen,
+        bakim_gerceklesen: sonEleman.bakim_gerceklesen,
+        toplam_gerceklesen: sonEleman.toplam_gerceklesen,
+        kullanim_yuzdesi: sonEleman.kullanim_yuzdesi,
+      },
+      aylik_serisi: aylikSerisi,
+    });
+  } catch (err) {
+    console.error('RAPOR BUTCE HATASI:', err);
+    return res.status(500).json({ message: 'Sunucu hatası', detay: err.message });
+  }
+};
+
+// 5. AYLIK BUTCE HEDEFI GUNCELLE
+const updateButceHedefi = async (req, res) => {
+  const schema = Joi.object({
+    aylik_yakit_butcesi: Joi.number().min(0).max(100000000).required(),
+    aylik_bakim_butcesi: Joi.number().min(0).max(100000000).required(),
+  });
+
+  const { error, value } = schema.validate(req.body);
+  if (error) {
+    return res.status(400).json({ message: error.details[0].message });
+  }
+
+  try {
+    await ensureBudgetColumns();
+
+    const userRes = await pool.query(
+      'SELECT org_id FROM users WHERE user_id = $1 LIMIT 1',
+      [req.user.user_id]
+    );
+    const orgId = userRes.rows[0]?.org_id || null;
+
+    if (!orgId) {
+      return res.status(404).json({ message: 'Organizasyon bulunamadı.' });
+    }
+
+    const result = await pool.query(
+      `UPDATE organizations
+       SET aylik_yakit_butcesi = $1,
+           aylik_bakim_butcesi = $2
+       WHERE org_id = $3
+       RETURNING org_id, aylik_yakit_butcesi, aylik_bakim_butcesi`,
+      [value.aylik_yakit_butcesi, value.aylik_bakim_butcesi, orgId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Organizasyon bulunamadı.' });
+    }
+
+    const row = result.rows[0];
+    const yakit = Number(row.aylik_yakit_butcesi);
+    const bakim = Number(row.aylik_bakim_butcesi);
+
+    return res.status(200).json({
+      message: 'Aylık bütçe hedefleri güncellendi.',
+      butce: {
+        aylik_yakit_butcesi: yakit,
+        aylik_bakim_butcesi: bakim,
+        toplam_butce: yakit + bakim,
+      },
+    });
+  } catch (err) {
+    console.error('RAPOR BUTCE GUNCELLEME HATASI:', err);
+    return res.status(500).json({ message: 'Sunucu hatası', detay: err.message });
+  }
+};
+
 module.exports = {
   getGenelOzet,
   getAylikHarcamaTrendi,
   getAracMaliyetDagilimi,
+  getButceAnalizi,
+  updateButceHedefi,
 };
 
