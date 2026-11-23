@@ -1,5 +1,6 @@
 const express = require('express');
 const pool = require('../db');
+const bcrypt = require('bcrypt');
 const Joi = require('joi');
 const authMiddleware = require('../middlewares/authMiddleware');
 const { authorizeRoles } = require('../middlewares/rbacMiddleware');
@@ -211,6 +212,57 @@ router.put('/settings/notifications', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('Bildirim ayarları güncelleme hatası:', err);
     return res.status(500).json({ message: 'Bildirim ayarlari guncellenemedi' });
+  }
+});
+
+// SIFRE DEGISTIRME (Mevcut şifre doğrulamalı)
+router.put('/settings/password', authMiddleware, async (req, res) => {
+  const schema = Joi.object({
+    mevcut_sifre: Joi.string().required(),
+    yeni_sifre: Joi.string().min(6).max(128).required(),
+  });
+
+  const { error, value } = schema.validate(req.body);
+  if (error) {
+    return res.status(400).json({ message: error.details[0].message });
+  }
+
+  if (value.mevcut_sifre === value.yeni_sifre) {
+    return res.status(400).json({
+      code: 'PASSWORD_SAME_AS_OLD',
+      message: 'Yeni şifre mevcut şifrenizle aynı olamaz.',
+    });
+  }
+
+  try {
+    const userRes = await pool.query(
+      'SELECT user_id, sifre FROM users WHERE user_id = $1 LIMIT 1',
+      [req.user.user_id]
+    );
+
+    if (userRes.rowCount === 0) {
+      return res.status(404).json({ message: 'Kullanıcı bulunamadı.' });
+    }
+
+    const user = userRes.rows[0];
+    const isMatch = await bcrypt.compare(value.mevcut_sifre, user.sifre);
+    if (!isMatch) {
+      return res.status(401).json({
+        code: 'CURRENT_PASSWORD_INVALID',
+        message: 'Mevcut şifreniz hatalı.',
+      });
+    }
+
+    const hashed = await bcrypt.hash(value.yeni_sifre, 10);
+    await pool.query('UPDATE users SET sifre = $1 WHERE user_id = $2', [
+      hashed,
+      req.user.user_id,
+    ]);
+
+    return res.status(200).json({ message: 'Şifreniz başarıyla güncellendi.' });
+  } catch (err) {
+    console.error('Şifre güncelleme hatası:', err);
+    return res.status(500).json({ message: 'Şifre güncellenemedi.' });
   }
 });
 

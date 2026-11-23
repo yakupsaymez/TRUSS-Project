@@ -13,6 +13,7 @@ import CrewDataTable, {
 } from '@/components/v2/CrewDataTable';
 import CrewRoleSummaryStrip from '@/components/v2/CrewRoleSummaryStrip';
 import PermissionsSheet from '@/components/v2/PermissionsSheet';
+import ResetPasswordSheet from '@/components/v2/ResetPasswordSheet';
 import AssignVehicleSheet from '@/components/v2/AssignVehicleSheet';
 import CreateMemberSheet from '@/components/v2/CreateMemberSheet';
 import ConfirmDialog from '@/components/v2/ConfirmDialog';
@@ -33,6 +34,7 @@ export default function Ekip() {
   const [pendingRoleChange, setPendingRoleChange] = useState(null);
 
   const [permissionsTarget, setPermissionsTarget] = useState(null);
+  const [resetPasswordTarget, setResetPasswordTarget] = useState(null);
   const [assignState, setAssignState] = useState({ open: false, member: null });
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
 
@@ -195,6 +197,10 @@ export default function Ekip() {
     setPermissionsTarget(member);
   }, []);
 
+  const handleResetPasswordClick = useCallback((member) => {
+    setResetPasswordTarget(member);
+  }, []);
+
   const handleRowAssignClick = useCallback((member) => {
     setAssignState({ open: true, member });
   }, []);
@@ -209,6 +215,14 @@ export default function Ekip() {
         ? getMemberAccess(permissionsTarget)
         : { readOnly: false, lockMessage: undefined },
     [permissionsTarget, getMemberAccess]
+  );
+
+  const resetPasswordAccess = useMemo(
+    () =>
+      resetPasswordTarget
+        ? getMemberAccess(resetPasswordTarget)
+        : { readOnly: false, lockMessage: undefined },
+    [resetPasswordTarget, getMemberAccess]
   );
 
   const isConfirmLoading =
@@ -274,6 +288,7 @@ export default function Ekip() {
         updatingUserId={updatingUserId}
         onRoleChange={handleRoleChange}
         onPermissionsClick={handlePermissionsClick}
+        onResetPasswordClick={handleResetPasswordClick}
         onAssignClick={handleRowAssignClick}
         onCreateClick={() => setCreateSheetOpen(true)}
       />
@@ -286,6 +301,17 @@ export default function Ekip() {
         member={permissionsTarget}
         readOnly={permissionsAccess.readOnly}
         lockMessage={permissionsAccess.lockMessage}
+        onSuccess={refreshAll}
+      />
+
+      <ResetPasswordSheet
+        open={resetPasswordTarget !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setResetPasswordTarget(null);
+        }}
+        member={resetPasswordTarget}
+        readOnly={resetPasswordAccess.readOnly}
+        lockMessage={resetPasswordAccess.lockMessage}
         onSuccess={refreshAll}
       />
 

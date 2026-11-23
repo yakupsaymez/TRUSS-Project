@@ -413,10 +413,119 @@ const updateUserPermissions = async (req, res) => {
   }
 };
 
+// 6. PUT /api/admin/users/:id/password — Kullanıcı şifresini yönetici tarafından sıfırla
+const resetUserPassword = async (req, res) => {
+  const paramCheck = USER_ID_PARAM_SCHEMA.validate(req.params);
+  if (paramCheck.error) {
+    return res.status(400).json({ message: paramCheck.error.details[0].message });
+  }
+
+  const { error, value } = Joi.object({
+    yeni_sifre: Joi.string().min(6).max(128).required(),
+  }).validate(req.body);
+  if (error) {
+    return res.status(400).json({ message: error.details[0].message });
+  }
+
+  const targetId = paramCheck.value.id;
+
+  if (targetId === req.user?.user_id) {
+    return res.status(403).json({
+      code: 'SELF_PASSWORD_RESET_LOCKED',
+      message: 'Kendi şifrenizi Ayarlar > Güvenlik ekranından değiştirebilirsiniz.',
+    });
+  }
+
+  try {
+    const ctx = await resolveManageableUser(req, res, targetId);
+    if (!ctx) return;
+
+    const hashed = await bcrypt.hash(value.yeni_sifre, 10);
+    const result = await pool.query(
+      `UPDATE users
+       SET sifre = $1
+       WHERE user_id = $2 AND org_id = $3
+       RETURNING user_id, ad_soyad, email, role`,
+      [hashed, targetId, ctx.orgId]
+    );
+
+    return res.status(200).json({
+      message: 'Kullanıcı şifresi sıfırlandı.',
+      user: result.rows[0],
+    });
+  } catch (err) {
+    console.error('Şifre sıfırlama hatası:', err);
+    return res.status(500).json({ message: 'Sunucu hatası oluştu.' });
+  }
+};
+
+// 7. DELETE /api/admin/assign/:arac_id — Araç üzerindeki aktif zimmeti kaldır
+const unassignVehicle = async (req, res) => {
+  const paramCheck = Joi.object({
+    arac_id: Joi.number().integer().positive().required(),
+  }).validate(req.params);
+  if (paramCheck.error) {
+    return res.status(400).json({ message: paramCheck.error.details[0].message });
+  }
+
+  const { arac_id } = paramCheck.value;
+
+  try {
+    const managerId = req.user?.user_id;
+    const orgId = await ensureManagerOrgId(managerId);
+
+    if (!orgId) {
+      return res.status(404).json({ message: 'Yönetici organizasyonu bulunamadı.' });
+    }
+
+    const { clause, params } = buildVehicleAccessFilter(req.user, 2);
+    const orgParamIdx = 2 + params.length;
+    const aracCheck = await pool.query(
+      `SELECT a.arac_id
+       FROM araclar a
+       WHERE a.arac_id = $1
+         AND (${clause})
+         AND EXISTS (
+           SELECT 1 FROM users o
+           WHERE o.user_id = a.kullanici_id AND o.org_id = $${orgParamIdx}
+         )`,
+      [arac_id, ...params, orgId]
+    );
+    if (aracCheck.rowCount === 0) {
+      return res.status(403).json({ message: 'Bu araç filonuza ait değil veya yetkiniz yok.' });
+    }
+
+    const result = await pool.query(
+      `UPDATE arac_sofor_atamalari
+       SET aktif = FALSE, teslim_tarihi = NOW()
+       WHERE arac_id = $1 AND aktif = TRUE
+       RETURNING *`,
+      [arac_id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        code: 'ACTIVE_ASSIGNMENT_NOT_FOUND',
+        message: 'Bu araçta aktif zimmet bulunamadı.',
+      });
+    }
+
+    return res.status(200).json({
+      message: 'Araç zimmeti kaldırıldı.',
+      assignment: result.rows[0],
+    });
+  } catch (err) {
+    console.error('Araç zimmet kaldırma hatası:', err);
+    return res.status(500).json({ message: 'Sunucu hatası oluştu.' });
+  }
+};
+
 module.exports = {
   getOrgUsers,
   createDriver,
   assignVehicleToDriver,
   updateUserRole,
   updateUserPermissions,
+  resetUserPassword,
+  unassignVehicle,
 };

@@ -22,4 +22,10 @@ router.put('/users/:id/role', adminController.updateUserRole);
 // PUT /api/admin/users/:id/permissions
 router.put('/users/:id/permissions', adminController.updateUserPermissions);
 
+// PUT /api/admin/users/:id/password
+router.put('/users/:id/password', adminController.resetUserPassword);
+
+// DELETE /api/admin/assign/:arac_id
+router.delete('/assign/:arac_id', adminController.unassignVehicle);
+
 module.exports = router;

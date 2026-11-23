@@ -171,6 +171,7 @@ export default function CrewDataTable({
   onRoleChange,
   onPermissionsClick,
   onAssignClick,
+  onResetPasswordClick,
   onCreateClick,
 }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -448,7 +449,7 @@ export default function CrewDataTable({
       {
         id: 'actions',
         header: () => <span className="block text-right">Aksiyonlar</span>,
-        size: 210,
+        size: 310,
         cell: ({ row }) => {
           const member = row.original;
           const access = getMemberAccess
@@ -462,6 +463,13 @@ export default function CrewDataTable({
             : permsEnabled
               ? 'Yetkileri düzenle'
               : "S11'de etkinleştirilecek";
+
+          const resetEnabled = !access.readOnly && typeof onResetPasswordClick === 'function';
+          const resetTitle = access.readOnly
+            ? access.lockMessage
+            : typeof onResetPasswordClick === 'function'
+              ? 'Şifreyi sıfırla'
+              : undefined;
 
           const assignEnabled = Boolean(isDriver && typeof onAssignClick === 'function');
           const assignTitle = assignEnabled ? 'Araç zimmetle' : "S11'de etkinleştirilecek";
@@ -487,6 +495,25 @@ export default function CrewDataTable({
                 </Button>
               </span>
 
+              <span title={resetTitle} className="inline-flex">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={!resetEnabled}
+                  onClick={resetEnabled ? () => onResetPasswordClick(member) : undefined}
+                  title={resetTitle}
+                  className="h-8 gap-1.5 px-2.5 text-xs"
+                >
+                  {access.readOnly ? (
+                    <Lock className="size-3.5" aria-hidden="true" />
+                  ) : (
+                    <KeyRound className="size-3.5" aria-hidden="true" />
+                  )}
+                  <span>Şifre Sıfırla</span>
+                </Button>
+              </span>
+
               {isDriver && (
                 <span title={assignTitle} className="inline-flex">
                   <Button
@@ -508,7 +535,15 @@ export default function CrewDataTable({
         },
       },
     ],
-    [assignableRoles, getMemberAccess, updatingUserId, onRoleChange, onPermissionsClick, onAssignClick]
+    [
+      assignableRoles,
+      getMemberAccess,
+      updatingUserId,
+      onRoleChange,
+      onPermissionsClick,
+      onAssignClick,
+      onResetPasswordClick,
+    ]
   );
 
   const table = useReactTable({

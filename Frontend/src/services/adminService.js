@@ -25,6 +25,11 @@ const adminService = {
     const response = await api.put(`/admin/users/${userId}/permissions`, { yetkiler });
     return response.data;
   },
+
+  resetUserPassword: async (userId, yeni_sifre) =>
+    (await api.put(`/admin/users/${userId}/password`, { yeni_sifre })).data,
+
+  unassignVehicle: async (aracId) => (await api.delete(`/admin/assign/${aracId}`)).data,
 };
 
 export default adminService;

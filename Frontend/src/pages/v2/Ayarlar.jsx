@@ -2,8 +2,11 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
+  AlertCircle,
   AlertTriangle,
   Bell,
+  Eye,
+  EyeOff,
   Info,
   KeyRound,
   LaptopMinimal,
@@ -27,6 +30,7 @@ import { useTheme } from '@/components/theme-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -133,6 +137,17 @@ export default function Ayarlar() {
   const [smsBildirimAktif, setSmsBildirimAktif] = useState(false);
   const [savingNotifications, setSavingNotifications] = useState(false);
 
+  // Güvenlik — Şifre değiştirme
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+  const [passwordErrors, setPasswordErrors] = useState({});
+  const [passwordFormError, setPasswordFormError] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
+
   // Güvenlik — Hesap silme (yalnız SYSTEM_ADMIN)
   const [confirmText, setConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -232,6 +247,71 @@ export default function Ayarlar() {
       notifyApiError(err, 'Bildirim ayarları güncellenemedi.');
     } finally {
       if (mountedRef.current) setSavingNotifications(false);
+    }
+  };
+
+  const clearPasswordError = (key) => {
+    if (passwordErrors[key]) {
+      setPasswordErrors((prev) => ({ ...prev, [key]: '' }));
+    }
+    if (passwordFormError) setPasswordFormError('');
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (savingPassword) return;
+
+    const errors = {};
+    if (!currentPassword) {
+      errors.currentPassword = 'Mevcut şifre gereklidir.';
+    }
+    if (!newPassword) {
+      errors.newPassword = 'Yeni şifre gereklidir.';
+    } else if (newPassword.length < 6) {
+      errors.newPassword = 'Yeni şifre en az 6 karakter olmalıdır.';
+    } else if (currentPassword && newPassword === currentPassword) {
+      errors.newPassword = 'Yeni şifre mevcut şifrenizden farklı olmalıdır.';
+    }
+
+    if (!confirmNewPassword) {
+      errors.confirmNewPassword = 'Yeni şifre tekrarı gereklidir.';
+    } else if (newPassword !== confirmNewPassword) {
+      errors.confirmNewPassword = 'Yeni şifreler eşleşmiyor.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setPasswordErrors(errors);
+      return;
+    }
+
+    setPasswordErrors({});
+    setPasswordFormError('');
+    setSavingPassword(true);
+    try {
+      await api.put('/users/settings/password', {
+        mevcut_sifre: currentPassword,
+        yeni_sifre: newPassword,
+      });
+      if (!mountedRef.current) return;
+      toast.success('Şifreniz başarıyla güncellendi.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setShowCurrentPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmNewPassword(false);
+    } catch (err) {
+      if (!mountedRef.current) return;
+      const code = err?.response?.data?.code;
+      const msg = err?.response?.data?.message || 'Şifre güncellenemedi.';
+      if (code === 'CURRENT_PASSWORD_INVALID' || err?.response?.status === 401) {
+        setPasswordErrors((prev) => ({ ...prev, currentPassword: msg }));
+      } else {
+        setPasswordFormError(msg);
+      }
+      notifyApiError(err, 'Şifre güncellenemedi.');
+    } finally {
+      if (mountedRef.current) setSavingPassword(false);
     }
   };
 
@@ -547,6 +627,223 @@ export default function Ayarlar() {
                     </div>
 
                     <Separator />
+
+                    {/* Canlı Şifre Değiştirme Formu */}
+                    <form
+                      onSubmit={handleChangePassword}
+                      noValidate
+                      className="space-y-4 rounded-xl border border-border bg-background/60 p-4 sm:p-5"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
+                          <KeyRound className="size-4" aria-hidden="true" />
+                        </div>
+                        <div className="space-y-1">
+                          <h3 className="text-sm font-semibold text-foreground">Şifre Değiştir</h3>
+                          <p className="text-xs leading-relaxed text-muted-foreground">
+                            Mevcut şifrenizi doğrulayarak hesabınız için yeni bir giriş şifresi
+                            belirleyin.
+                          </p>
+                        </div>
+                      </div>
+
+                      {passwordFormError ? (
+                        <div
+                          role="alert"
+                          className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-xs leading-relaxed text-destructive"
+                        >
+                          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                          <span>{passwordFormError}</span>
+                        </div>
+                      ) : null}
+
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                        <div className="grid gap-2">
+                          <Label htmlFor="settings-current-password">Mevcut Şifre</Label>
+                          <InputGroup>
+                            <InputGroupInput
+                              id="settings-current-password"
+                              name="currentPassword"
+                              type={showCurrentPassword ? 'text' : 'password'}
+                              placeholder="Mevcut şifreniz"
+                              autoComplete="current-password"
+                              required
+                              value={currentPassword}
+                              onChange={(e) => {
+                                setCurrentPassword(e.target.value);
+                                clearPasswordError('currentPassword');
+                              }}
+                              disabled={savingPassword}
+                              aria-invalid={Boolean(passwordErrors.currentPassword)}
+                              aria-describedby={
+                                passwordErrors.currentPassword
+                                  ? 'settings-current-password-error'
+                                  : undefined
+                              }
+                            />
+                            <InputGroupAddon align="inline-end" className="pr-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                onClick={() => setShowCurrentPassword((prev) => !prev)}
+                                disabled={savingPassword}
+                                aria-label={
+                                  showCurrentPassword
+                                    ? 'Mevcut şifreyi gizle'
+                                    : 'Mevcut şifreyi göster'
+                                }
+                                aria-pressed={showCurrentPassword}
+                                className="text-muted-foreground hover:bg-transparent hover:text-foreground"
+                              >
+                                {showCurrentPassword ? (
+                                  <EyeOff className="size-4" aria-hidden="true" />
+                                ) : (
+                                  <Eye className="size-4" aria-hidden="true" />
+                                )}
+                              </Button>
+                            </InputGroupAddon>
+                          </InputGroup>
+                          {passwordErrors.currentPassword ? (
+                            <p
+                              id="settings-current-password-error"
+                              role="alert"
+                              className="text-xs text-destructive"
+                            >
+                              {passwordErrors.currentPassword}
+                            </p>
+                          ) : null}
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label htmlFor="settings-new-password">Yeni Şifre</Label>
+                          <InputGroup>
+                            <InputGroupInput
+                              id="settings-new-password"
+                              name="newPassword"
+                              type={showNewPassword ? 'text' : 'password'}
+                              placeholder="En az 6 karakter"
+                              autoComplete="new-password"
+                              required
+                              value={newPassword}
+                              onChange={(e) => {
+                                setNewPassword(e.target.value);
+                                clearPasswordError('newPassword');
+                              }}
+                              disabled={savingPassword}
+                              aria-invalid={Boolean(passwordErrors.newPassword)}
+                              aria-describedby={
+                                passwordErrors.newPassword
+                                  ? 'settings-new-password-error'
+                                  : undefined
+                              }
+                            />
+                            <InputGroupAddon align="inline-end" className="pr-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                onClick={() => setShowNewPassword((prev) => !prev)}
+                                disabled={savingPassword}
+                                aria-label={
+                                  showNewPassword ? 'Yeni şifreyi gizle' : 'Yeni şifreyi göster'
+                                }
+                                aria-pressed={showNewPassword}
+                                className="text-muted-foreground hover:bg-transparent hover:text-foreground"
+                              >
+                                {showNewPassword ? (
+                                  <EyeOff className="size-4" aria-hidden="true" />
+                                ) : (
+                                  <Eye className="size-4" aria-hidden="true" />
+                                )}
+                              </Button>
+                            </InputGroupAddon>
+                          </InputGroup>
+                          {passwordErrors.newPassword ? (
+                            <p
+                              id="settings-new-password-error"
+                              role="alert"
+                              className="text-xs text-destructive"
+                            >
+                              {passwordErrors.newPassword}
+                            </p>
+                          ) : null}
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label htmlFor="settings-confirm-new-password">Yeni Şifre Tekrar</Label>
+                          <InputGroup>
+                            <InputGroupInput
+                              id="settings-confirm-new-password"
+                              name="confirmNewPassword"
+                              type={showConfirmNewPassword ? 'text' : 'password'}
+                              placeholder="Yeni şifreyi tekrarlayın"
+                              autoComplete="new-password"
+                              required
+                              value={confirmNewPassword}
+                              onChange={(e) => {
+                                setConfirmNewPassword(e.target.value);
+                                clearPasswordError('confirmNewPassword');
+                              }}
+                              disabled={savingPassword}
+                              aria-invalid={Boolean(passwordErrors.confirmNewPassword)}
+                              aria-describedby={
+                                passwordErrors.confirmNewPassword
+                                  ? 'settings-confirm-new-password-error'
+                                  : undefined
+                              }
+                            />
+                            <InputGroupAddon align="inline-end" className="pr-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                onClick={() => setShowConfirmNewPassword((prev) => !prev)}
+                                disabled={savingPassword}
+                                aria-label={
+                                  showConfirmNewPassword
+                                    ? 'Yeni şifre tekrarını gizle'
+                                    : 'Yeni şifre tekrarını göster'
+                                }
+                                aria-pressed={showConfirmNewPassword}
+                                className="text-muted-foreground hover:bg-transparent hover:text-foreground"
+                              >
+                                {showConfirmNewPassword ? (
+                                  <EyeOff className="size-4" aria-hidden="true" />
+                                ) : (
+                                  <Eye className="size-4" aria-hidden="true" />
+                                )}
+                              </Button>
+                            </InputGroupAddon>
+                          </InputGroup>
+                          {passwordErrors.confirmNewPassword ? (
+                            <p
+                              id="settings-confirm-new-password-error"
+                              role="alert"
+                              className="text-xs text-destructive"
+                            >
+                              {passwordErrors.confirmNewPassword}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end border-t border-border pt-3">
+                        <Button
+                          type="submit"
+                          size="sm"
+                          disabled={savingPassword}
+                          className="gap-2"
+                        >
+                          {savingPassword ? (
+                            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                          ) : (
+                            <Save className="size-4" aria-hidden="true" />
+                          )}
+                          <span>Şifreyi Güncelle</span>
+                        </Button>
+                      </div>
+                    </form>
 
                     <div className="space-y-4 rounded-xl border border-border bg-background/60 p-4 sm:p-5">
                       <div className="flex items-start gap-3">

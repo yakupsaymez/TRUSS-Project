@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { AlertTriangle, Car, User } from 'lucide-react';
+import { AlertTriangle, Car, Loader2, Unlink, User } from 'lucide-react';
 import adminService from '@/services/adminService';
 import { getErrorStatus, notifyApiError } from '@/utils/apiError';
 import { getTodayIso } from '@/utils/dateUtils';
@@ -10,6 +10,7 @@ import AppSheet, {
   SheetFormSection,
 } from '@/components/v2/AppSheet';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -52,6 +53,7 @@ export default function AssignVehicleSheet({
   const [initialSnapshot, setInitialSnapshot] = useState(() => buildInitialForm(member));
   const [fieldErrors, setFieldErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [unassigningVehicleId, setUnassigningVehicleId] = useState(null);
 
   useEffect(() => {
     if (!open) return;
@@ -59,6 +61,7 @@ export default function AssignVehicleSheet({
     setForm(next);
     setInitialSnapshot(next);
     setFieldErrors({});
+    setUnassigningVehicleId(null);
   }, [open, member]);
 
   const isDirty = useMemo(
@@ -118,6 +121,23 @@ export default function AssignVehicleSheet({
       delete next[field];
       return next;
     });
+  };
+
+  const handleUnassignVehicle = async (aracId) => {
+    if (aracId == null || isSubmitting || unassigningVehicleId != null) return;
+    setUnassigningVehicleId(String(aracId));
+    try {
+      await adminService.unassignVehicle(aracId);
+      toast.success('Araç zimmeti kaldırıldı.');
+      await onSuccess?.();
+    } catch (err) {
+      notifyApiError(err, 'Araç zimmeti kaldırılamadı.');
+      if ([404, 409].includes(getErrorStatus(err))) {
+        await onSuccess?.();
+      }
+    } finally {
+      setUnassigningVehicleId(null);
+    }
   };
 
   const handleSubmit = async (event) => {
@@ -328,11 +348,11 @@ export default function AssignVehicleSheet({
         </SheetField>
       </SheetFormSection>
 
-      {/* Seçili Şoförün Mevcut Aktif Zimmetleri (Salt Okunur Özet) */}
+      {/* Seçili Şoförün Mevcut Aktif Zimmetleri */}
       {selectedDriver && (
         <SheetFormSection
           title="Mevcut Aktif Zimmetler"
-          description={`${selectedDriver.ad_soyad} üzerindeki aktif araç kayıtları (salt okunur)`}
+          description={`${selectedDriver.ad_soyad} üzerindeki aktif araç kayıtları`}
         >
           {selectedDriverVehicles.length === 0 ? (
             <p className="rounded-xl border border-dashed border-border bg-background/60 px-3.5 py-3 text-xs text-muted-foreground">
@@ -344,6 +364,9 @@ export default function AssignVehicleSheet({
                 const plate = formatTurkishPlate(z?.plaka || '') || z?.plaka || '—';
                 const modelDesc = [z?.marka, z?.model].filter(Boolean).join(' ').trim();
                 const assignedDate = formatTrDate(z?.atanma_tarihi);
+                const isUnassigning =
+                  z?.arac_id != null && String(unassigningVehicleId) === String(z.arac_id);
+
                 return (
                   <div
                     key={z?.atama_id || z?.arac_id || `${plate}-${idx}`}
@@ -361,11 +384,30 @@ export default function AssignVehicleSheet({
                         <span className="truncate text-xs text-muted-foreground">{modelDesc}</span>
                       )}
                     </div>
-                    {assignedDate && (
-                      <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-                        {assignedDate}
-                      </span>
-                    )}
+                    <div className="flex shrink-0 items-center gap-2">
+                      {assignedDate && (
+                        <span className="text-[11px] tabular-nums text-muted-foreground">
+                          {assignedDate}
+                        </span>
+                      )}
+                      {z?.arac_id != null && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="xs"
+                          disabled={isSubmitting || unassigningVehicleId != null}
+                          onClick={() => handleUnassignVehicle(z.arac_id)}
+                          className="h-7 gap-1 px-2 text-xs"
+                        >
+                          {isUnassigning ? (
+                            <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+                          ) : (
+                            <Unlink className="size-3" aria-hidden="true" />
+                          )}
+                          <span>Zimmeti Kaldır</span>
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
