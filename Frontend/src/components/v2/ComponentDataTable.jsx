@@ -28,6 +28,7 @@ import { getGuncelSayac } from '@/utils/aracDurum';
 import { toLocalIsoDate } from '@/utils/dateUtils';
 import { formatCurrency, formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import { usePagination } from '@/hooks/use-pagination';
+import EmptyState from '@/components/v2/EmptyState';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -959,56 +960,27 @@ export default function ComponentDataTable({
               </>
             ) : (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={visibleColCount} className="py-14 text-center">
-                  <div className="mx-auto flex max-w-sm flex-col items-center gap-3">
-                    <div className="flex size-12 items-center justify-center rounded-full border border-border bg-muted text-muted-foreground">
-                      <Cog className="size-5" />
-                    </div>
-                    {parcalar.length === 0 ? (
-                      <>
-                        <div className="space-y-1">
-                          <p className="text-sm font-semibold text-foreground">
-                            Henüz takipli parça yok
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Triger, fren balatası, akü ve kritik bileşenleri takibe alarak ömür
-                            eşiklerini izleyin.
-                          </p>
-                        </div>
-                        {canManage && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={onCreateClick}
-                            className="gap-1.5"
-                          >
-                            <Plus className="size-3.5" />
-                            <span>Yeni Parça</span>
-                          </Button>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <div className="space-y-1">
-                          <p className="text-sm font-semibold text-foreground">
-                            Filtrelerle eşleşen parça bulunamadı
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Arama metnini, seçili aracı veya durum filtresini temizleyerek tüm
-                            parçaları görüntüleyebilirsiniz.
-                          </p>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleClearFilters}
-                        >
-                          Filtreleri Temizle
-                        </Button>
-                      </>
-                    )}
-                  </div>
+                <TableCell colSpan={visibleColCount} className="p-0">
+                  {parcalar.length === 0 ? (
+                    <EmptyState
+                      compact
+                      icon={Cog}
+                      title="Henüz takipli parça yok"
+                      description="Triger, fren balatası, akü ve kritik bileşenleri takibe alarak ömür eşiklerini izleyin."
+                      actionLabel={canManage ? 'Yeni Parça' : undefined}
+                      onAction={canManage ? onCreateClick : undefined}
+                    />
+                  ) : (
+                    <EmptyState
+                      compact
+                      icon={Cog}
+                      title="Filtrelerle eşleşen parça bulunamadı"
+                      description="Arama metnini, seçili aracı veya durum filtresini temizleyerek tüm parçaları görüntüleyebilirsiniz."
+                      actionLabel="Filtreleri Temizle"
+                      actionVariant="outline"
+                      onAction={handleClearFilters}
+                    />
+                  )}
                 </TableCell>
               </TableRow>
             )}

@@ -25,3 +25,4 @@ export { default as OverviewKpiStrip } from '@/components/v2/OverviewKpiStrip';
 export { default as CostTrendChart } from '@/components/v2/CostTrendChart';
 export { default as FleetHealthWidget } from '@/components/v2/FleetHealthWidget';
 export { default as CommandPalette } from '@/components/v2/CommandPalette';
+export { default as EmptyState } from '@/components/v2/EmptyState';

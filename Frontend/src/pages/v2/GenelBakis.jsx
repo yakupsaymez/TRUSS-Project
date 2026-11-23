@@ -1,22 +1,26 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X } from 'lucide-react';
+import { Truck, X } from 'lucide-react';
 import useAuthStore from '@/store/useAuthStore';
 import useVehicleStore from '@/store/useVehicleStore';
 import raporService from '@/services/raporService';
-import { canAccessChannel } from '@/pages/ChronoBeta/channelAccess';
+import { canAccessChannel, resolveRole, ROLES } from '@/pages/ChronoBeta/channelAccess';
 import { notifyApiError } from '@/utils/apiError';
 import { formatTurkishPlate } from '@/utils/formatters';
 import OverviewKpiStrip from '@/components/v2/OverviewKpiStrip';
 import CostTrendChart from '@/components/v2/CostTrendChart';
 import FleetHealthWidget from '@/components/v2/FleetHealthWidget';
 import DocumentComplianceCard from '@/components/v2/DocumentComplianceCard';
+import EmptyState from '@/components/v2/EmptyState';
+import VehicleSheet from '@/components/v2/VehicleSheet';
 import { Button } from '@/components/ui/button';
 
 export default function GenelBakis() {
   const navigate = useNavigate();
 
   const user = useAuthStore((s) => s.user);
+  const role = resolveRole(user);
+  const canManage = [ROLES.SYSTEM_ADMIN, ROLES.FLEET_MANAGER].includes(role);
   const canViewAnalytics = canAccessChannel(user, 'analytics');
 
   const araclar = useVehicleStore((s) => s.araclar);
@@ -29,6 +33,7 @@ export default function GenelBakis() {
   const [aylikTrend, setAylikTrend] = useState([]);
   const [aracMaliyet, setAracMaliyet] = useState([]);
   const [loadingFinance, setLoadingFinance] = useState(false);
+  const [vehicleSheetOpen, setVehicleSheetOpen] = useState(false);
 
   const vehicleFetchAttemptedRef = useRef(false);
 
@@ -94,6 +99,8 @@ export default function GenelBakis() {
     [setSeciliAracId, navigate]
   );
 
+  const isFleetEmpty = hasLoaded && !loading && araclar.length === 0;
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -105,7 +112,7 @@ export default function GenelBakis() {
           </p>
         </div>
 
-        {isSingleVehicle && (
+        {isSingleVehicle && !isFleetEmpty && (
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 py-1 pl-3 pr-1.5 text-xs font-medium text-primary">
             <span className="tabular-nums">
               Tek araç görünümü
@@ -127,53 +134,81 @@ export default function GenelBakis() {
         )}
       </div>
 
-      <OverviewKpiStrip
-        araclar={filtreliAraclar}
-        seciliAracId={seciliAracId}
-        canViewAnalytics={canViewAnalytics}
-        aylikTrend={aylikTrend}
-        aracMaliyet={aracMaliyet}
-        loadingVehicles={loading && !hasLoaded}
-        loadingFinance={loadingFinance}
-      />
-
-      {canViewAnalytics ? (
-        <>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-            <CostTrendChart
-              aylikTrend={aylikTrend}
-              aracMaliyet={aracMaliyet}
-              seciliAracId={seciliAracId}
-              loading={loadingFinance}
-              className="lg:col-span-7"
-            />
-            <FleetHealthWidget
-              araclar={filtreliAraclar}
-              loading={loading && !hasLoaded}
-              onSelectVehicle={handleSelectVehicle}
-              className="lg:col-span-5"
-            />
-          </div>
-
-          <DocumentComplianceCard
-            araclar={filtreliAraclar}
-            loading={loading && !hasLoaded}
-            onSelectStatus={() => navigate('/app/filo')}
+      {isFleetEmpty ? (
+        canManage ? (
+          <EmptyState
+            icon={Truck}
+            title="İlk aracınızı ekleyin"
+            description="Filonuza ilk aracınızı ekleyerek sayaç takibi, bakım ömrü, belge uyum durumu ve gider özetini tek ekranda izlemeye başlayın."
+            actionLabel="Araç Ekle"
+            onAction={() => setVehicleSheetOpen(true)}
           />
-        </>
+        ) : (
+          <EmptyState
+            icon={Truck}
+            title="Henüz zimmetli aracınız yok"
+            description="Filo yöneticiniz size bir araç zimmetlediğinde özet burada görünecektir."
+          />
+        )
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <FleetHealthWidget
+        <>
+          <OverviewKpiStrip
             araclar={filtreliAraclar}
-            loading={loading && !hasLoaded}
-            onSelectVehicle={handleSelectVehicle}
+            seciliAracId={seciliAracId}
+            canViewAnalytics={canViewAnalytics}
+            aylikTrend={aylikTrend}
+            aracMaliyet={aracMaliyet}
+            loadingVehicles={loading && !hasLoaded}
+            loadingFinance={loadingFinance}
           />
-          <DocumentComplianceCard
-            araclar={filtreliAraclar}
-            loading={loading && !hasLoaded}
-            onSelectStatus={() => navigate('/app/filo')}
-          />
-        </div>
+
+          {canViewAnalytics ? (
+            <>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+                <CostTrendChart
+                  aylikTrend={aylikTrend}
+                  aracMaliyet={aracMaliyet}
+                  seciliAracId={seciliAracId}
+                  loading={loadingFinance}
+                  className="lg:col-span-7"
+                />
+                <FleetHealthWidget
+                  araclar={filtreliAraclar}
+                  loading={loading && !hasLoaded}
+                  onSelectVehicle={handleSelectVehicle}
+                  className="lg:col-span-5"
+                />
+              </div>
+
+              <DocumentComplianceCard
+                araclar={filtreliAraclar}
+                loading={loading && !hasLoaded}
+                onSelectStatus={() => navigate('/app/filo')}
+              />
+            </>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <FleetHealthWidget
+                araclar={filtreliAraclar}
+                loading={loading && !hasLoaded}
+                onSelectVehicle={handleSelectVehicle}
+              />
+              <DocumentComplianceCard
+                araclar={filtreliAraclar}
+                loading={loading && !hasLoaded}
+                onSelectStatus={() => navigate('/app/filo')}
+              />
+            </div>
+          )}
+        </>
+      )}
+
+      {canManage && (
+        <VehicleSheet
+          open={vehicleSheetOpen}
+          onOpenChange={setVehicleSheetOpen}
+          arac={null}
+        />
       )}
     </div>
   );

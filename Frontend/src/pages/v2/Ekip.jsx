@@ -266,6 +266,7 @@ export default function Ekip() {
         onRoleChange={handleRoleChange}
         onPermissionsClick={handlePermissionsClick}
         onAssignClick={handleRowAssignClick}
+        onCreateClick={() => setCreateSheetOpen(true)}
       />
 
       <PermissionsSheet

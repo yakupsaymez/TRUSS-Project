@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { formatCurrency, formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import { usePagination } from '@/hooks/use-pagination';
+import EmptyState from '@/components/v2/EmptyState';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -752,66 +753,29 @@ export default function LedgerDataTable({
               ))
             ) : (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={columns.length} className="py-14 text-center">
-                  <div className="mx-auto flex max-w-sm flex-col items-center gap-3">
-                    <div className="flex size-12 items-center justify-center rounded-full border border-border bg-muted text-muted-foreground">
-                      <ReceiptText className="size-5" />
-                    </div>
-                    {rows.length === 0 ? (
-                      <>
-                        <div className="space-y-1">
-                          <p className="text-sm font-semibold text-foreground">
-                            Henüz hareket kaydı yok
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            İlk yakıt ikmalinizi veya servis bakım kaydınızı ekleyerek gider
-                            defterini başlatın.
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap items-center justify-center gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={onCreateYakit}
-                            className="gap-1.5"
-                          >
-                            <Plus className="size-3.5" />
-                            <span>Yeni Yakıt</span>
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={onCreateBakim}
-                            className="gap-1.5"
-                          >
-                            <Plus className="size-3.5" />
-                            <span>Yeni Bakım</span>
-                          </Button>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="space-y-1">
-                          <p className="text-sm font-semibold text-foreground">
-                            Filtrelerle eşleşen kayıt bulunamadı
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Arama metnini, seçili aracı veya tarih aralığını temizleyerek tüm
-                            hareketleri görüntüleyebilirsiniz.
-                          </p>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleClearFilters}
-                        >
-                          Filtreleri Temizle
-                        </Button>
-                      </>
-                    )}
-                  </div>
+                <TableCell colSpan={columns.length} className="p-0">
+                  {rows.length === 0 ? (
+                    <EmptyState
+                      compact
+                      icon={ReceiptText}
+                      title="Henüz hareket kaydı yok"
+                      description="İlk yakıt ikmalinizi veya servis bakım kaydınızı ekleyerek gider defterini başlatın."
+                      actionLabel="Yeni Yakıt"
+                      onAction={onCreateYakit}
+                      secondaryActionLabel="Yeni Bakım"
+                      onSecondaryAction={onCreateBakim}
+                    />
+                  ) : (
+                    <EmptyState
+                      compact
+                      icon={ReceiptText}
+                      title="Filtrelerle eşleşen kayıt bulunamadı"
+                      description="Arama metnini, seçili aracı veya tarih aralığını temizleyerek tüm hareketleri görüntüleyebilirsiniz."
+                      actionLabel="Filtreleri Temizle"
+                      actionVariant="outline"
+                      onAction={handleClearFilters}
+                    />
+                  )}
                 </TableCell>
               </TableRow>
             )}

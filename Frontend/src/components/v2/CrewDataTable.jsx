@@ -27,6 +27,7 @@ import {
 import { ROLES } from '@/pages/ChronoBeta/channelAccess';
 import { formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import { usePagination } from '@/hooks/use-pagination';
+import EmptyState from '@/components/v2/EmptyState';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -170,6 +171,7 @@ export default function CrewDataTable({
   onRoleChange,
   onPermissionsClick,
   onAssignClick,
+  onCreateClick,
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
@@ -685,41 +687,27 @@ export default function CrewDataTable({
               ))
             ) : (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={columns.length} className="h-52 text-center">
-                  <div className="mx-auto flex max-w-sm flex-col items-center justify-center gap-2 py-6">
-                    <div className="flex size-10 items-center justify-center rounded-xl border border-border bg-muted/60 text-muted-foreground">
-                      <Users className="size-5" aria-hidden="true" />
-                    </div>
-                    {users.length === 0 ? (
-                      <>
-                        <p className="text-sm font-semibold text-foreground">
-                          Henüz kayıtlı ekip üyesi yok
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Organizasyonunuza yeni ekip üyesi eklendiğinde rol ve yetki matrisi burada listelenir.
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-sm font-semibold text-foreground">
-                          Filtrelere uygun ekip üyesi bulunamadı
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Arama terimini veya rol filtresini değiştirerek tekrar deneyebilirsiniz.
-                        </p>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={clearFilters}
-                          className="mt-1 gap-1.5"
-                        >
-                          <RotateCcw className="size-3.5" aria-hidden="true" />
-                          <span>Filtreleri Temizle</span>
-                        </Button>
-                      </>
-                    )}
-                  </div>
+                <TableCell colSpan={columns.length} className="p-0">
+                  {users.length === 0 ? (
+                    <EmptyState
+                      compact
+                      icon={Users}
+                      title="Henüz kayıtlı ekip üyesi yok"
+                      description="Organizasyonunuza yeni ekip üyesi ekleyerek rol, yetki ve zimmet yönetimini başlatın."
+                      actionLabel={onCreateClick ? 'Yeni Üye' : undefined}
+                      onAction={onCreateClick}
+                    />
+                  ) : (
+                    <EmptyState
+                      compact
+                      icon={Users}
+                      title="Filtrelere uygun ekip üyesi bulunamadı"
+                      description="Arama terimini veya rol filtresini değiştirerek tekrar deneyebilirsiniz."
+                      actionLabel="Filtreleri Temizle"
+                      actionVariant="outline"
+                      onAction={clearFilters}
+                    />
+                  )}
                 </TableCell>
               </TableRow>
             )}

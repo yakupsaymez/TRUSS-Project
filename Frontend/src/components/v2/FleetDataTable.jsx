@@ -32,6 +32,7 @@ import {
 } from '@/utils/aracDurum';
 import { formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import { usePagination } from '@/hooks/use-pagination';
+import EmptyState from '@/components/v2/EmptyState';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -774,52 +775,31 @@ export default function FleetDataTable({
             ))
           ) : (
             <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={columns.length} className="py-14 text-center">
-                <div className="mx-auto flex max-w-sm flex-col items-center gap-3">
-                  <div className="flex size-12 items-center justify-center rounded-full border border-border bg-muted text-muted-foreground">
-                    <Truck className="size-5" />
-                  </div>
-                  {araclar.length === 0 && !globalVehicleActive ? (
-                    <>
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold text-foreground">
-                          Henüz kayıtlı araç yok
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Filonuza ilk aracınızı ekleyerek sayaç, bakım ve evrak takibini başlatın.
-                        </p>
-                      </div>
-                      {canManage && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={onCreateClick}
-                        >
-                          + Yeni Araç
-                        </Button>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold text-foreground">
-                          Filtrelerle eşleşen araç bulunamadı
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Arama metnini veya aktif filtreleri temizleyerek tüm araçları görüntüleyebilirsiniz.
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleClearFilters}
-                      >
-                        Filtreleri Temizle
-                      </Button>
-                    </>
-                  )}
-                </div>
+              <TableCell colSpan={columns.length} className="p-0">
+                {araclar.length === 0 && !globalVehicleActive ? (
+                  <EmptyState
+                    compact
+                    icon={Truck}
+                    title={canManage ? 'Henüz kayıtlı araç yok' : 'Henüz zimmetli aracınız yok'}
+                    description={
+                      canManage
+                        ? 'Filonuza ilk aracınızı ekleyerek sayaç, bakım ve evrak takibini başlatın.'
+                        : 'Filo yöneticiniz size bir araç zimmetlediğinde araçlarınız burada listelenecektir.'
+                    }
+                    actionLabel={canManage ? 'Araç Ekle' : undefined}
+                    onAction={canManage ? onCreateClick : undefined}
+                  />
+                ) : (
+                  <EmptyState
+                    compact
+                    icon={Truck}
+                    title="Filtrelerle eşleşen araç bulunamadı"
+                    description="Arama metnini veya aktif filtreleri temizleyerek tüm araçları görüntüleyebilirsiniz."
+                    actionLabel="Filtreleri Temizle"
+                    actionVariant="outline"
+                    onAction={handleClearFilters}
+                  />
+                )}
               </TableCell>
             </TableRow>
           )}
