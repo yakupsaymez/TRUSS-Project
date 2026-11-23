@@ -184,16 +184,24 @@ const assignVehicleToDriver = async (req, res) => {
       return res.status(403).json({ message: 'Bu araç filonuza ait değil veya yetkiniz yok.' });
     }
 
-    // Şoförün aynı organizasyonda olduğunu doğrula
+    await client.query('BEGIN');
+
+    // Şoförün aynı organizasyonda olduğunu doğrula; satır kilitlenir (eşzamanlı rol değişimi araya giremez)
     const driverCheck = await client.query(
-      'SELECT user_id, ad_soyad, role FROM users WHERE user_id = $1 AND org_id = $2',
+      'SELECT user_id, ad_soyad, role FROM users WHERE user_id = $1 AND org_id = $2 FOR UPDATE',
       [sofor_user_id, orgId]
     );
     if (driverCheck.rowCount === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ message: 'Şoför filonuzda bulunamadı.' });
     }
-
-    await client.query('BEGIN');
+    if (driverCheck.rows[0].role !== 'DRIVER') {
+      await client.query('ROLLBACK');
+      return res.status(422).json({
+        code: 'ASSIGNEE_NOT_DRIVER',
+        message: 'Araç yalnızca Şoför rolündeki kullanıcılara zimmetlenebilir.',
+      });
+    }
 
     // Aynı araçta önceki aktif zimmeti pasife çek ve yeni zimmet oluştur
     await client.query(
@@ -278,6 +286,7 @@ const updateUserRole = async (req, res) => {
 
   const targetId = paramCheck.value.id;
 
+  let client = null;
   try {
     if (targetId === req.user?.user_id) {
       return res.status(403).json({ message: 'Kendi rolünüzü değiştiremezsiniz.' });
@@ -289,7 +298,36 @@ const updateUserRole = async (req, res) => {
     const ctx = await resolveManageableUser(req, res, targetId);
     if (!ctx) return;
 
-    const result = await pool.query(
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    // Hedefi kilitle: eşzamanlı rol/zimmet değişimi araya giremez
+    const lockRes = await client.query(
+      `SELECT user_id, ad_soyad, email, telefon, role, org_id, yetkiler
+       FROM users
+       WHERE user_id = $1 AND org_id = $2
+       FOR UPDATE`,
+      [targetId, ctx.orgId]
+    );
+    if (lockRes.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        code: 'USER_NOT_FOUND',
+        message: 'Kullanıcı organizasyonunuzda bulunamadı.',
+      });
+    }
+
+    const eskiRol = lockRes.rows[0].role;
+    if (eskiRol === value.role) {
+      await client.query('COMMIT');
+      return res.status(200).json({
+        message: 'Rol zaten güncel.',
+        user: lockRes.rows[0],
+        kapatilan_zimmet_sayisi: 0,
+      });
+    }
+
+    const result = await client.query(
       `UPDATE users
        SET role = $1::user_role_type
        WHERE user_id = $2 AND org_id = $3
@@ -297,13 +335,31 @@ const updateUserRole = async (req, res) => {
       [value.role, targetId, ctx.orgId]
     );
 
+    // DRIVER rolünden çıkışta aktif zimmetler kapatılır (DRIVER'a dönüşte geri açılmaz)
+    let kapatilanZimmetSayisi = 0;
+    if (eskiRol === 'DRIVER' && value.role !== 'DRIVER') {
+      const zimmetRes = await client.query(
+        `UPDATE arac_sofor_atamalari
+         SET aktif = FALSE, teslim_tarihi = NOW()
+         WHERE sofor_user_id = $1 AND aktif = TRUE`,
+        [targetId]
+      );
+      kapatilanZimmetSayisi = zimmetRes.rowCount;
+    }
+
+    await client.query('COMMIT');
+
     return res.status(200).json({
       message: 'Kullanıcı rolü güncellendi.',
       user: result.rows[0],
+      kapatilan_zimmet_sayisi: kapatilanZimmetSayisi,
     });
   } catch (err) {
+    if (client) await client.query('ROLLBACK').catch(() => null);
     console.error('Rol güncelleme hatası:', err);
     return res.status(500).json({ message: 'Sunucu hatası oluştu.' });
+  } finally {
+    if (client) client.release();
   }
 };
 
@@ -327,6 +383,13 @@ const updateUserPermissions = async (req, res) => {
   }
 
   const targetId = paramCheck.value.id;
+
+  if (targetId === req.user?.user_id) {
+    return res.status(403).json({
+      code: 'SELF_PERMISSION_LOCKED',
+      message: 'Kendi yetkilerinizi değiştiremezsiniz.',
+    });
+  }
 
   try {
     const ctx = await resolveManageableUser(req, res, targetId);
