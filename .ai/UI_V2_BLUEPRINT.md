@@ -2,7 +2,7 @@
 
 > **İlke:** Mevcut mantık katmanı (Backend, servisler, store'lar, utils, `channelAccess.js`) olduğu gibi kalır, yalnızca arayüz değişir.
 > **Kaynak:** `shadcn-studio-mcp` canlı katalog taraması, style `radix-luma` (projenin `components.json` dosyasından okundu).
-> **Durum:** FAZ 1, yani keşif ve plan. Henüz hiçbir blok kurulmadı.
+> **Durum:** v1.1. F0 (Tailwind v4) ✅ · R1 ✅ · Ek tarama §12 eklendi · Sıradaki: S1 `application-shell-26`.
 
 ---
 
@@ -143,7 +143,7 @@ Bağımlılık: `motion`, `kbd`, `sidebar`, `toggle-group`.
 
 | Kural | Ayrıntı |
 |---|---|
-| Kabuk | Mevcut `sheet.jsx` üzerine `AppSheet` sarmalayıcısı. Sağdan açılır, masaüstünde `sm:max-w-lg`, mobilde tam genişlik. |
+| Kabuk | Mevcut `sheet.jsx` üzerine `AppSheet` sarmalayıcısı, görsel şablon `dashboard-dialog-28`. Sağdan açılır, masaüstünde `sm:max-w-lg`, mobilde tam genişlik. |
 | Form düzeni | `form-layout-01` bloğundaki 2 sütunlu ızgara. Bölüm başlıkları; footer sabit (İptal / Kaydet). |
 | Kaydedilmemiş değişiklik | Form değiştirilmişken kapatılmaya çalışılırsa `dashboard-dialog-22` ile "Değişiklikler kaybolacak" onayı. |
 | Tarih | **Yalnızca `<TrussDatePicker/>`.** Bloklarla gelen `calendar` ve `popover` tabanlı tarih seçicileri değiştirilir. |
@@ -189,7 +189,7 @@ Bağımlılık: `motion`, `kbd`, `sidebar`, `toggle-group`.
 |---|---|---|---|
 | **F0** | — (altyapı) | Tailwind v4 geçişi, TRUSS `@theme` eşlemesi, mükerrer `button.js`/`.jsx`, `input.js`, `select.js`, `label.js`, `switch.js` dosyalarının temizliği | S4: build + eski Chrono ekranlarının görsel kontrolü |
 | **S1** | `application-shell-26` | `AppShell`, `/app/*` rotaları, sidebar (`channelAccess`), breadcrumb, global araç filtresi, rol rozeti, tema | S3: erişim ve marka denetimi |
-| **S2** | `dashboard-dialog-22` + (bloksuz) `AppSheet` | Ortak Sheet, form ızgarası, kaydedilmemiş değişiklik onayı | S4: build |
+| **S2** | `dashboard-dialog-28` + `dashboard-dialog-22` | Ortak `AppSheet` (görsel şablon `dialog-28`), form ızgarası, kaydedilmemiş değişiklik onayı (`dialog-22`) | S4: build |
 | **S3** | `datatable-example-03` | Filo tablosu | S3: alan envanteri |
 | **S4** | (Sheet) | Araç Ekle/Düzenle Sheet'i + 422 | S4: 422 senaryoları (QA verisi) |
 | **S5** | `datatable-filtering-02` | Hareketler tablosu (sekmeler + "Son kaydı tekrarla") | S3 |
@@ -204,10 +204,15 @@ Bağımlılık: `motion`, `kbd`, `sidebar`, `toggle-group`.
 | **S14** | `widget-component-12` | Filo sağlığı widget'ı | S4 |
 | **S15** | `dashboard-dialog-19` | Cmd+K paleti + doğal dil modu | S4 |
 | **S16** | `empty-state-07` | Tüm ekranlar için boş durumlar | S4 |
-| **S17** | — | **Geçiş:** `/` → `/app`, Chrono'nun kaldırılması (QA onayından sonra) | S3: final denetim |
+| **S17** | `login-page-12` | v2 Giriş (`/v2/login` önizleme), `?reason=expired` bandı korunur, OAuth butonları yok | S3 + S4: 401/expired akışı |
+| **S18** | `register-12` + `forgot-password-12` | v2 Kayıt + Şifremi Unuttum (Backend R3 yoksa "yöneticinize başvurun" modu) | S4 |
+| **S19** | `account-settings-09` | `/app/ayarlar` (Genel · Profil · Güvenlik · Bildirimler), `SettingsModal.js` yerine | S3: alan envanteri |
+| **S20** | `event-calendar-01` | `/app/takvim` salt-okunur Evrak Takvimi (muayene/sigorta/kasko + bakım) | S4 |
+| **S21** | `empty-state-01` + `empty-state-02` | KPI/grafik ve tablo boş durumları (S16 `empty-state-07` ile birlikte) | S4 |
+| **S22** | — | **Geçiş:** `/` → `/app`, auth rotaları v2'ye, Chrono'nun kaldırılması (QA onayından sonra) | S3: final denetim |
 
 > [!IMPORTANT]
-> Chrono, **S17'ye kadar dokunulmadan** çalışmaya devam eder. v2, yan rotada (`/app`) geliştirilir. Herhangi bir adımda sorun çıkarsa kullanıcı etkilenmez.
+> Chrono, **S22'ye kadar dokunulmadan** çalışmaya devam eder. v2, yan rotada (`/app`) geliştirilir. Herhangi bir adımda sorun çıkarsa kullanıcı etkilenmez.
 
 ---
 
@@ -228,10 +233,10 @@ SORUN: Proje Tailwind 3.4 kullanıyor, ancak components.json style'ı radix-luma
 Rapor: değişen dosyalar, build çıktısı, grep sonuçları, görsel regresyon listesi.
 ```
 
-### 8.2 Session 1 — Blok adımı şablonu (S1–S16, her adımda tek blok)
+### 8.2 Session 1 — Blok adımı şablonu (S1–S21, her adımda tek blok)
 ```text
-GÖREV S<N>: <BLOK_ADI> → <HEDEF EKRAN/BİLEŞEN>. Kaynak: UI_V2_BLUEPRINT.md bölüm <3.x>.
-YASAK: Backend/, src/services/*, src/store/*, src/utils/*, channelAccess.js, src/pages/ChronoBeta/* (Chrono S17'ye kadar canlı kalacak).
+GÖREV S<N>: <BLOK_ADI> → <HEDEF EKRAN/BİLEŞEN>. Kaynak: UI_V2_BLUEPRINT.md bölüm <3.x / 12>.
+YASAK: Backend/, src/services/*, src/store/*, src/utils/*, channelAccess.js, src/pages/ChronoBeta/* (Chrono S22'ye kadar canlı kalacak).
 
 1. KURULUM (yalnızca bu blok): shadcn-studio-mcp → collect_selected_blocks(add, "<BLOK_ADI>") → get_add_command_for_items(style:"radix-luma") → komutu bir kez çalıştır. /cui otomatik özelleştirme akışını KULLANMA. Üzerine yazma sorusu gelirse: truss-date-picker.jsx için HAYIR; diğerlerinde önce diff'e bak.
 2. DÖNÜŞÜM (blueprint bölüm 5): TSX→JSX, "use client" sil, next/* → react-router-dom, sonner → react-hot-toast, mock diziler → mevcut servis/store. app/<blok>/page.tsx yalnızca kolon/demo referansıdır; okuduktan sonra sil.
@@ -276,7 +281,7 @@ Ardından önceki operasyondan kalan sıra devam eder: **MP-4R → MP-6 → MP-7
 
 ## 10. ✅ Onaylanan Kararlar (23.11.2026)
 1. **FAZ 0 Tailwind v4 geçişi:** ONAY.
-2. **`/app` altında paralel geliştirme:** ONAY. Chrono S17'ye kadar canlı kalacak.
+2. **`/app` altında paralel geliştirme:** ONAY. Chrono S22'ye kadar canlı kalacak.
 3. **Daraltılmış menü logosu:** ONAY. `T` + mor `S`, ikonsuz monogram.
 4. **"Son kaydı tekrarla":** ONAY. İş kuralı:
    - Kopyalanan alanlar: araç, tür, yakıt tipi veya bakım tipi, litre.
@@ -289,5 +294,41 @@ Ardından önceki operasyondan kalan sıra devam eder: **MP-4R → MP-6 → MP-7
 |---|---|---|
 | **Canlı Filo Haritası** | `map-blocks-02` (kamyon/motosiklet işaretçileri, rota, filtrelenebilir araç listesi) | Konum verisi (GPS/telematik entegrasyonu ya da şoför mobil check-in) |
 | **Bütçe / Gerçekleşen** | `chart-component-63` | Araç ve kategori bazında aylık bütçe tablosu (Backend) |
-| **Bakım Takvimi** | `event-calendar` (Ay/Hafta/Ajanda) | Muayene, sigorta, kasko ve bakım tarihlerinin tek takvimde gösterilmesi |
+| **Bakım Takvimi** | ~~Faz 3~~ → **S20'ye çekildi** (`event-calendar-01`, bkz. §12) | — |
 | **Rol Özet Kartları** | `statistics-component-25` | Ekip ekranının üst kısmı için |
+| **Kategori bazlı bildirim tercihleri** | `account-settings-10` | Backend: kanal × kategori tercih tablosu |
+| **Organizasyon profili** | `account-settings-03` | Backend: org güncelleme endpoint'i |
+
+---
+
+## 12. ➕ Ek Tarama v1.1 (23.11.2026)
+
+### 12.1 Yeni bloklar
+| Ekran | Blok | Neden | Adım |
+|---|---|---|---|
+| Giriş | `login-page-12` (Pro) | Köşe çerçeveli kart + kare ızgara paneli, sade ve kurumsal; 3'lü auth ailesiyle tutarlı | S17 |
+| Kayıt | `register-12` (Pro) | Aynı aile, aynı görsel dil | S18 |
+| Şifremi Unuttum | `forgot-password-12` (Pro) | Aynı aile | S18 |
+| Ayarlar | `account-settings-09` (Pro) | Sol sekmeli ayarlar kabuğu; Genel/Profil/Güvenlik/Bildirimler bölümlerine birebir uyar | S19 |
+| Ortak Sheet | `dashboard-dialog-28` (Pro) | Sheet tarzı ekleme formu: select, fiyat, textarea, switch; Filo/Yakıt/Bakım/Parça formlarının ortak şablonu | S2 |
+| Evrak Takvimi | `event-calendar-01` (ücretsiz) | Ay/Hafta/Gün, "+N daha", yalnızca `date-fns`, sürükle-bırak yok | S20 |
+| Boş durum (KPI/grafik) | `empty-state-01` | Veri 0 olan kart içi sade boş durum | S21 |
+| Boş durum (tablo) | `empty-state-02` | CTA → ilgili Sheet | S21 |
+
+### 12.2 Uyarlama kuralları
+- **Auth:** Google/GitHub butonları silinir (OAuth backend yok). Büyük başlık → `TRU` + mor `SS`. "Trusted by" logo şeridi silinir. F-1'in `?reason=expired` bandı korunur. Önizleme rotası `/v2/login`, `/v2/register`, `/v2/forgot-password`; S22'de takas.
+- **Ayarlar:** Genel = dil / para birimi / ölçü birimi (`/users/settings/preferences`), Profil, Güvenlik (şifre), Bildirimler (e-posta/SMS, `/users/settings/notifications`). Yatırımcı / bağlı hesaplar / gizlilik bölümleri silinir. Rota `/app/ayarlar` (hesap menüsünden). `SettingsModal.js` S22'de kalkar.
+- **Sheet:** `sheet-05` REDDEDİLDİ (`react-hook-form` + `zod` + `sonner` bağımlılığı; doğrulama zaten Backend Joi'de). Drawer blokları REDDEDİLDİ (`vaul` bağımlılığı). Mobil = tam genişlik Sheet.
+- **Takvim:** Salt-okunur; tarih GİRİŞİ değil, gösterim. `TrussDatePicker` kuralı input'lar için geçerli, takvim istisna. Etkinliğe tıkla → Araç Sheet'i. Rota `/app/takvim`, kanal `horizon`. `event-calendar-05` REDDEDİLDİ (`dnd-kit`).
+- **Boş durumlar:** `empty-state-07` Genel Bakış (araç yok) · `empty-state-02` tablolar · `empty-state-01` KPI/grafik kartları.
+
+### 12.3 Backend bağımlılıkları
+| Konu | Durum | Çözüm |
+|---|---|---|
+| Şifremi Unuttum | Endpoint YOK | **R3** (S18'den önce) ya da UI "Yöneticinize başvurun" moduyla açılır |
+| Org profili | Endpoint YOK | Faz 2 (`account-settings-03`) |
+| Kategori bazlı bildirim | Şema YOK | Faz 2 (`account-settings-10`) |
+
+### 12.4 Kabuk & Dashboard kontrolü — KİLİTLENDİ
+- `dashboard-shell-08` "araç rota yönetimi" içeriyor ama tam sayfa fintech paneli; kabuk değil, sökmesi pahalı → RED. `statistics-component-27/28` → RED (`-01` lojistik temaya daha uygun).
+- **Kilit:** `application-shell-26` · `statistics-component-01` (veri olmayan "geçen haftaya göre" karşılaştırmaları silinir) · `chart-component-46` · `widget-component-12`.
