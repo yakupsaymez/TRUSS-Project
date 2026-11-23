@@ -252,3 +252,7 @@ BEGIN
         ALTER TABLE parca_takip ADD CONSTRAINT chk_parca_maliyet_pozitif CHECK (maliyet >= 0); -- Negatif maliyeti engeller.
     END IF;
 END$$;
+
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS bildirim_tercihleri JSONB NOT NULL DEFAULT '{"belge_vadesi":{"email":true,"sms":true},"periyodik_bakim":{"email":true,"sms":true},"parca_omru":{"email":true,"sms":false},"maliyet_ozeti":{"email":true,"sms":false}}'::jsonb;
+

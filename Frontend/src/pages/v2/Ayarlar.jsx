@@ -7,8 +7,10 @@ import {
   Bell,
   Building2,
   CalendarDays,
+  Cog,
   Eye,
   EyeOff,
+  FileCheck2,
   Info,
   KeyRound,
   LaptopMinimal,
@@ -22,6 +24,8 @@ import {
   Trash2,
   User,
   Users,
+  Wallet,
+  Wrench,
 } from 'lucide-react';
 import api from '@/services/api';
 import adminService from '@/services/adminService';
@@ -47,6 +51,14 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 
 const BASE_SETTINGS_TABS = [
@@ -57,6 +69,53 @@ const BASE_SETTINGS_TABS = [
 ];
 
 const TAX_NUMBER_RE = /^\d{10,11}$/;
+
+const DEFAULT_NOTIFICATION_MATRIX = {
+  belge_vadesi: { email: true, sms: true },
+  periyodik_bakim: { email: true, sms: true },
+  parca_omru: { email: true, sms: false },
+  maliyet_ozeti: { email: true, sms: false },
+};
+
+const NOTIFICATION_CATEGORIES = [
+  {
+    key: 'belge_vadesi',
+    label: 'Resmi Belge & Poliçe Vadeleri',
+    description: 'Muayene, trafik sigortası ve kasko poliçesi vade uyarıları',
+    icon: FileCheck2,
+  },
+  {
+    key: 'periyodik_bakim',
+    label: 'Periyodik Bakım Eşikleri',
+    description: "KM / SMH periyodunun son %10'una giren ve geciken araç uyarıları",
+    icon: Wrench,
+  },
+  {
+    key: 'parca_omru',
+    label: 'Kritik Parça Ömrü',
+    description: 'Triger, balata, yağ ve filtre bileşenlerinin kritik ömür uyarıları',
+    icon: Cog,
+  },
+  {
+    key: 'maliyet_ozeti',
+    label: 'Haftalık Filo & Gider Özeti',
+    description: 'Haftalık yakıt tüketimi, bakım harcamaları ve filo sağlık bülteni',
+    icon: Wallet,
+  },
+];
+
+function normalizeNotificationMatrix(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  return Object.keys(DEFAULT_NOTIFICATION_MATRIX).reduce((acc, key) => {
+    const def = DEFAULT_NOTIFICATION_MATRIX[key];
+    const item = src[key] && typeof src[key] === 'object' ? src[key] : {};
+    acc[key] = {
+      email: typeof item.email === 'boolean' ? item.email : def.email,
+      sms: typeof item.sms === 'boolean' ? item.sms : def.sms,
+    };
+    return acc;
+  }, {});
+}
 
 function formatOrgDate(isoLike) {
   if (!isoLike) return '—';
@@ -165,6 +224,9 @@ export default function Ayarlar() {
   const [telefon, setTelefon] = useState('');
   const [emailBildirimAktif, setEmailBildirimAktif] = useState(true);
   const [smsBildirimAktif, setSmsBildirimAktif] = useState(false);
+  const [bildirimTercihleri, setBildirimTercihleri] = useState(() =>
+    normalizeNotificationMatrix(DEFAULT_NOTIFICATION_MATRIX)
+  );
   const [savingNotifications, setSavingNotifications] = useState(false);
 
   // Organizasyon (yalnız SYSTEM_ADMIN & FLEET_MANAGER)
@@ -239,6 +301,7 @@ export default function Ayarlar() {
         setTelefon(info.telefon || '');
         setEmailBildirimAktif(Boolean(info.email_bildirim_aktif));
         setSmsBildirimAktif(Boolean(info.sms_bildirim_aktif));
+        setBildirimTercihleri(normalizeNotificationMatrix(info.bildirim_tercihleri));
       } else {
         notifyApiError(notificationsResult.reason, 'Bildirim ayarları yüklenemedi.');
       }
@@ -294,14 +357,26 @@ export default function Ayarlar() {
     }
   };
 
+  const handleToggleCategoryChannel = (categoryKey, channelKey, checked) => {
+    setBildirimTercihleri((prev) => ({
+      ...prev,
+      [categoryKey]: {
+        ...(prev[categoryKey] || DEFAULT_NOTIFICATION_MATRIX[categoryKey]),
+        [channelKey]: Boolean(checked),
+      },
+    }));
+  };
+
   const handleSaveNotifications = async (e) => {
     e.preventDefault();
     setSavingNotifications(true);
     try {
+      const normalizedMatrix = normalizeNotificationMatrix(bildirimTercihleri);
       await api.put('/users/settings/notifications', {
         telefon: telefon.trim(),
         email_bildirim_aktif: emailBildirimAktif,
         sms_bildirim_aktif: smsBildirimAktif,
+        bildirim_tercihleri: normalizedMatrix,
       });
       toast.success('Bildirim ayarları güncellendi.');
     } catch (err) {
@@ -1130,6 +1205,126 @@ export default function Ayarlar() {
                           onCheckedChange={setSmsBildirimAktif}
                           disabled={savingNotifications}
                         />
+                      </div>
+                    </div>
+
+                    {/* account-settings-10 tabanlı Kategori × Kanal Bildirim Matrisi */}
+                    <div className="overflow-hidden rounded-xl border border-border bg-background/60">
+                      <div className="flex items-start gap-3 px-4 py-3.5">
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
+                          <Bell className="size-4" aria-hidden="true" />
+                        </div>
+                        <div className="min-w-0 space-y-0.5">
+                          <h3 className="text-sm font-semibold text-foreground">
+                            Kategori Bazlı Bildirim Matrisi
+                          </h3>
+                          <p className="text-xs leading-relaxed text-muted-foreground">
+                            Hangi uyarı kategorilerinin E-posta veya SMS kanalından iletileceğini
+                            özelleştirin.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="overflow-x-auto border-t border-border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="hover:bg-transparent">
+                              <TableHead className="min-w-64 pl-4 text-xs font-medium text-muted-foreground">
+                                Bildirim Kategorisi
+                              </TableHead>
+                              <TableHead className="w-36 text-center text-xs font-medium text-muted-foreground">
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <span>E-posta</span>
+                                  {!emailBildirimAktif && (
+                                    <span className="text-[10px] font-normal text-muted-foreground">
+                                      E-posta kanalı kapalı
+                                    </span>
+                                  )}
+                                </div>
+                              </TableHead>
+                              <TableHead className="w-36 pr-4 text-center text-xs font-medium text-muted-foreground">
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <span>SMS</span>
+                                  {!smsBildirimAktif && (
+                                    <span className="text-[10px] font-normal text-muted-foreground">
+                                      SMS kanalı kapalı
+                                    </span>
+                                  )}
+                                </div>
+                              </TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {NOTIFICATION_CATEGORIES.map((category) => {
+                              const CategoryIcon = category.icon;
+                              const rowPrefs =
+                                bildirimTercihleri[category.key] ||
+                                DEFAULT_NOTIFICATION_MATRIX[category.key];
+
+                              return (
+                                <TableRow key={category.key}>
+                                  <TableCell className="py-3 pl-4 whitespace-normal">
+                                    <div className="flex items-start gap-3">
+                                      <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground">
+                                        <CategoryIcon className="size-4" aria-hidden="true" />
+                                      </span>
+                                      <div className="min-w-0 space-y-0.5">
+                                        <p className="text-sm font-medium text-foreground">
+                                          {category.label}
+                                        </p>
+                                        <p className="text-xs leading-relaxed text-muted-foreground">
+                                          {category.description}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </TableCell>
+
+                                  <TableCell className="py-3 text-center">
+                                    <div className="flex flex-col items-center justify-center gap-1">
+                                      <Switch
+                                        id={`notif-matrix-${category.key}-email`}
+                                        checked={Boolean(rowPrefs?.email)}
+                                        disabled={!emailBildirimAktif || savingNotifications}
+                                        onCheckedChange={(checked) =>
+                                          handleToggleCategoryChannel(
+                                            category.key,
+                                            'email',
+                                            checked
+                                          )
+                                        }
+                                        aria-label={`${category.label} için E-posta bildirimleri`}
+                                      />
+                                      {!emailBildirimAktif && (
+                                        <span className="text-[10px] text-muted-foreground">
+                                          E-posta kanalı kapalı
+                                        </span>
+                                      )}
+                                    </div>
+                                  </TableCell>
+
+                                  <TableCell className="py-3 pr-4 text-center">
+                                    <div className="flex flex-col items-center justify-center gap-1">
+                                      <Switch
+                                        id={`notif-matrix-${category.key}-sms`}
+                                        checked={Boolean(rowPrefs?.sms)}
+                                        disabled={!smsBildirimAktif || savingNotifications}
+                                        onCheckedChange={(checked) =>
+                                          handleToggleCategoryChannel(category.key, 'sms', checked)
+                                        }
+                                        aria-label={`${category.label} için SMS bildirimleri`}
+                                      />
+                                      {!smsBildirimAktif && (
+                                        <span className="text-[10px] text-muted-foreground">
+                                          SMS kanalı kapalı
+                                        </span>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
                       </div>
                     </div>
 
