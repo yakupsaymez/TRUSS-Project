@@ -77,6 +77,16 @@ export default function Parcalar() {
     verileriYukle();
   }, [verileriYukle]);
 
+  useEffect(() => {
+    const handleDataChanged = (event) => {
+      if (event?.detail?.scope === 'component') {
+        verileriYukle();
+      }
+    };
+    window.addEventListener('truss:data-changed', handleDataChanged);
+    return () => window.removeEventListener('truss:data-changed', handleDataChanged);
+  }, [verileriYukle]);
+
   const aracMap = useMemo(() => {
     const map = new Map();
     araclar.forEach((a) => {

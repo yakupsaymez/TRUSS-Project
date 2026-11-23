@@ -76,7 +76,7 @@ function resolveDefaultAracId(defaultAracId, araclar) {
   return '';
 }
 
-function buildInitialForm({ mode, initialTip, record, defaultAracId, araclar }) {
+function buildInitialForm({ mode, initialTip, record, defaultAracId, araclar, prefill = null }) {
   const todayIso = getTodayIso();
 
   if (mode === 'edit' && record) {
@@ -145,17 +145,34 @@ function buildInitialForm({ mode, initialTip, record, defaultAracId, araclar }) 
   }
 
   const tip = initialTip === 'BAKIM' ? 'BAKIM' : 'YAKIT';
+  const prefillAracId =
+    prefill?.arac_id !== undefined && prefill?.arac_id !== null && prefill?.arac_id !== ''
+      ? String(prefill.arac_id)
+      : resolveDefaultAracId(defaultAracId, araclar);
+
   return {
     tip,
-    arac_id: resolveDefaultAracId(defaultAracId, araclar),
+    arac_id: prefillAracId,
     tarih: todayIso,
-    yakit_tipi: 'Dizel',
-    bakim_tipi: 'Periyodik Bakım',
-    km: '',
-    litre: '',
-    tutar: '',
-    fatura_bilgisi: '',
-    notlar: '',
+    yakit_tipi: prefill?.yakit_tipi || 'Dizel',
+    bakim_tipi: prefill?.bakim_tipi || 'Periyodik Bakım',
+    km:
+      prefill?.km !== undefined && prefill?.km !== null && prefill?.km !== ''
+        ? formatLocaleNumber(prefill.km, 0)
+        : '',
+    litre:
+      tip === 'YAKIT' &&
+      prefill?.litre !== undefined &&
+      prefill?.litre !== null &&
+      prefill?.litre !== ''
+        ? formatLocaleNumber(prefill.litre, 2)
+        : '',
+    tutar:
+      prefill?.tutar !== undefined && prefill?.tutar !== null && prefill?.tutar !== ''
+        ? formatLocaleNumber(prefill.tutar, 2)
+        : '',
+    fatura_bilgisi: prefill?.fatura_bilgisi ? String(prefill.fatura_bilgisi) : '',
+    notlar: prefill?.notlar ? String(prefill.notlar) : '',
   };
 }
 
@@ -187,15 +204,16 @@ export default function MovementSheet({
   mode = 'create',
   initialTip = 'YAKIT',
   record = null,
+  prefill = null,
   araclar = [],
   defaultAracId = null,
   onSuccess,
 }) {
   const [form, setForm] = useState(() =>
-    buildInitialForm({ mode, initialTip, record, defaultAracId, araclar })
+    buildInitialForm({ mode, initialTip, record, defaultAracId, araclar, prefill })
   );
   const [initialSnapshot, setInitialSnapshot] = useState(() =>
-    buildInitialForm({ mode, initialTip, record, defaultAracId, araclar })
+    buildInitialForm({ mode, initialTip, record, defaultAracId, araclar, prefill })
   );
   const [fieldErrors, setFieldErrors] = useState({});
   const [sayacHatasi, setSayacHatasi] = useState(null);
@@ -212,12 +230,13 @@ export default function MovementSheet({
       record,
       defaultAracId,
       araclar: araclarRef.current,
+      prefill,
     });
     setForm(next);
     setInitialSnapshot(next);
     setFieldErrors({});
     setSayacHatasi(null);
-  }, [open, mode, initialTip, record, defaultAracId]);
+  }, [open, mode, initialTip, record, defaultAracId, prefill]);
 
   // Araç listesi sheet açıkken sonradan yüklenirse ve araç henüz boşsa ilk aracı varsayılan seç (snapshot ile senkron)
   useEffect(() => {

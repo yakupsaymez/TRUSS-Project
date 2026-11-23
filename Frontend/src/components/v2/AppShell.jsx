@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   ChevronDown,
@@ -18,6 +18,10 @@ import { canAccessChannel, resolveRole, ROLES } from '@/pages/ChronoBeta/channel
 import { evrakRiskliMi, hesaplaBakimDurumu } from '@/utils/aracDurum';
 import { formatTurkishPlate } from '@/utils/formatters';
 import { navConfig } from '@/components/v2/navConfig';
+import CommandPalette from '@/components/v2/CommandPalette';
+import MovementSheet from '@/components/v2/MovementSheet';
+import ComponentSheet from '@/components/v2/ComponentSheet';
+import VehicleSheet from '@/components/v2/VehicleSheet';
 import SidebarEdgeToggle from '@/components/shadcn-studio/blocks/sidebar-edge-toggle';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -149,6 +153,30 @@ export default function AppShell() {
   }, [hasLoaded, loading, fetchAraclar]);
 
   const role = resolveRole(user);
+  const canManage = [ROLES.SYSTEM_ADMIN, ROLES.FLEET_MANAGER].includes(role);
+
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [vehicleSheetOpen, setVehicleSheetOpen] = useState(false);
+  const [movementSheetState, setMovementSheetState] = useState({
+    open: false,
+    initialTip: 'YAKIT',
+    prefill: null,
+  });
+  const [componentSheetState, setComponentSheetState] = useState({
+    open: false,
+    prefill: null,
+  });
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const visibleNavItems = useMemo(
     () => navConfig.filter((i) => canAccessChannel(user, i.channel)),
@@ -191,6 +219,49 @@ export default function AppShell() {
     setSeciliAracId(String(aracId));
     navigate('/app/filo');
   };
+
+  const notifyDataChanged = useCallback(
+    (scope) => {
+      fetchAraclar();
+      window.dispatchEvent(new CustomEvent('truss:data-changed', { detail: { scope } }));
+    },
+    [fetchAraclar]
+  );
+
+  const handlePaletteSelectVehicle = useCallback(
+    (val) => {
+      const nextId = val === 'tum' ? 'tum' : String(val);
+      setSeciliAracId(nextId);
+      if (nextId !== 'tum' && (normalizedPath === '/app/ekip' || normalizedPath === '/app/ayarlar')) {
+        navigate('/app/filo');
+      }
+    },
+    [navigate, normalizedPath, setSeciliAracId]
+  );
+
+  const handleOpenMovementSheet = useCallback(({ initialTip, prefill } = {}) => {
+    setMovementSheetState({
+      open: true,
+      initialTip: initialTip || 'YAKIT',
+      prefill: prefill || null,
+    });
+  }, []);
+
+  const handleOpenComponentSheet = useCallback(
+    ({ prefill } = {}) => {
+      if (!canManage) return;
+      setComponentSheetState({
+        open: true,
+        prefill: prefill || null,
+      });
+    },
+    [canManage]
+  );
+
+  const handleOpenVehicleSheet = useCallback(() => {
+    if (!canManage) return;
+    setVehicleSheetOpen(true);
+  }, [canManage]);
 
   const userName = user?.ad_soyad || user?.name || 'TRUSS Kullanıcı';
   const userEmail = user?.email || '';
@@ -457,13 +528,25 @@ export default function AppShell() {
                   </SelectContent>
                 </Select>
 
-                {/* ⌘K Görsel Placeholder (keydown listener yok, S15'te bağlanacak) */}
+                {/* Komut Paleti (⌘K) */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={() => setPaletteOpen(true)}
+                  aria-label="Komut paletini aç"
+                  title="Komut paletini aç (⌘K)"
+                  className="size-8 rounded-lg border-border bg-card text-muted-foreground hover:text-foreground sm:hidden"
+                >
+                  <Search className="size-3.5" />
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  aria-label="Komut paleti (yakında)"
-                  className="hidden h-8 items-center gap-2 rounded-lg border-border bg-card px-2.5 text-xs text-muted-foreground sm:inline-flex"
+                  onClick={() => setPaletteOpen(true)}
+                  aria-label="Komut paletini aç"
+                  className="hidden h-8 items-center gap-2 rounded-lg border-border bg-card px-2.5 text-xs text-muted-foreground hover:text-foreground sm:inline-flex"
                 >
                   <Search className="size-3.5" />
                   <span>Ara...</span>
@@ -496,6 +579,62 @@ export default function AppShell() {
           </SidebarInset>
         </SidebarProvider>
       </div>
+
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        canManage={canManage}
+        visibleNavItems={visibleNavItems}
+        araclar={araclar}
+        seciliAracId={seciliAracId}
+        onNavigate={(path) => navigate(path)}
+        onSelectVehicle={handlePaletteSelectVehicle}
+        onOpenMovementSheet={handleOpenMovementSheet}
+        onOpenComponentSheet={handleOpenComponentSheet}
+        onOpenVehicleSheet={handleOpenVehicleSheet}
+      />
+
+      <MovementSheet
+        open={movementSheetState.open}
+        onOpenChange={(nextOpen) =>
+          setMovementSheetState((prev) =>
+            nextOpen ? { ...prev, open: true } : { open: false, initialTip: 'YAKIT', prefill: null }
+          )
+        }
+        mode="create"
+        initialTip={movementSheetState.initialTip}
+        record={null}
+        prefill={movementSheetState.prefill}
+        araclar={araclar}
+        defaultAracId={seciliAracId}
+        onSuccess={() => notifyDataChanged('movement')}
+      />
+
+      {canManage && (
+        <VehicleSheet
+          open={vehicleSheetOpen}
+          onOpenChange={setVehicleSheetOpen}
+          arac={null}
+          onSuccess={() => notifyDataChanged('vehicle')}
+        />
+      )}
+
+      {canManage && (
+        <ComponentSheet
+          open={componentSheetState.open}
+          onOpenChange={(nextOpen) =>
+            setComponentSheetState((prev) =>
+              nextOpen ? { ...prev, open: true } : { open: false, prefill: null }
+            )
+          }
+          mode="create"
+          parca={null}
+          prefill={componentSheetState.prefill}
+          araclar={araclar}
+          defaultAracId={seciliAracId}
+          onSuccess={() => notifyDataChanged('component')}
+        />
+      )}
     </TooltipProvider>
   );
 }

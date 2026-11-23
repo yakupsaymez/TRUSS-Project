@@ -48,7 +48,7 @@ function resolveDefaultAracId(defaultAracId, araclar) {
   return '';
 }
 
-function buildInitialForm({ mode, parca, defaultAracId, araclar }) {
+function buildInitialForm({ mode, parca, defaultAracId, araclar, prefill = null }) {
   const todayIso = getTodayIso();
 
   if (mode === 'replace' && parca) {
@@ -97,19 +97,40 @@ function buildInitialForm({ mode, parca, defaultAracId, araclar }) {
     };
   }
 
-  const resolvedId = resolveDefaultAracId(defaultAracId, araclar);
+  const resolvedId =
+    prefill?.arac_id !== undefined && prefill?.arac_id !== null && prefill?.arac_id !== ''
+      ? String(prefill.arac_id)
+      : resolveDefaultAracId(defaultAracId, araclar);
   const matchedArac = findVehicle(araclar, resolvedId);
   const isSmh = matchedArac ? isSmhArac(matchedArac) : false;
   const guncelSayac = matchedArac ? getGuncelSayac(matchedArac) : 0;
 
   return {
     arac_id: resolvedId,
-    parca_adi: '',
-    son_degisim_km: formatLocaleNumber(guncelSayac, 0),
-    degisim_araligi_km: isSmh ? '250' : formatLocaleNumber(30000, 0),
+    parca_adi: prefill?.parca_adi ? String(prefill.parca_adi) : '',
+    son_degisim_km:
+      prefill?.son_degisim_km !== undefined &&
+      prefill?.son_degisim_km !== null &&
+      prefill?.son_degisim_km !== ''
+        ? formatLocaleNumber(prefill.son_degisim_km, 0)
+        : formatLocaleNumber(guncelSayac, 0),
+    degisim_araligi_km:
+      prefill?.degisim_araligi_km !== undefined &&
+      prefill?.degisim_araligi_km !== null &&
+      prefill?.degisim_araligi_km !== ''
+        ? formatLocaleNumber(prefill.degisim_araligi_km, 0)
+        : isSmh
+          ? '250'
+          : formatLocaleNumber(30000, 0),
     son_degisim_tarihi: todayIso,
-    maliyet: '',
-    notlar: '',
+    maliyet:
+      prefill?.maliyet !== undefined &&
+      prefill?.maliyet !== null &&
+      prefill?.maliyet !== '' &&
+      Number(prefill.maliyet) > 0
+        ? formatLocaleNumber(prefill.maliyet, 2)
+        : '',
+    notlar: prefill?.notlar ? String(prefill.notlar) : '',
   };
 }
 
@@ -140,15 +161,16 @@ export default function ComponentSheet({
   onOpenChange,
   mode = 'create',
   parca = null,
+  prefill = null,
   araclar = [],
   defaultAracId = null,
   onSuccess,
 }) {
   const [form, setForm] = useState(() =>
-    buildInitialForm({ mode, parca, defaultAracId, araclar })
+    buildInitialForm({ mode, parca, defaultAracId, araclar, prefill })
   );
   const [initialSnapshot, setInitialSnapshot] = useState(() =>
-    buildInitialForm({ mode, parca, defaultAracId, araclar })
+    buildInitialForm({ mode, parca, defaultAracId, araclar, prefill })
   );
   const [fieldErrors, setFieldErrors] = useState({});
   const [sayacHatasi, setSayacHatasi] = useState(null);
@@ -164,12 +186,13 @@ export default function ComponentSheet({
       parca,
       defaultAracId,
       araclar: araclarRef.current,
+      prefill,
     });
     setForm(next);
     setInitialSnapshot(next);
     setFieldErrors({});
     setSayacHatasi(null);
-  }, [open, mode, parca, defaultAracId]);
+  }, [open, mode, parca, defaultAracId, prefill]);
 
   useEffect(() => {
     if (!open || mode !== 'create' || form.arac_id || araclar.length === 0) return;
@@ -178,10 +201,11 @@ export default function ComponentSheet({
       parca: null,
       defaultAracId,
       araclar,
+      prefill,
     });
     setForm((prev) => (prev.arac_id ? prev : next));
     setInitialSnapshot((prev) => (prev.arac_id ? prev : next));
-  }, [open, mode, form.arac_id, araclar, defaultAracId]);
+  }, [open, mode, form.arac_id, araclar, defaultAracId, prefill]);
 
   const isDirty = useMemo(
     () => JSON.stringify(form) !== JSON.stringify(initialSnapshot),
