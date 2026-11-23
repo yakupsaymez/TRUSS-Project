@@ -49,14 +49,30 @@ export const hesaplaBakimDurumu = (arac) => {
   return { durum: 'sorunsuz', kalan, periyot, birim };
 };
 
+export const parseLocalMidnight = (raw) => {
+  if (!raw) return null;
+  const str = String(raw).trim();
+  const pureDate = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (pureDate) {
+    return new Date(Number(pureDate[1]), Number(pureDate[2]) - 1, Number(pureDate[3]));
+  }
+  const d = new Date(str);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+};
+
+export const hesaplaKalanGun = (tarih, referans = new Date()) => {
+  const hedef = parseLocalMidnight(tarih);
+  if (!hedef) return null;
+  const bugun = new Date(referans.getFullYear(), referans.getMonth(), referans.getDate());
+  return Math.round((hedef.getTime() - bugun.getTime()) / MILLISECONDS_IN_DAY);
+};
+
 export const evrakRiskliMi = (arac, gun = EVRAK_UYARI_GUN) => {
   const bugun = new Date();
-  bugun.setHours(0, 0, 0, 0);
   return [arac?.muayene_tarihi, arac?.kasko_tarihi, arac?.sigorta_tarihi].some((t) => {
-    if (!t) return false;
-    const hedef = new Date(t);
-    hedef.setHours(0, 0, 0, 0);
-    return Math.ceil((hedef - bugun) / MILLISECONDS_IN_DAY) <= gun;
+    const kalanGun = hesaplaKalanGun(t, bugun);
+    return kalanGun !== null && kalanGun <= gun;
   });
 };
 
@@ -70,8 +86,10 @@ export const ozetleFilo = (araclar = []) =>
       } else if (durum === 'uyari') {
         acc.uyari += 1;
         acc.uyariIdler.push(arac.arac_id);
-      } else {
+      } else if (durum === 'sorunsuz') {
         acc.sorunsuz += 1;
+      } else {
+        acc.bilinmiyor += 1;
       }
       if (evrakRiskliMi(arac)) {
         acc.evrakSorunu += 1;
@@ -84,6 +102,7 @@ export const ozetleFilo = (araclar = []) =>
       tehlike: 0,
       uyari: 0,
       sorunsuz: 0,
+      bilinmiyor: 0,
       evrakSorunu: 0,
       gelecekAyTahmin: 0,
       tehlikeIdler: [],

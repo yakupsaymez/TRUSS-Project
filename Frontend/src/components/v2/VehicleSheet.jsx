@@ -808,7 +808,7 @@ export default function VehicleSheet({ open, onOpenChange, arac = null, onSucces
 
           <SheetField
             label="Kategori"
-            htmlFor="vehicle-kategori"
+            htmlFor={manualKategori ? 'vehicle-kategori-manual' : 'vehicle-kategori'}
             required
             error={fieldErrors.kategori}
           >
@@ -850,7 +850,11 @@ export default function VehicleSheet({ open, onOpenChange, arac = null, onSucces
 
           <SheetField
             label="Marka"
-            htmlFor="vehicle-marka"
+            htmlFor={
+              !manualKategori && !manualMarka && markalar.length > 0
+                ? 'vehicle-marka-select'
+                : 'vehicle-marka'
+            }
             required
             error={fieldErrors.marka}
           >
@@ -888,7 +892,15 @@ export default function VehicleSheet({ open, onOpenChange, arac = null, onSucces
 
           <SheetField
             label="Model"
-            htmlFor="vehicle-model"
+            htmlFor={
+              !manualKategori &&
+              !manualMarka &&
+              !manualModel &&
+              Boolean(form.marka_id) &&
+              modeller.length > 0
+                ? 'vehicle-model-select'
+                : 'vehicle-model'
+            }
             required
             error={fieldErrors.model}
           >

@@ -1,22 +1,10 @@
 import React, { useMemo } from 'react';
-import { EVRAK_UYARI_GUN } from '@/utils/aracDurum';
+import { EVRAK_UYARI_GUN, hesaplaKalanGun } from '@/utils/aracDurum';
 import { formatLocaleNumber } from '@/utils/formatters';
 import SegmentedDistributionCard from '@/components/v2/SegmentedDistributionCard';
+import { cn } from '@/lib/utils';
 
-const MILLISECONDS_IN_DAY = 1000 * 60 * 60 * 24;
 const DOC_FIELDS = ['muayene_tarihi', 'sigorta_tarihi', 'kasko_tarihi'];
-
-function parseLocalMidnight(raw) {
-  if (!raw) return null;
-  const str = String(raw).trim();
-  const pureDate = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (pureDate) {
-    return new Date(Number(pureDate[1]), Number(pureDate[2]) - 1, Number(pureDate[3]));
-  }
-  const d = new Date(str);
-  if (Number.isNaN(d.getTime())) return null;
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-}
 
 export default function DocumentComplianceCard({
   araclar = [],
@@ -27,7 +15,6 @@ export default function DocumentComplianceCard({
 }) {
   const { totalDocs, segments } = useMemo(() => {
     const bugun = new Date();
-    bugun.setHours(0, 0, 0, 0);
 
     const counts = {
       gecerli: 0,
@@ -38,12 +25,11 @@ export default function DocumentComplianceCard({
 
     araclar.forEach((arac) => {
       DOC_FIELDS.forEach((field) => {
-        const hedef = parseLocalMidnight(arac?.[field]);
-        if (!hedef) {
+        const gun = hesaplaKalanGun(arac?.[field], bugun);
+        if (gun === null) {
           counts.eksik += 1;
           return;
         }
-        const gun = Math.ceil((hedef - bugun) / MILLISECONDS_IN_DAY);
         if (gun < 0) {
           counts.suresi_dolmus += 1;
         } else if (gun <= EVRAK_UYARI_GUN) {
@@ -103,7 +89,7 @@ export default function DocumentComplianceCard({
       onSelectSegment={onSelectStatus}
       loading={loading}
       emptyText="Henüz kayıtlı araç olmadığı için belge uyum dağılımı hesaplanamadı."
-      className={className}
+      className={cn('h-full', className)}
     />
   );
 }

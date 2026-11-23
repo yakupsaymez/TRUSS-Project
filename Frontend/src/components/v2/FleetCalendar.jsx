@@ -307,7 +307,7 @@ export default function FleetCalendar({
   const selectedDayEvents = eventsByDate.get(selectedDayIso) || [];
 
   return (
-    <Card className={cn('overflow-hidden border-border bg-card', className)}>
+    <Card className={cn('gap-0 overflow-hidden border-border bg-card py-0 shadow-none', className)}>
       {/* Üst Araç Çubuğu */}
       <div className="flex flex-col gap-3 border-b border-border p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">

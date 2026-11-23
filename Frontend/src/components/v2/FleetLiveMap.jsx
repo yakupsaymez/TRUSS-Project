@@ -246,7 +246,7 @@ export default function FleetLiveMap({
   }, [activeVehicle, onSelectArac, selectedAracId]);
 
   const positionedVehicles = useMemo(() => {
-    return araclar
+    return filteredVehicles
       .filter((arac) => hasValidCoordinates(arac))
       .map((arac, index) => {
         const lat = Number(arac.son_enlem);
@@ -261,7 +261,7 @@ export default function FleetLiveMap({
           health: resolveVehicleHealthMeta(arac),
         };
       });
-  }, [araclar]);
+  }, [filteredVehicles]);
 
   const hubMap = useMemo(() => {
     const map = new Map();
@@ -426,14 +426,14 @@ export default function FleetLiveMap({
 
             <Tabs value={filterTab} onValueChange={setFilterTab} className="w-full">
               <TabsList className="grid h-8 w-full grid-cols-3">
-                <TabsTrigger value="all" className="px-2 text-[11px]">
+                <TabsTrigger value="all" className="min-w-0 truncate px-1.5 text-[11px]">
                   Tümü ({counts.all})
                 </TabsTrigger>
-                <TabsTrigger value="known" className="px-2 text-[11px]">
-                  Konumu Bilinen ({counts.known})
+                <TabsTrigger value="known" className="min-w-0 truncate px-1.5 text-[11px]">
+                  Bilinen ({counts.known})
                 </TabsTrigger>
-                <TabsTrigger value="pending" className="px-2 text-[11px]">
-                  Konum Bekleyen ({counts.pending})
+                <TabsTrigger value="pending" className="min-w-0 truncate px-1.5 text-[11px]">
+                  Bekleyen ({counts.pending})
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -557,7 +557,7 @@ export default function FleetLiveMap({
         </Card>
 
         {/* Sağ Panel: Türkiye Koordinat Projeksiyonlu Canlı Harita Kanvası */}
-        <Card className="relative flex h-[540px] flex-col gap-0 overflow-hidden border border-border bg-card py-0 shadow-none lg:col-span-8">
+        <Card className="relative flex min-h-[540px] flex-col gap-0 overflow-hidden border border-border bg-card py-0 shadow-none lg:col-span-8">
           <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
             <div className="space-y-0.5">
               <CardTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -585,176 +585,178 @@ export default function FleetLiveMap({
             </div>
           </CardHeader>
 
-          <CardContent className="relative flex-1 overflow-hidden bg-muted/20 p-0">
-            <svg
-              viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
-              className="size-full select-none"
-              role="img"
-              aria-label="Türkiye Filo Konum Haritası"
-            >
-              {/* Enlem / Boylam Izgara Çizgileri */}
-              {[36, 37, 38, 39, 40, 41, 42].map((latLine) => {
-                const { y } = projectToSvg(latLine, LNG_MIN);
-                return (
-                  <g key={`lat-${latLine}`}>
+          <CardContent className="relative flex flex-1 items-center justify-center overflow-hidden bg-muted/20 p-0">
+            <div className="relative aspect-[1000/480] w-full">
+              <svg
+                viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
+                className="block size-full select-none"
+                role="img"
+                aria-label="Türkiye Filo Konum Haritası"
+              >
+                {/* Enlem / Boylam Izgara Çizgileri */}
+                {[36, 37, 38, 39, 40, 41, 42].map((latLine) => {
+                  const { y } = projectToSvg(latLine, LNG_MIN);
+                  return (
+                    <g key={`lat-${latLine}`}>
+                      <line
+                        x1={SVG_PAD_X}
+                        y1={y}
+                        x2={SVG_WIDTH - SVG_PAD_X}
+                        y2={y}
+                        stroke="var(--border)"
+                        strokeDasharray="3 5"
+                        strokeWidth="1"
+                      />
+                      <text
+                        x={10}
+                        y={y + 3}
+                        fill="var(--muted-foreground)"
+                        fontSize="10"
+                        fontFamily="var(--font-mono)"
+                      >
+                        {latLine}°K
+                      </text>
+                    </g>
+                  );
+                })}
+
+                {[26, 28, 30, 32, 34, 36, 38, 40, 42, 44].map((lngLine) => {
+                  const { x } = projectToSvg(LAT_MIN, lngLine);
+                  return (
+                    <g key={`lng-${lngLine}`}>
+                      <line
+                        x1={x}
+                        y1={SVG_PAD_Y}
+                        x2={x}
+                        y2={SVG_HEIGHT - SVG_PAD_Y}
+                        stroke="var(--border)"
+                        strokeDasharray="3 5"
+                        strokeWidth="1"
+                      />
+                      <text
+                        x={x - 12}
+                        y={SVG_HEIGHT - 10}
+                        fill="var(--muted-foreground)"
+                        fontSize="10"
+                        fontFamily="var(--font-mono)"
+                      >
+                        {lngLine}°D
+                      </text>
+                    </g>
+                  );
+                })}
+
+                {/* Türkiye Sınır Silüeti */}
+                <polygon
+                  points={outlinePolygonPoints}
+                  fill="var(--muted)"
+                  fillOpacity="0.35"
+                  stroke="var(--border)"
+                  strokeWidth="1.5"
+                  strokeLinejoin="round"
+                />
+
+                {/* Ana Lojistik Koridor Rota Çizgileri */}
+                {CORRIDOR_PAIRS.map(([fromId, toId]) => {
+                  const fromHub = hubMap.get(fromId);
+                  const toHub = hubMap.get(toId);
+                  if (!fromHub || !toHub) return null;
+                  return (
                     <line
-                      x1={SVG_PAD_X}
-                      y1={y}
-                      x2={SVG_WIDTH - SVG_PAD_X}
-                      y2={y}
+                      key={`${fromId}-${toId}`}
+                      x1={fromHub.x}
+                      y1={fromHub.y}
+                      x2={toHub.x}
+                      y2={toHub.y}
                       stroke="var(--border)"
-                      strokeDasharray="3 5"
-                      strokeWidth="1"
-                    />
-                    <text
-                      x={10}
-                      y={y + 3}
-                      fill="var(--muted-foreground)"
-                      fontSize="10"
-                      fontFamily="var(--font-mono)"
-                    >
-                      {latLine}°K
-                    </text>
-                  </g>
-                );
-              })}
-
-              {[26, 28, 30, 32, 34, 36, 38, 40, 42, 44].map((lngLine) => {
-                const { x } = projectToSvg(LAT_MIN, lngLine);
-                return (
-                  <g key={`lng-${lngLine}`}>
-                    <line
-                      x1={x}
-                      y1={SVG_PAD_Y}
-                      x2={x}
-                      y2={SVG_HEIGHT - SVG_PAD_Y}
-                      stroke="var(--border)"
-                      strokeDasharray="3 5"
-                      strokeWidth="1"
-                    />
-                    <text
-                      x={x - 12}
-                      y={SVG_HEIGHT - 10}
-                      fill="var(--muted-foreground)"
-                      fontSize="10"
-                      fontFamily="var(--font-mono)"
-                    >
-                      {lngLine}°D
-                    </text>
-                  </g>
-                );
-              })}
-
-              {/* Türkiye Sınır Silüeti */}
-              <polygon
-                points={outlinePolygonPoints}
-                fill="var(--muted)"
-                fillOpacity="0.35"
-                stroke="var(--border)"
-                strokeWidth="1.5"
-                strokeLinejoin="round"
-              />
-
-              {/* Ana Lojistik Koridor Rota Çizgileri */}
-              {CORRIDOR_PAIRS.map(([fromId, toId]) => {
-                const fromHub = hubMap.get(fromId);
-                const toHub = hubMap.get(toId);
-                if (!fromHub || !toHub) return null;
-                return (
-                  <line
-                    key={`${fromId}-${toId}`}
-                    x1={fromHub.x}
-                    y1={fromHub.y}
-                    x2={toHub.x}
-                    y2={toHub.y}
-                    stroke="var(--border)"
-                    strokeWidth="1.5"
-                    strokeDasharray="4 4"
-                  />
-                );
-              })}
-
-              {/* 16 Ana Lojistik Merkez Noktası */}
-              {TR_LOGISTICS_HUBS.map((hub) => {
-                const projected = hubMap.get(hub.id);
-                if (!projected) return null;
-                return (
-                  <g key={hub.id} transform={`translate(${projected.x}, ${projected.y})`}>
-                    <circle
-                      r="4"
-                      fill="var(--card)"
-                      stroke="var(--muted-foreground)"
                       strokeWidth="1.5"
+                      strokeDasharray="4 4"
                     />
-                    <text
-                      x="0"
-                      y="15"
-                      textAnchor="middle"
-                      fill="var(--muted-foreground)"
-                      fontSize="10"
-                      fontWeight="500"
+                  );
+                })}
+
+                {/* 16 Ana Lojistik Merkez Noktası */}
+                {TR_LOGISTICS_HUBS.map((hub) => {
+                  const projected = hubMap.get(hub.id);
+                  if (!projected) return null;
+                  return (
+                    <g key={hub.id} transform={`translate(${projected.x}, ${projected.y})`}>
+                      <circle
+                        r="4"
+                        fill="var(--card)"
+                        stroke="var(--muted-foreground)"
+                        strokeWidth="1.5"
+                      />
+                      <text
+                        x="0"
+                        y="15"
+                        textAnchor="middle"
+                        fill="var(--muted-foreground)"
+                        fontSize="10"
+                        fontWeight="500"
+                      >
+                        {hub.shortName}
+                      </text>
+                    </g>
+                  );
+                })}
+              </svg>
+
+              {/* Gerçek Koordinatlı Araç İşaretçileri (HTML Katmanı) */}
+              <div className="pointer-events-none absolute inset-0">
+                {positionedVehicles.map(({ arac, x, y, health }) => {
+                  const isSelected =
+                    activeVehicle && String(arac.arac_id) === String(activeVehicle.arac_id);
+                  const leftPct = (x / SVG_WIDTH) * 100;
+                  const topPct = (y / SVG_HEIGHT) * 100;
+                  const plate = formatTurkishPlate(arac.plaka);
+
+                  return (
+                    <button
+                      key={arac.arac_id}
+                      type="button"
+                      onClick={() => onSelectArac?.(String(arac.arac_id))}
+                      style={{
+                        left: `${leftPct}%`,
+                        top: `${topPct}%`,
+                      }}
+                      className={cn(
+                        'pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 transition-transform focus-visible:outline-none',
+                        isSelected ? 'z-30 scale-110' : 'z-20 hover:z-30 hover:scale-105'
+                      )}
+                      title={`${plate} · ${arac.son_konum_adi || 'Konum Kayıtlı'}`}
                     >
-                      {hub.shortName}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
+                      <span className="relative flex flex-col items-center">
+                        {(isSelected || positionedVehicles.length <= 12) && (
+                          <span
+                            className={cn(
+                              'mb-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums shadow-xs',
+                              isSelected
+                                ? 'border-primary bg-primary text-primary-foreground'
+                                : 'border-border bg-card/95 text-foreground'
+                            )}
+                          >
+                            {plate}
+                          </span>
+                        )}
 
-            {/* Gerçek Koordinatlı Araç İşaretçileri (HTML Katmanı) */}
-            <div className="pointer-events-none absolute inset-0">
-              {positionedVehicles.map(({ arac, x, y, health }) => {
-                const isSelected =
-                  activeVehicle && String(arac.arac_id) === String(activeVehicle.arac_id);
-                const leftPct = (x / SVG_WIDTH) * 100;
-                const topPct = (y / SVG_HEIGHT) * 100;
-                const plate = formatTurkishPlate(arac.plaka);
-
-                return (
-                  <button
-                    key={arac.arac_id}
-                    type="button"
-                    onClick={() => onSelectArac?.(String(arac.arac_id))}
-                    style={{
-                      left: `${leftPct}%`,
-                      top: `${topPct}%`,
-                    }}
-                    className={cn(
-                      'pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 transition-transform focus-visible:outline-none',
-                      isSelected ? 'z-30 scale-110' : 'z-20 hover:z-30 hover:scale-105'
-                    )}
-                    title={`${plate} · ${arac.son_konum_adi || 'Konum Kayıtlı'}`}
-                  >
-                    <span className="relative flex flex-col items-center">
-                      {(isSelected || positionedVehicles.length <= 12) && (
                         <span
                           className={cn(
-                            'mb-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums shadow-xs',
-                            isSelected
-                              ? 'border-primary bg-primary text-primary-foreground'
-                              : 'border-border bg-card/95 text-foreground'
+                            'flex items-center justify-center rounded-full border-2 border-background text-primary-foreground shadow-sm transition-all',
+                            health.dotClass,
+                            isSelected ? cn('size-8 ring-4', health.ringClass) : 'size-6'
                           )}
                         >
-                          {plate}
+                          <Truck className={cn(isSelected ? 'size-4' : 'size-3')} aria-hidden="true" />
                         </span>
-                      )}
-
-                      <span
-                        className={cn(
-                          'flex items-center justify-center rounded-full border-2 border-background text-primary-foreground shadow-sm transition-all',
-                          health.dotClass,
-                          isSelected ? cn('size-8 ring-4', health.ringClass) : 'size-6'
-                        )}
-                      >
-                        <Truck className={cn(isSelected ? 'size-4' : 'size-3')} aria-hidden="true" />
                       </span>
-                    </span>
-                  </button>
-                );
-              })}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Harita üzerinde hiç konum bildirilmiş araç yoksa bilgilendirme katmanı */}
+            {/* Harita üzerinde gösterilecek konum yoksa bilgilendirme katmanı */}
             {positionedVehicles.length === 0 && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
                 <div className="pointer-events-auto max-w-sm rounded-xl border border-border bg-card/95 p-5 text-center shadow-sm backdrop-blur-xs">
@@ -762,13 +764,16 @@ export default function FleetLiveMap({
                     <MapPin className="size-5" aria-hidden="true" />
                   </div>
                   <p className="text-sm font-semibold text-foreground">
-                    Henüz konum bildirimi yapılmadı
+                    {counts.known > 0
+                      ? 'Aktif filtrede konumlu araç yok'
+                      : 'Henüz konum bildirimi yapılmadı'}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Filodaki araçlardan birini seçip &ldquo;Konum Bildir (Check-In)&rdquo; butonuyla
-                    lojistik merkez veya GPS koordinatı kaydedin.
+                    {counts.known > 0
+                      ? 'Arama metnini temizleyin veya "Tümü" / "Bilinen" sekmesine geçerek harita işaretçilerini görüntüleyin.'
+                      : 'Filodaki araçlardan birini seçip “Konum Bildir (Check-In)” butonuyla lojistik merkez veya GPS koordinatı kaydedin.'}
                   </p>
-                  {activeVehicle && (
+                  {counts.known === 0 && activeVehicle && (
                     <Button
                       type="button"
                       size="sm"

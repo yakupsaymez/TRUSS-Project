@@ -28,7 +28,9 @@ import {
   getGuncelSayac,
   getSayacBirimi,
   hesaplaBakimDurumu,
+  hesaplaKalanGun,
   isSmhArac,
+  parseLocalMidnight,
 } from '@/utils/aracDurum';
 import { formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import { usePagination } from '@/hooks/use-pagination';
@@ -37,7 +39,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -67,7 +68,6 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
-const MILLISECONDS_IN_DAY = 1000 * 60 * 60 * 24;
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
 function getInitials(name) {
@@ -81,9 +81,8 @@ function getInitials(name) {
 }
 
 function formatTrDate(isoLike) {
-  if (!isoLike) return '—';
-  const date = new Date(isoLike);
-  if (Number.isNaN(date.getTime())) return '—';
+  const date = parseLocalMidnight(isoLike);
+  if (!date) return '—';
   return new Intl.DateTimeFormat('tr-TR', {
     day: '2-digit',
     month: '2-digit',
@@ -93,22 +92,16 @@ function formatTrDate(isoLike) {
 
 function computeDocumentSummary(arac) {
   const bugun = new Date();
-  bugun.setHours(0, 0, 0, 0);
 
   const items = [
     { key: 'muayene', short: 'M', ad: 'Muayene', tarih: arac?.muayene_tarihi || null },
     { key: 'sigorta', short: 'S', ad: 'Sigorta', tarih: arac?.sigorta_tarihi || null },
     { key: 'kasko', short: 'K', ad: 'Kasko', tarih: arac?.kasko_tarihi || null },
   ].map((item) => {
-    if (!item.tarih) {
+    const gun = hesaplaKalanGun(item.tarih, bugun);
+    if (gun === null) {
       return { ...item, gun: null, formatted: '—' };
     }
-    const hedef = new Date(item.tarih);
-    if (Number.isNaN(hedef.getTime())) {
-      return { ...item, gun: null, formatted: '—' };
-    }
-    hedef.setHours(0, 0, 0, 0);
-    const gun = Math.ceil((hedef - bugun) / MILLISECONDS_IN_DAY);
     return { ...item, gun, formatted: formatTrDate(item.tarih) };
   });
 
@@ -164,7 +157,6 @@ export default function FleetDataTable({
   const [durumFilter, setDurumFilter] = useState('all');
   const [kategoriFilter, setKategoriFilter] = useState('all');
   const [sorting, setSorting] = useState([]);
-  const [rowSelection, setRowSelection] = useState({});
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
 
   const kategoriler = useMemo(() => {
@@ -174,6 +166,12 @@ export default function FleetDataTable({
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'tr-TR'));
   }, [araclar]);
+
+  useEffect(() => {
+    if (kategoriFilter !== 'all' && !kategoriler.includes(kategoriFilter)) {
+      setKategoriFilter('all');
+    }
+  }, [kategoriFilter, kategoriler]);
 
   const enrichedRows = useMemo(() => {
     return araclar.map((arac) => {
@@ -218,7 +216,7 @@ export default function FleetDataTable({
       if (durumFilter === 'riskli_evrak' && !row.evrakRiskli) return false;
       if (
         durumFilter === 'sorunsuz' &&
-        (row.bakim.durum === 'tehlike' || row.evrakRiskli)
+        (row.bakim.durum !== 'sorunsuz' || row.evrakRiskli)
       ) {
         return false;
       }
@@ -245,27 +243,6 @@ export default function FleetDataTable({
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
   }, [searchQuery, sayacFilter, durumFilter, kategoriFilter, araclar.length]);
 
-  useEffect(() => {
-    if (!canManage) {
-      setRowSelection({});
-    }
-  }, [canManage]);
-
-  useEffect(() => {
-    const validIds = new Set(araclar.map((a) => String(a.arac_id)));
-    setRowSelection((prev) => {
-      const keys = Object.keys(prev);
-      if (keys.length === 0) return prev;
-      let changed = false;
-      const next = {};
-      for (const k of keys) {
-        if (validIds.has(k)) next[k] = prev[k];
-        else changed = true;
-      }
-      return changed ? next : prev;
-    });
-  }, [araclar]);
-
   const hasActiveFilters =
     searchQuery.trim().length > 0 ||
     sayacFilter !== 'all' ||
@@ -284,31 +261,6 @@ export default function FleetDataTable({
 
   const columns = useMemo(() => {
     const cols = [];
-
-    if (canManage) {
-      cols.push({
-        id: 'select',
-        header: ({ table }) => (
-          <Checkbox
-            checked={
-              table.getIsAllPageRowsSelected() ||
-              (table.getIsSomePageRowsSelected() && 'indeterminate')
-            }
-            onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-            aria-label="Sayfadaki tüm araçları seç"
-          />
-        ),
-        cell: ({ row }) => (
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={(value) => row.toggleSelected(!!value)}
-            aria-label={`${row.original.formattedPlaka} satırını seç`}
-          />
-        ),
-        enableSorting: false,
-        size: 44,
-      });
-    }
 
     cols.push(
       {
@@ -440,7 +392,7 @@ export default function FleetDataTable({
                   </div>
                 </div>
               </TooltipTrigger>
-              <TooltipContent side="top" className="space-y-1 text-xs">
+              <TooltipContent side="top" className="flex-col items-stretch space-y-1 text-xs">
                 {items.map((doc) => (
                   <div
                     key={doc.key}
@@ -596,12 +548,9 @@ export default function FleetDataTable({
     getRowId: (row) => row.id,
     state: {
       sorting,
-      rowSelection,
       pagination,
     },
-    enableRowSelection: canManage,
     onSortingChange: setSorting,
-    onRowSelectionChange: setRowSelection,
     onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -620,8 +569,6 @@ export default function FleetDataTable({
     totalPages: pageCount,
     paginationItemsToDisplay: 5,
   });
-
-  const selectedCount = canManage ? Object.keys(rowSelection).length : 0;
 
   return (
     <Card className="gap-0 overflow-hidden border border-border bg-card py-0 shadow-none">
@@ -712,23 +659,6 @@ export default function FleetDataTable({
             </Button>
           )}
         </div>
-
-        {canManage && selectedCount > 0 && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Badge variant="secondary" className="tabular-nums">
-              {selectedCount} seçili
-            </Badge>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setRowSelection({})}
-              className="h-7 px-2 text-xs"
-            >
-              Seçimi temizle
-            </Button>
-          </div>
-        )}
       </div>
 
       {/* Tablo Gövdesi */}
@@ -762,10 +692,7 @@ export default function FleetDataTable({
             ))
           ) : table.getRowModel().rows.length > 0 ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                data-state={canManage && row.getIsSelected() ? 'selected' : undefined}
-              >
+              <TableRow key={row.id}>
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id} className="py-3 first:pl-4 last:pr-4">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

@@ -264,6 +264,20 @@ export default function LedgerDataTable({
     }
   };
 
+  const handleBaslangicChange = (nextStart) => {
+    setBaslangicTarihi(nextStart);
+    if (nextStart && bitisTarihi && nextStart > bitisTarihi) {
+      setBitisTarihi(nextStart);
+    }
+  };
+
+  const handleBitisChange = (nextEnd) => {
+    setBitisTarihi(nextEnd);
+    if (nextEnd && baslangicTarihi && baslangicTarihi > nextEnd) {
+      setBaslangicTarihi(nextEnd);
+    }
+  };
+
   const columns = useMemo(
     () => [
       {
@@ -335,7 +349,7 @@ export default function LedgerDataTable({
       },
       {
         id: 'sayac',
-        accessorFn: (row) => (row.km === null ? -1 : row.km),
+        accessorFn: (row) => (row.km == null ? -1 : row.km),
         header: ({ column }) => (
           <SortableHeader column={column} label="Sayaç" align="right" />
         ),
@@ -690,7 +704,7 @@ export default function LedgerDataTable({
                 <TrussDatePicker
                   name="baslangicTarihi"
                   value={baslangicTarihi}
-                  onChange={(e) => setBaslangicTarihi(e.target.value)}
+                  onChange={(e) => handleBaslangicChange(e.target.value)}
                   placeholder="Başlangıç"
                   className="h-9 text-xs"
                 />
@@ -699,7 +713,7 @@ export default function LedgerDataTable({
                 <TrussDatePicker
                   name="bitisTarihi"
                   value={bitisTarihi}
-                  onChange={(e) => setBitisTarihi(e.target.value)}
+                  onChange={(e) => handleBitisChange(e.target.value)}
                   placeholder="Bitiş"
                   className="h-9 text-xs"
                 />

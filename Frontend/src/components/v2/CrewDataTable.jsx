@@ -109,7 +109,7 @@ export const INITIAL_PERMS = {
     finans: true,
     zimmet: true,
     envanter: true,
-    ekip: false,
+    ekip: true,
   },
   [ROLES.DRIVER]: {
     yakit: true,

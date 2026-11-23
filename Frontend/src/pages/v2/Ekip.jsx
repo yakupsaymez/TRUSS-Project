@@ -271,11 +271,11 @@ export default function Ekip() {
         </div>
       </div>
 
-      {(users.length > 0 || loading) && (
+      {(users.length > 0 || loading || (vehiclesLoading && !vehiclesHasLoaded)) && (
         <CrewRoleSummaryStrip
           users={users}
           vehicles={araclar}
-          loading={loading && !hasLoaded}
+          loading={(loading && !hasLoaded) || (vehiclesLoading && !vehiclesHasLoaded)}
         />
       )}
 

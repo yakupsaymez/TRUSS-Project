@@ -186,9 +186,17 @@ export default function Harita() {
     event.preventDefault();
     if (!checkInAracId || submittingCheckIn) return;
 
-    const enlem = Number(enlemInput);
-    const boylam = Number(boylamInput);
+    const rawEnlem = String(enlemInput ?? '').trim();
+    const rawBoylam = String(boylamInput ?? '').trim();
     const trimmedKonum = konumAdiInput.trim();
+
+    if (rawEnlem === '' || rawBoylam === '') {
+      toast.error('Enlem ve boylam alanları boş bırakılamaz.');
+      return;
+    }
+
+    const enlem = Number(rawEnlem);
+    const boylam = Number(rawBoylam);
 
     if (!Number.isFinite(enlem) || enlem < -90 || enlem > 90) {
       toast.error('Enlem -90 ile 90 derece arasında geçerli bir sayı olmalıdır.');

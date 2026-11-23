@@ -16,7 +16,6 @@ import {
   Cog,
   LayoutGrid,
   Pencil,
-  Pin,
   Plus,
   RefreshCw,
   RotateCcw,
@@ -81,7 +80,7 @@ export function hesaplaParcaOmru(parca, aracMap) {
   const birim = sayacTipi === 'SMH' ? 'saat' : 'km';
 
   const guncelSayac = Number(
-    parca.guncel_km ?? (arac ? getGuncelSayac(arac) : 0) ?? 0
+    (arac ? getGuncelSayac(arac) : parca.guncel_km) ?? 0
   );
   const sonDegisimKm = Number(parca.son_degisim_km || 0);
   const aralik = Number(parca.degisim_araligi_km || 0);
@@ -335,17 +334,6 @@ export default function ComponentDataTable({
     });
   }, [enrichedRows, isVehicleFiltered, seciliAracId, activeStatusFilter, searchQuery]);
 
-  // Kritik ("Değişim Gerekli") satırlar otomatik olarak üst gruba sabitlenir (datatable-example-05 rowPinning)
-  const rowPinning = useMemo(
-    () => ({
-      top: filteredRows
-        .filter((row) => row.omur.durum === 'kritik')
-        .map((row) => row.id),
-      bottom: [],
-    }),
-    [filteredRows]
-  );
-
   const summary = useMemo(() => {
     let kritik = 0;
     let uyari = 0;
@@ -400,14 +388,14 @@ export default function ComponentDataTable({
         header: ({ column }) => <SortableHeader column={column} label="Parça" />,
         cell: ({ row }) => {
           const { parca, omur } = row.original;
-          const isPinned = row.getIsPinned() === 'top';
+          const isKritik = omur.durum === 'kritik';
           return (
             <div className="flex min-w-0 flex-col items-start gap-1">
               <div className="flex items-center gap-1.5">
-                {isPinned && (
-                  <Pin
+                {isKritik && (
+                  <AlertTriangle
                     className="size-3.5 shrink-0 text-destructive"
-                    aria-label="Üste sabitlenen kritik parça"
+                    aria-label="Kritik parça uyarısı"
                   />
                 )}
                 <span className="max-w-52 truncate text-sm font-medium text-foreground">
@@ -659,12 +647,9 @@ export default function ComponentDataTable({
     data: filteredRows,
     columns,
     getRowId: (row) => row.id,
-    enableRowPinning: true,
-    keepPinnedRows: true,
     state: {
       sorting,
       columnVisibility,
-      rowPinning,
       pagination,
     },
     onSortingChange: setSorting,
@@ -675,8 +660,7 @@ export default function ComponentDataTable({
     getPaginationRowModel: getPaginationRowModel(),
   });
 
-  const topRows = table.getTopRows();
-  const centerRows = table.getCenterRows();
+  const pageRows = table.getRowModel().rows;
   const visibleColCount = Math.max(1, table.getVisibleLeafColumns().length);
 
   const totalFiltered = filteredRows.length;
@@ -828,13 +812,13 @@ export default function ComponentDataTable({
           </div>
 
           <div className="flex items-center gap-2">
-            {topRows.length > 0 && (
+            {summary.kritik > 0 && (
               <Badge
                 variant="outline"
                 className="h-8 gap-1.5 border-destructive/30 bg-destructive/10 px-2.5 text-xs font-medium tabular-nums text-destructive"
               >
-                <Pin className="size-3.5" />
-                <span>{formatLocaleNumber(topRows.length, 0)} kritik sabit</span>
+                <AlertTriangle className="size-3.5" />
+                <span>{formatLocaleNumber(summary.kritik, 0)} kritik</span>
               </Badge>
             )}
 
@@ -908,56 +892,23 @@ export default function ComponentDataTable({
                   ))}
                 </TableRow>
               ))
-            ) : topRows.length > 0 || centerRows.length > 0 ? (
-              <>
-                {topRows.length > 0 && (
-                  <>
-                    <TableRow className="bg-destructive/5 hover:bg-destructive/5">
-                      <TableCell
-                        colSpan={visibleColCount}
-                        className="px-4 py-2 text-xs font-semibold text-destructive"
-                      >
-                        <span className="inline-flex items-center gap-1.5 tabular-nums">
-                          <Pin className="size-3.5" />
-                          <span>
-                            Sabitlenen Kritik Parçalar ({formatLocaleNumber(topRows.length, 0)})
-                          </span>
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                    {topRows.map((row) => (
-                      <TableRow key={row.id} className="bg-destructive/5 hover:bg-destructive/10">
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id} className="py-3 first:pl-4 last:pr-4">
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </>
-                )}
-
-                {centerRows.length > 0 && topRows.length > 0 && (
-                  <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableCell
-                      colSpan={visibleColCount}
-                      className="px-4 py-2 text-xs font-medium text-muted-foreground"
-                    >
-                      Diğer Parçalar
+            ) : pageRows.length > 0 ? (
+              pageRows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  className={
+                    row.original.omur.durum === 'kritik'
+                      ? 'bg-destructive/5 hover:bg-destructive/10'
+                      : undefined
+                  }
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id} className="py-3 first:pl-4 last:pr-4">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
-                  </TableRow>
-                )}
-
-                {centerRows.map((row) => (
-                  <TableRow key={row.id}>
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="py-3 first:pl-4 last:pr-4">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              </>
+                  ))}
+                </TableRow>
+              ))
             ) : (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={visibleColCount} className="p-0">

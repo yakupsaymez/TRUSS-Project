@@ -386,6 +386,14 @@ export default function MovementSheet({
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
+    if (isYakit && !canAddFuel) {
+      toast.error('Yakıt kaydı ekleme yetkiniz bulunmuyor.');
+      return;
+    }
+    if (!isYakit && !canAddMaintenance) {
+      toast.error('Bakım kaydı ekleme yetkiniz bulunmuyor.');
+      return;
+    }
 
     const errors = {};
     const todayIso = getTodayIso();

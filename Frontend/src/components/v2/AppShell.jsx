@@ -265,13 +265,19 @@ export default function AppShell() {
     [navigate, normalizedPath, setSeciliAracId]
   );
 
-  const handleOpenMovementSheet = useCallback(({ initialTip, prefill } = {}) => {
-    setMovementSheetState({
-      open: true,
-      initialTip: initialTip || 'YAKIT',
-      prefill: prefill || null,
-    });
-  }, []);
+  const handleOpenMovementSheet = useCallback(
+    ({ initialTip, prefill } = {}) => {
+      const tip = initialTip === 'BAKIM' ? 'BAKIM' : 'YAKIT';
+      if (tip === 'YAKIT' && !canAddFuel) return;
+      if (tip === 'BAKIM' && !canAddMaintenance) return;
+      setMovementSheetState({
+        open: true,
+        initialTip: tip,
+        prefill: prefill || null,
+      });
+    },
+    [canAddFuel, canAddMaintenance]
+  );
 
   const handleOpenComponentSheet = useCallback(
     ({ prefill } = {}) => {

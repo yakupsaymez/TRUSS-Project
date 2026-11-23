@@ -79,7 +79,8 @@ export default function Parcalar() {
 
   useEffect(() => {
     const handleDataChanged = (event) => {
-      if (event?.detail?.scope === 'component') {
+      const scope = event?.detail?.scope;
+      if (!scope || scope === 'component' || scope === 'movement' || scope === 'vehicle') {
         verileriYukle();
       }
     };
@@ -228,7 +229,7 @@ export default function Parcalar() {
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground">
-            Bileşen değişim aralıkları, kalan ömür yüzdeleri ve üste sabitlenen kritik uyarılar
+            Bileşen değişim aralıkları, kalan ömür yüzdeleri ve kritik öncelikli uyarılar
           </p>
         </div>
 

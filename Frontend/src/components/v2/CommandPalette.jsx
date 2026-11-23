@@ -20,14 +20,20 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Kbd } from '@/components/ui/kbd';
 import { cn } from '@/lib/utils';
 
-const PLATE_REGEX = /\b(\d{2}\s*[A-Za-zÇĞİÖŞÜçğıöşü]{1,3}\s*\d{2,5})\b/;
-const LITRE_REGEX = /(\d+(?:[.,]\d+)?)\s*(?:l|lt|litre|kwh)\b/i;
-const TUTAR_REGEX = /(\d+(?:[.,]\d+)*)\s*(?:tl|₺|try|lira)(?:\b|(?=\s|$))/i;
-const KM_REGEX_GLOBAL = /(\d+(?:[.,]\d+)*)\s*(?:km|kilometre|smh|saat)\b/gi;
-const KM_REGEX_SINGLE = /(\d+(?:[.,]\d+)*)\s*(?:km|kilometre|smh|saat)\b/i;
-const FATURA_REGEX = /\b(?:fatura|fiş|fis|belge|no)[:\s#-]*([A-Za-z0-9_-]+)\b/i;
+const PLATE_REGEX =
+  /(?<![\p{L}\p{N}_])((?:0[1-9]|[1-7]\d|8[01])\s*(?!(?:l|lt|tl|km|smh|kwh|try)(?![\p{L}\p{N}_]))[A-Za-zÇĞİÖŞÜçğıöşü]{1,3}\s*\d{2,5})(?![\p{L}\p{N}_])(?!\s*(?:tl|₺|try|lira|l|lt|litre|kwh|km|kilometre|smh|saat)(?![\p{L}\p{N}_]))/iu;
+const LITRE_REGEX =
+  /(?<![\p{L}\p{N}_])(\d+(?:[.,]\d+)?)\s*(?:l|lt|litre|kwh)(?![\p{L}\p{N}_])/iu;
+const TUTAR_REGEX =
+  /(?<![\p{L}\p{N}_])(\d+(?:[.,]\d+)*)\s*(?:tl|₺|try|lira)(?![\p{L}\p{N}_])/iu;
+const KM_REGEX_GLOBAL =
+  /(?<![\p{L}\p{N}_])(\d+(?:[.,]\d+)*)\s*(?:km|kilometre|smh|saat)(?![\p{L}\p{N}_])/giu;
+const KM_REGEX_SINGLE =
+  /(?<![\p{L}\p{N}_])(\d+(?:[.,]\d+)*)\s*(?:km|kilometre|smh|saat)(?![\p{L}\p{N}_])/iu;
+const FATURA_REGEX =
+  /(?<![\p{L}\p{N}_])(?:fatura|fiş|fis|belge)(?:\s+no)?[:\s#-]+([A-Za-z0-9_-]+)(?![\p{L}\p{N}_])/iu;
 const BAKIM_KEYWORD_REGEX =
-  /\b(bakim|bakım|servis|tamir|onarım|onarim|arıza|ariza|fren|balata|yag|yağ|triger|lastik|kaporta|boya|akü|aku|rot|balans|muayene)\b/i;
+  /(?<![\p{L}\p{N}_])(bakim|bakım|servis|tamir|onarım|onarim|arıza|ariza|fren|balata|yag|yağ|triger|lastik|kaporta|boya|akü|aku|rot|balans|muayene)(?![\p{L}\p{N}_])/iu;
 
 function resolveVehicleFromText(text, araclar, seciliAracId) {
   const plateMatch = text.match(PLATE_REGEX);
@@ -65,32 +71,32 @@ export function parseLedgerNaturalInput(rawText, araclar = [], seciliAracId = 't
   const { plateMatch, rawPlate, arac } = resolveVehicleFromText(text, araclar, seciliAracId);
 
   let yakitTipi = 'Dizel';
-  if (/\b(benzin|kurşunsuz|kursunsuz)\b/i.test(text)) {
+  if (/(?<![\p{L}\p{N}_])(benzin|kurşunsuz|kursunsuz)(?![\p{L}\p{N}_])/iu.test(text)) {
     yakitTipi = 'Benzin';
-  } else if (/\b(lpg|otogaz)\b/i.test(text)) {
+  } else if (/(?<![\p{L}\p{N}_])(lpg|otogaz)(?![\p{L}\p{N}_])/iu.test(text)) {
     yakitTipi = 'LPG';
-  } else if (/\b(elektrik|kwh|şarj|sarj)\b/i.test(text)) {
+  } else if (/(?<![\p{L}\p{N}_])(elektrik|kwh|şarj|sarj)(?![\p{L}\p{N}_])/iu.test(text)) {
     yakitTipi = 'Elektrik';
-  } else if (/\b(dizel|mazot|motorin)\b/i.test(text)) {
+  } else if (/(?<![\p{L}\p{N}_])(dizel|mazot|motorin)(?![\p{L}\p{N}_])/iu.test(text)) {
     yakitTipi = 'Dizel';
   }
 
   let bakimTipi = 'Periyodik Bakım';
-  if (/\b(arıza|ariza|onarım|onarim|tamir|mekanik)\b/i.test(text)) {
+  if (/(?<![\p{L}\p{N}_])(arıza|ariza|onarım|onarim|tamir|mekanik)(?![\p{L}\p{N}_])/iu.test(text)) {
     bakimTipi = 'Arıza & Mekanik Onarım';
-  } else if (/\b(lastik|rot|balans|jant)\b/i.test(text)) {
+  } else if (/(?<![\p{L}\p{N}_])(lastik|rot|balans|jant)(?![\p{L}\p{N}_])/iu.test(text)) {
     bakimTipi = 'Lastik & Rot Balans';
-  } else if (/\b(kaporta|boya|göçük|gocuk|cam)\b/i.test(text)) {
+  } else if (/(?<![\p{L}\p{N}_])(kaporta|boya|göçük|gocuk|cam)(?![\p{L}\p{N}_])/iu.test(text)) {
     bakimTipi = 'Kaporta & Boya';
-  } else if (/\b(fren|balata|disk)\b/i.test(text)) {
+  } else if (/(?<![\p{L}\p{N}_])(fren|balata|disk)(?![\p{L}\p{N}_])/iu.test(text)) {
     bakimTipi = 'Fren Sistemi Bakımı';
-  } else if (/\b(triger|ağır bakım|agir bakim|baskı balata|debriyaj)\b/i.test(text)) {
+  } else if (/(?<![\p{L}\p{N}_])(triger|ağır bakım|agir bakim|baskı balata|debriyaj)(?![\p{L}\p{N}_])/iu.test(text)) {
     bakimTipi = 'Triger & Ağır Bakım';
-  } else if (/\b(yağ|yag|filtre)\b/i.test(text)) {
+  } else if (/(?<![\p{L}\p{N}_])(yağ|yag|filtre)(?![\p{L}\p{N}_])/iu.test(text)) {
     bakimTipi = 'Yağ & Filtre Bakımı';
-  } else if (/\b(akü|aku|alternatör|marş|mars)\b/i.test(text)) {
+  } else if (/(?<![\p{L}\p{N}_])(akü|aku|alternatör|marş|mars)(?![\p{L}\p{N}_])/iu.test(text)) {
     bakimTipi = 'Akü & Elektrik';
-  } else if (/\b(muayene|tüvtürk|tuvturk|egzoz)\b/i.test(text)) {
+  } else if (/(?<![\p{L}\p{N}_])(muayene|tüvtürk|tuvturk|egzoz)(?![\p{L}\p{N}_])/iu.test(text)) {
     bakimTipi = 'Muayene & Resmi Evrak';
   }
 
@@ -120,7 +126,10 @@ export function parseLedgerNaturalInput(rawText, araclar = [], seciliAracId = 't
   if (kmMatch) notlar = notlar.replace(kmMatch[0], '');
   if (faturaMatch) notlar = notlar.replace(faturaMatch[0], '');
   notlar = notlar
-    .replace(/\b(yakit|yakıt|dizel|mazot|motorin|benzin|lpg|otogaz|elektrik|bakım|bakim|servis)\b/gi, '')
+    .replace(
+      /(?<![\p{L}\p{N}_])(yakit|yakıt|dizel|mazot|motorin|benzin|kurşunsuz|kursunsuz|lpg|otogaz|elektrik|şarj|sarj|bakım|bakim|servis)(?![\p{L}\p{N}_])/giu,
+      ''
+    )
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -177,7 +186,10 @@ export function parsePartNaturalInput(rawText, araclar = [], seciliAracId = 'tum
   });
   if (moneyMatch) parcaAdi = parcaAdi.replace(moneyMatch[0], '');
   parcaAdi = parcaAdi
-    .replace(/\b(son|ömür|omur|aralık|aralik|değişim|degisim|maliyet|tutar|parça|parca)[:\s]*/gi, '')
+    .replace(
+      /(?<![\p{L}\p{N}_])(son|ömür|omur|aralık|aralik|değişim|degisim|maliyet|tutar|parça|parca)(?![\p{L}\p{N}_])[:\s]*/giu,
+      ''
+    )
     .replace(/\s+/g, ' ')
     .trim();
 

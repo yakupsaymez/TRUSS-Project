@@ -114,6 +114,24 @@ export default function OverviewKpiStrip({
     };
   }, [canViewAnalytics, isAllVehicles, aylikTrend, aracMaliyet, seciliAracId]);
 
+  const maintenanceSubtitle = useMemo(() => {
+    if (araclar.length === 0) {
+      return 'Bakım durumu araç eklendiğinde hesaplanır';
+    }
+    if (ozet.uyari === 0 && ozet.bilinmiyor === 0) {
+      return `${formatLocaleNumber(ozet.sorunsuz, 0)} araç sorunsuz`;
+    }
+    const parts = [];
+    if (ozet.uyari > 0) {
+      parts.push(`${formatLocaleNumber(ozet.uyari, 0)} yaklaşıyor`);
+    }
+    parts.push(`${formatLocaleNumber(ozet.sorunsuz, 0)} sorunsuz`);
+    if (ozet.bilinmiyor > 0) {
+      parts.push(`${formatLocaleNumber(ozet.bilinmiyor, 0)} kayıt yok`);
+    }
+    return parts.join(' · ');
+  }, [araclar.length, ozet.uyari, ozet.sorunsuz, ozet.bilinmiyor]);
+
   const gridClass = cn(
     'grid gap-4',
     canViewAnalytics
@@ -137,13 +155,6 @@ export default function OverviewKpiStrip({
     araclar.length === 0
       ? 'Kayıtlı araç bulunmuyor'
       : `${formatLocaleNumber(kmSayisi, 0)} KM · ${formatLocaleNumber(smhSayisi, 0)} SMH`;
-
-  const maintenanceSubtitle =
-    araclar.length === 0
-      ? 'Bakım durumu araç eklendiğinde hesaplanır'
-      : ozet.uyari > 0
-        ? `${formatLocaleNumber(ozet.uyari, 0)} yaklaşıyor · ${formatLocaleNumber(ozet.sorunsuz, 0)} sorunsuz`
-        : `${formatLocaleNumber(ozet.sorunsuz, 0)} araç sorunsuz`;
 
   const documentSubtitle =
     araclar.length === 0

@@ -341,6 +341,7 @@ export default function Ayarlar() {
 
   const handleSavePreferences = async (e) => {
     e.preventDefault();
+    if (savingPreferences) return;
     setSavingPreferences(true);
     try {
       await api.put('/users/settings/preferences', {
@@ -369,11 +370,19 @@ export default function Ayarlar() {
 
   const handleSaveNotifications = async (e) => {
     e.preventDefault();
+    if (savingNotifications) return;
+
+    const trimmedTelefon = telefon.trim();
+    if (smsBildirimAktif && !trimmedTelefon) {
+      toast.error('SMS bildirimlerini açmak için geçerli bir telefon numarası girin.');
+      return;
+    }
+
     setSavingNotifications(true);
     try {
       const normalizedMatrix = normalizeNotificationMatrix(bildirimTercihleri);
       await api.put('/users/settings/notifications', {
-        telefon: telefon.trim(),
+        telefon: trimmedTelefon,
         email_bildirim_aktif: emailBildirimAktif,
         sms_bildirim_aktif: smsBildirimAktif,
         bildirim_tercihleri: normalizedMatrix,
@@ -400,17 +409,24 @@ export default function Ayarlar() {
     const errors = {};
     if (!currentPassword) {
       errors.currentPassword = 'Mevcut şifre gereklidir.';
+    } else if (currentPassword.length > 128) {
+      errors.currentPassword = 'Mevcut şifre en fazla 128 karakter olabilir.';
     }
+
     if (!newPassword) {
       errors.newPassword = 'Yeni şifre gereklidir.';
     } else if (newPassword.length < 6) {
       errors.newPassword = 'Yeni şifre en az 6 karakter olmalıdır.';
+    } else if (newPassword.length > 128) {
+      errors.newPassword = 'Yeni şifre en fazla 128 karakter olabilir.';
     } else if (currentPassword && newPassword === currentPassword) {
       errors.newPassword = 'Yeni şifre mevcut şifrenizden farklı olmalıdır.';
     }
 
     if (!confirmNewPassword) {
       errors.confirmNewPassword = 'Yeni şifre tekrarı gereklidir.';
+    } else if (confirmNewPassword.length > 128) {
+      errors.confirmNewPassword = 'Yeni şifre tekrarı en fazla 128 karakter olabilir.';
     } else if (newPassword !== confirmNewPassword) {
       errors.confirmNewPassword = 'Yeni şifreler eşleşmiyor.';
     }
@@ -521,7 +537,7 @@ export default function Ayarlar() {
   };
 
   const handleDeleteAccount = async () => {
-    if (!isSystemAdmin) return;
+    if (!isSystemAdmin || isDeleting) return;
     if (confirmText.trim().toUpperCase() !== 'ONAYLIYORUM') return;
 
     setIsDeleting(true);
@@ -872,6 +888,7 @@ export default function Ayarlar() {
                               type={showCurrentPassword ? 'text' : 'password'}
                               placeholder="Mevcut şifreniz"
                               autoComplete="current-password"
+                              maxLength={128}
                               required
                               value={currentPassword}
                               onChange={(e) => {
@@ -929,6 +946,7 @@ export default function Ayarlar() {
                               type={showNewPassword ? 'text' : 'password'}
                               placeholder="En az 6 karakter"
                               autoComplete="new-password"
+                              maxLength={128}
                               required
                               value={newPassword}
                               onChange={(e) => {
@@ -984,6 +1002,7 @@ export default function Ayarlar() {
                               type={showConfirmNewPassword ? 'text' : 'password'}
                               placeholder="Yeni şifreyi tekrarlayın"
                               autoComplete="new-password"
+                              maxLength={128}
                               required
                               value={confirmNewPassword}
                               onChange={(e) => {
@@ -1050,24 +1069,7 @@ export default function Ayarlar() {
                       </div>
                     </form>
 
-                    <div className="space-y-4 rounded-xl border border-border bg-background/60 p-4 sm:p-5">
-                      <div className="flex items-start gap-3">
-                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
-                          <KeyRound className="size-4" aria-hidden="true" />
-                        </div>
-                        <div className="space-y-1">
-                          <h3 className="text-sm font-semibold text-foreground">
-                            Şifre ve Erişim Yönetimi
-                          </h3>
-                          <p className="text-xs leading-relaxed text-muted-foreground">
-                            Şifre değişikliği veya erişim yenileme talepleri için sistem/filo
-                            yöneticinize başvurun.
-                          </p>
-                        </div>
-                      </div>
-
-                      <Separator />
-
+                    <div className="rounded-xl border border-border bg-background/60 p-4 sm:p-5">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="space-y-0.5">
                           <p className="text-sm font-medium text-foreground">Aktif Oturum</p>

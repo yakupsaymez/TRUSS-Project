@@ -81,9 +81,9 @@ function calcUsagePct(actual, target) {
   return Math.round((a / t) * 100);
 }
 
-function resolveStatusTone(pct) {
+function resolveStatusTone(pct, isExceeded = false) {
   const n = Number(pct) || 0;
-  if (n > 100) {
+  if (isExceeded || n > 100) {
     return {
       badgeClass: 'border-destructive/40 bg-destructive/10 text-destructive',
       barClass: 'bg-destructive',
@@ -142,14 +142,34 @@ export default function BudgetVarianceCard({
   const yakitPct = calcUsagePct(yakitGerceklesen, aylikYakitButcesi);
   const bakimPct = calcUsagePct(bakimGerceklesen, aylikBakimButcesi);
 
-  const overallTone = resolveStatusTone(kullanimYuzdesi);
-  const yakitTone = resolveStatusTone(yakitPct);
-  const bakimTone = resolveStatusTone(bakimPct);
+  const isOverallExceeded =
+    (toplamButce <= 0 && toplamGerceklesen > 0) ||
+    mevcutAy.durum === 'ASIM' ||
+    mevcutAy.asim === true ||
+    butceData?.durum === 'ASIM' ||
+    butceData?.asim === true ||
+    kullanimYuzdesi > 100;
+  const isYakitExceeded =
+    (aylikYakitButcesi <= 0 && yakitGerceklesen > 0) || yakitPct > 100;
+  const isBakimExceeded =
+    (aylikBakimButcesi <= 0 && bakimGerceklesen > 0) || bakimPct > 100;
+
+  const overallTone = resolveStatusTone(kullanimYuzdesi, isOverallExceeded);
+  const yakitTone = resolveStatusTone(yakitPct, isYakitExceeded);
+  const bakimTone = resolveStatusTone(bakimPct, isBakimExceeded);
 
   useEffect(() => {
     setYakitTargetInput(String(Math.round(aylikYakitButcesi)));
     setBakimTargetInput(String(Math.round(aylikBakimButcesi)));
   }, [aylikYakitButcesi, aylikBakimButcesi]);
+
+  const handlePopoverOpenChange = (nextOpen) => {
+    if (nextOpen) {
+      setYakitTargetInput(String(Math.round(aylikYakitButcesi)));
+      setBakimTargetInput(String(Math.round(aylikBakimButcesi)));
+    }
+    setPopoverOpen(nextOpen);
+  };
 
   const seriesData = useMemo(() => {
     const rawList = Array.isArray(butceData?.aylik_serisi) ? butceData.aylik_serisi : [];
@@ -254,7 +274,9 @@ export default function BudgetVarianceCard({
               variant="outline"
               className={cn('font-mono text-xs tabular-nums', overallTone.badgeClass)}
             >
-              %{formatLocaleNumber(kullanimYuzdesi, 0)} kullanıldı
+              {toplamButce <= 0 && toplamGerceklesen > 0
+                ? 'Bütçe Aşıldı'
+                : `%${formatLocaleNumber(kullanimYuzdesi, 0)} kullanıldı`}
             </Badge>
           </div>
           <CardDescription className="text-xs text-muted-foreground">
@@ -270,7 +292,7 @@ export default function BudgetVarianceCard({
         </div>
 
         {canManage && (
-          <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+          <Popover open={popoverOpen} onOpenChange={handlePopoverOpenChange}>
             <PopoverTrigger asChild>
               <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
                 <SlidersHorizontal className="size-3.5" aria-hidden="true" />
@@ -361,7 +383,9 @@ export default function BudgetVarianceCard({
                 <span>Yakıt Bütçesi</span>
               </span>
               <span className={cn('font-mono text-xs font-semibold tabular-nums', yakitTone.textClass)}>
-                %{formatLocaleNumber(yakitPct, 0)}
+                {aylikYakitButcesi <= 0 && yakitGerceklesen > 0
+                  ? 'Aşım'
+                  : `%${formatLocaleNumber(yakitPct, 0)}`}
               </span>
             </div>
             <div className="font-mono text-xs tabular-nums text-muted-foreground">
@@ -373,7 +397,7 @@ export default function BudgetVarianceCard({
             <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
               <div
                 className={cn('h-full rounded-full transition-all', yakitTone.barClass)}
-                style={{ width: `${Math.min(100, Math.max(0, yakitPct))}%` }}
+                style={{ width: `${isYakitExceeded ? 100 : Math.min(100, Math.max(0, yakitPct))}%` }}
               />
             </div>
           </div>
@@ -389,7 +413,9 @@ export default function BudgetVarianceCard({
                 <span>Bakım Bütçesi</span>
               </span>
               <span className={cn('font-mono text-xs font-semibold tabular-nums', bakimTone.textClass)}>
-                %{formatLocaleNumber(bakimPct, 0)}
+                {aylikBakimButcesi <= 0 && bakimGerceklesen > 0
+                  ? 'Aşım'
+                  : `%${formatLocaleNumber(bakimPct, 0)}`}
               </span>
             </div>
             <div className="font-mono text-xs tabular-nums text-muted-foreground">
@@ -401,7 +427,7 @@ export default function BudgetVarianceCard({
             <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
               <div
                 className={cn('h-full rounded-full transition-all', bakimTone.barClass)}
-                style={{ width: `${Math.min(100, Math.max(0, bakimPct))}%` }}
+                style={{ width: `${isBakimExceeded ? 100 : Math.min(100, Math.max(0, bakimPct))}%` }}
               />
             </div>
           </div>
