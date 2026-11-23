@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
+import toast from "react-hot-toast"
+import useAuthStore from "@/store/useAuthStore"
+import useVehicleStore from "@/store/useVehicleStore"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -56,12 +59,21 @@ const featureCards = [
 
 export default function HomePage() {
   const { theme, setTheme } = useTheme()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const token = useAuthStore((s) => s.token)
+  const hasSession = isAuthenticated || Boolean(token || localStorage.getItem("token"))
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 1000)
     return () => clearTimeout(timer)
   }, [])
+
+  const handleSignOut = () => {
+    useAuthStore.getState().logout()
+    useVehicleStore.getState().reset()
+    toast.success("Çıkış yapıldı.")
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -70,8 +82,8 @@ export default function HomePage() {
       <header className="sticky top-0 z-40 border-b border-border/50 bg-background/80 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link to="/" className="flex items-center no-underline font-display font-bold text-2xl tracking-tight select-none">
-            <span className="text-truss-text">TRU</span>
-            <span className="text-truss-purple">SS</span>
+            <span className="text-foreground">TRU</span>
+            <span className="text-primary">SS</span>
           </Link>
 
           <div className="flex items-center gap-2">
@@ -96,12 +108,25 @@ export default function HomePage() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Link to="/login">
-              <Button variant="ghost" size="sm">Giriş Yap</Button>
-            </Link>
-            <Link to="/register">
-              <Button size="sm">Kayıt Ol</Button>
-            </Link>
+            {hasSession ? (
+              <>
+                <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                  Çıkış Yap
+                </Button>
+                <Link to="/app">
+                  <Button size="sm">Panele Git</Button>
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link to="/login">
+                  <Button variant="ghost" size="sm">Giriş Yap</Button>
+                </Link>
+                <Link to="/register">
+                  <Button size="sm">Kayıt Ol</Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -141,17 +166,40 @@ export default function HomePage() {
                 yönetin. Veriye dayalı kararlarla filonuzun maliyetini düşürün.
               </p>
               <div className="mt-10 flex flex-col sm:flex-row gap-3 justify-center">
-                <Link to="/register">
-                  <Button size="lg" className="w-full sm:w-auto">
-                    Ücretsiz Başla
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-                <Link to="/login">
-                  <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                    Giriş Yap
-                  </Button>
-                </Link>
+                {hasSession ? (
+                  <>
+                    <Link to="/app">
+                      <Button size="lg" className="w-full sm:w-auto">
+                        Panele Git
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </Link>
+                    <Link to="/login">
+                      <Button size="lg" variant="outline" className="w-full sm:w-auto">
+                        Giriş Yap
+                      </Button>
+                    </Link>
+                    <Link to="/register">
+                      <Button size="lg" variant="ghost" className="w-full sm:w-auto">
+                        Kayıt Ol
+                      </Button>
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/register">
+                      <Button size="lg" className="w-full sm:w-auto">
+                        Ücretsiz Başla
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </Link>
+                    <Link to="/login">
+                      <Button size="lg" variant="outline" className="w-full sm:w-auto">
+                        Giriş Yap
+                      </Button>
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           )}

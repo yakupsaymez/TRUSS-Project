@@ -28,17 +28,6 @@ function ProtectedRoute({ children }) {
     return children;
 }
 
-function RootRoute() {
-    const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-    const token = useAuthStore((s) => s.token) || localStorage.getItem('token');
-
-    if (isAuthenticated || token) {
-        return <Navigate to="/app" replace />;
-    }
-
-    return <HomePage />;
-}
-
 function App() {
     return (
         <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
@@ -55,7 +44,7 @@ function App() {
                     }}
                 />
                 <Routes>
-                    <Route path="/" element={<RootRoute />} />
+                    <Route path="/" element={<HomePage />} />
                     <Route path="/login" element={<LoginV2 />} />
                     <Route path="/register" element={<RegisterV2 />} />
                     <Route path="/forgot-password" element={<ForgotPasswordV2 />} />
