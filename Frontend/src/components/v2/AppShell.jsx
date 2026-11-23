@@ -78,6 +78,7 @@ const ROUTE_LABELS = {
   '/app/filo': 'Filo',
   '/app/hareketler': 'Hareketler',
   '/app/parcalar': 'Parçalar',
+  '/app/takvim': 'Takvim',
   '/app/ekip': 'Ekip',
   '/app/ayarlar': 'Ayarlar',
 };

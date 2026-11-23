@@ -13,6 +13,7 @@ import GenelBakis from '@/pages/v2/GenelBakis';
 import Filo from '@/pages/v2/Filo';
 import Hareketler from '@/pages/v2/Hareketler';
 import Parcalar from '@/pages/v2/Parcalar';
+import Takvim from '@/pages/v2/Takvim';
 import Ekip from '@/pages/v2/Ekip';
 import Ayarlar from '@/pages/v2/Ayarlar';
 import LoginV2 from '@/pages/v2/LoginV2';
@@ -86,6 +87,14 @@ function App() {
                             element={
                                 <ChannelGuard channel="components">
                                     <Parcalar />
+                                </ChannelGuard>
+                            }
+                        />
+                        <Route
+                            path="takvim"
+                            element={
+                                <ChannelGuard channel="horizon">
+                                    <Takvim />
                                 </ChannelGuard>
                             }
                         />
