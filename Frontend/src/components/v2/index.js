@@ -13,3 +13,5 @@ export { default as FleetDataTable } from '@/components/v2/FleetDataTable';
 export { default as VehicleSheet } from '@/components/v2/VehicleSheet';
 export { default as LedgerDataTable } from '@/components/v2/LedgerDataTable';
 export { default as MovementSheet } from '@/components/v2/MovementSheet';
+export { default as ComponentDataTable } from '@/components/v2/ComponentDataTable';
+export { default as ComponentSheet } from '@/components/v2/ComponentSheet';
