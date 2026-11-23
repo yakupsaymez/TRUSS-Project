@@ -44,6 +44,23 @@ export default function GenelBakis() {
     }
   }, [hasLoaded, loading, fetchAraclar]);
 
+  const fetchFinanceData = useCallback(async () => {
+    if (!canViewAnalytics) return;
+    setLoadingFinance(true);
+    try {
+      const [trendRes, maliyetRes] = await Promise.all([
+        raporService.getAylikHarcamaTrendi(),
+        raporService.getAracMaliyetDagilimi(),
+      ]);
+      setAylikTrend(Array.isArray(trendRes) ? trendRes : []);
+      setAracMaliyet(Array.isArray(maliyetRes) ? maliyetRes : []);
+    } catch (err) {
+      notifyApiError(err, 'Finansal özet yüklenemedi.');
+    } finally {
+      setLoadingFinance(false);
+    }
+  }, [canViewAnalytics]);
+
   // P0 RBAC: Finansal rapor istekleri YALNIZCA analytics yetkisi olan kullanıcılarda atılır
   useEffect(() => {
     if (!canViewAnalytics) {
@@ -77,6 +94,18 @@ export default function GenelBakis() {
       cancelled = true;
     };
   }, [canViewAnalytics]);
+
+  useEffect(() => {
+    const handleDataChanged = (event) => {
+      if (!canViewAnalytics) return;
+      const scope = event?.detail?.scope;
+      if (!scope || scope === 'movement') {
+        fetchFinanceData();
+      }
+    };
+    window.addEventListener('truss:data-changed', handleDataChanged);
+    return () => window.removeEventListener('truss:data-changed', handleDataChanged);
+  }, [canViewAnalytics, fetchFinanceData]);
 
   const isSingleVehicle = Boolean(seciliAracId && seciliAracId !== 'tum');
 

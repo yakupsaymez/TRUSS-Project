@@ -231,9 +231,13 @@ export default function AppShell() {
 
   const handlePaletteSelectVehicle = useCallback(
     (val) => {
-      const nextId = val === 'tum' ? 'tum' : String(val);
+      if (val === 'tum') {
+        setSeciliAracId(null);
+        return;
+      }
+      const nextId = String(val);
       setSeciliAracId(nextId);
-      if (nextId !== 'tum' && (normalizedPath === '/app/ekip' || normalizedPath === '/app/ayarlar')) {
+      if (normalizedPath === '/app/ekip' || normalizedPath === '/app/ayarlar') {
         navigate('/app/filo');
       }
     },
@@ -279,7 +283,8 @@ export default function AppShell() {
             <SidebarHeader className="gap-3 border-b border-border bg-background px-3 py-3">
               <div className="flex items-center justify-between gap-2 group-data-[collapsible=icon]:justify-center">
                 <Link
-                  to="/app"
+                  to="/"
+                  title="TRUSS Ana Sayfa"
                   className="inline-flex items-center text-lg font-bold tracking-tight select-none"
                   aria-label="TRUSS Ana Sayfa"
                 >

@@ -6,7 +6,7 @@ import useVehicleStore from '@/store/useVehicleStore';
 import bakimService from '@/services/bakimService';
 import { canAccessChannel, resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { notifyApiError } from '@/utils/apiError';
-import { getTodayIso } from '@/utils/dateUtils';
+import { getTodayIso, toLocalIsoDate } from '@/utils/dateUtils';
 import { formatTurkishPlate } from '@/utils/formatters';
 import FleetCalendar, { getEventUrgencyMeta } from '@/components/v2/FleetCalendar';
 import EmptyState from '@/components/v2/EmptyState';
@@ -23,12 +23,20 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
-const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}/;
+const PURE_ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_DATE_PREFIX_RE = /^\d{4}-\d{2}-\d{2}/;
 
 function normalizeIsoDate(raw) {
   if (!raw) return null;
   const str = String(raw).trim();
-  if (!ISO_DATE_RE.test(str)) return null;
+  if (PURE_ISO_DATE_RE.test(str)) return str;
+  if (str.includes('T')) {
+    const parsed = new Date(str);
+    if (!Number.isNaN(parsed.getTime())) {
+      return toLocalIsoDate(parsed);
+    }
+  }
+  if (!ISO_DATE_PREFIX_RE.test(str)) return null;
   return str.slice(0, 10);
 }
 
@@ -73,6 +81,20 @@ export default function Takvim() {
     }
   }, [hasLoadedVehicles, loadingVehicles, fetchAraclar]);
 
+  const fetchBakimList = useCallback(async () => {
+    if (!canViewLedger) return;
+    setLoadingBakim(true);
+    try {
+      const res = await bakimService.getAllBakimlar();
+      const list = Array.isArray(res) ? res : res?.bakimlar || [];
+      setBakimlar(list);
+    } catch (err) {
+      notifyApiError(err, 'Bakım takvim kayıtları yüklenemedi.');
+    } finally {
+      setLoadingBakim(false);
+    }
+  }, [canViewLedger]);
+
   // RBAC: Bakım kayıtları YALNIZCA ledger kanalı yetkisi varsa çekilir
   useEffect(() => {
     if (!canViewLedger) {
@@ -103,6 +125,18 @@ export default function Takvim() {
       cancelled = true;
     };
   }, [canViewLedger]);
+
+  useEffect(() => {
+    const handleDataChanged = (event) => {
+      if (!canViewLedger) return;
+      const scope = event?.detail?.scope;
+      if (scope === 'movement') {
+        fetchBakimList();
+      }
+    };
+    window.addEventListener('truss:data-changed', handleDataChanged);
+    return () => window.removeEventListener('truss:data-changed', handleDataChanged);
+  }, [canViewLedger, fetchBakimList]);
 
   const isSingleVehicle = Boolean(seciliAracId && seciliAracId !== 'tum');
 
