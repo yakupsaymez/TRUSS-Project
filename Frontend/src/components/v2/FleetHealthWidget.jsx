@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowUpRight, Truck } from 'lucide-react';
 import { getGuncelSayac, hesaplaBakimDurumu } from '@/utils/aracDurum';
 import { formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
+import EmptyState from '@/components/v2/EmptyState';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -230,14 +231,12 @@ export default function FleetHealthWidget({
 
       <CardContent className="flex flex-1 flex-col gap-4 p-4">
         {araclar.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-background/50 px-4 py-10 text-center">
-            <div className="flex size-9 items-center justify-center rounded-xl border border-border bg-muted/60 text-muted-foreground">
-              <Truck className="size-4.5" aria-hidden="true" />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Kayıtlı araç eklendiğinde bakım sağlığı özetleri burada görünecektir.
-            </p>
-          </div>
+          <EmptyState
+            variant="card"
+            icon={Truck}
+            description="Kayıtlı araç eklendiğinde bakım sağlığı özetleri burada görünecektir."
+            className="flex-1"
+          />
         ) : (
           <>
             {/* Genel Filo Sağlık Özeti */}

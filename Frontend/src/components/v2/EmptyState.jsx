@@ -6,14 +6,15 @@ import { cn } from '@/lib/utils';
 const HATCHED_TILE_CLASS =
   'h-24 w-full rounded-lg border border-card-foreground/10 bg-[repeating-linear-gradient(45deg,color-mix(in_oklab,var(--card-foreground)_8%,transparent),color-mix(in_oklab,var(--card-foreground)_8%,transparent)_1px,var(--card)_2px,var(--card)_14px)]';
 
-function renderIcon(icon, compact) {
+function renderIcon(icon, sizeClass) {
   if (!icon) return null;
   if (isValidElement(icon)) return icon;
   const Icon = icon;
-  return <Icon className={compact ? 'size-5' : 'size-6'} aria-hidden="true" />;
+  return <Icon className={sizeClass} aria-hidden="true" />;
 }
 
 export default function EmptyState({
+  variant,
   icon,
   title,
   description,
@@ -25,90 +26,110 @@ export default function EmptyState({
   compact = false,
   className,
 }) {
+  const resolvedVariant = variant || (compact ? 'table' : 'page');
   const hasPrimaryAction = Boolean(actionLabel && onAction);
   const hasSecondaryAction = Boolean(secondaryActionLabel && onSecondaryAction);
   const isAccentBadge = hasPrimaryAction && actionVariant === 'default';
 
-  const iconNode = renderIcon(icon, compact);
-
-  const innerContent = (
-    <div
-      className={cn(
-        'mx-auto flex max-w-md flex-col items-center text-center',
-        compact ? 'gap-3 py-8' : 'relative z-10 gap-3.5 py-6'
-      )}
-    >
-      {iconNode && (
-        <div
-          className={cn(
-            'flex shrink-0 items-center justify-center rounded-full border',
-            compact ? 'size-11' : 'size-14',
-            isAccentBadge
-              ? 'border-primary/20 bg-primary/10 text-primary'
-              : 'border-border bg-muted text-muted-foreground'
-          )}
-        >
-          {iconNode}
-        </div>
-      )}
-
-      <div className="space-y-1">
-        {title && (
-          <p
-            className={cn(
-              'font-semibold tracking-tight text-foreground',
-              compact ? 'text-sm' : 'text-base'
-            )}
-          >
-            {title}
-          </p>
+  const actionsNode =
+    hasPrimaryAction || hasSecondaryAction ? (
+      <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
+        {hasPrimaryAction && (
+          <Button type="button" variant={actionVariant} size="sm" onClick={onAction}>
+            {actionLabel}
+          </Button>
         )}
-        {description && (
-          <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
-            {description}
-          </p>
+        {hasSecondaryAction && (
+          <Button type="button" variant="outline" size="sm" onClick={onSecondaryAction}>
+            {secondaryActionLabel}
+          </Button>
         )}
       </div>
+    ) : null;
 
-      {(hasPrimaryAction || hasSecondaryAction) && (
-        <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
-          {hasPrimaryAction && (
-            <Button
-              type="button"
-              variant={actionVariant}
-              size="sm"
-              onClick={onAction}
-            >
-              {actionLabel}
-            </Button>
+  // empty-state-01: Kart / grafik gövdesi içi kompakt kesikli boş durum
+  if (resolvedVariant === 'card') {
+    const cardIconNode = renderIcon(icon, 'size-4.5');
+    return (
+      <div
+        className={cn(
+          'flex min-h-44 w-full flex-col items-center justify-center gap-2.5 rounded-xl border border-dashed border-border bg-background/50 px-4 py-8 text-center',
+          className
+        )}
+      >
+        {cardIconNode && (
+          <div
+            className={cn(
+              'flex size-10 shrink-0 items-center justify-center rounded-full border',
+              isAccentBadge
+                ? 'border-primary/25 bg-primary/10 text-primary'
+                : 'border-border bg-muted/70 text-muted-foreground'
+            )}
+          >
+            {cardIconNode}
+          </div>
+        )}
+        <div className="max-w-sm space-y-1">
+          {title && (
+            <p className="text-sm font-semibold tracking-tight text-foreground">{title}</p>
           )}
-          {hasSecondaryAction && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onSecondaryAction}
-            >
-              {secondaryActionLabel}
-            </Button>
+          {description && (
+            <p className="text-xs leading-relaxed text-muted-foreground">{description}</p>
           )}
         </div>
-      )}
-    </div>
-  );
-
-  if (compact) {
-    return (
-      <div className={cn('w-full px-4', className)}>
-        {innerContent}
+        {actionsNode}
       </div>
     );
   }
 
+  // empty-state-02: Tablo içi çift halkalı ikon konteynerli boş durum
+  if (resolvedVariant === 'table') {
+    const tableIconNode = renderIcon(icon, 'size-5');
+    return (
+      <div className={cn('w-full px-4 py-10', className)}>
+        <div className="mx-auto flex max-w-md flex-col items-center gap-3 text-center">
+          {tableIconNode && (
+            <div
+              className={cn(
+                'flex size-14 shrink-0 items-center justify-center rounded-full border border-dashed p-1.5',
+                isAccentBadge ? 'border-primary/30 bg-primary/5' : 'border-border bg-muted/30'
+              )}
+            >
+              <div
+                className={cn(
+                  'flex size-full items-center justify-center rounded-full border',
+                  isAccentBadge
+                    ? 'border-primary/25 bg-primary/10 text-primary'
+                    : 'border-border bg-muted text-muted-foreground'
+                )}
+              >
+                {tableIconNode}
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-1">
+            {title && (
+              <p className="text-sm font-semibold tracking-tight text-foreground">{title}</p>
+            )}
+            {description && (
+              <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                {description}
+              </p>
+            )}
+          </div>
+
+          {actionsNode}
+        </div>
+      </div>
+    );
+  }
+
+  // empty-state-07: Tam sayfa bento taralı yer tutucu boş durum
+  const pageIconNode = renderIcon(icon, 'size-6');
   return (
     <Card className={cn('relative overflow-hidden border-border bg-card', className)}>
       <CardContent className="relative px-6 py-10 sm:py-12">
-        {/* empty-state-07 görsel şablonundan türetilen soyut bento yer tutucu arka plan */}
         <div
           aria-hidden="true"
           className="pointer-events-none mx-auto mb-4 grid max-w-3xl grid-cols-2 gap-3 opacity-80 select-none md:grid-cols-3"
@@ -124,7 +145,33 @@ export default function EmptyState({
         />
 
         <div className="-mt-28 sm:-mt-32">
-          {innerContent}
+          <div className="relative z-10 mx-auto flex max-w-md flex-col items-center gap-3.5 py-6 text-center">
+            {pageIconNode && (
+              <div
+                className={cn(
+                  'flex size-14 shrink-0 items-center justify-center rounded-full border',
+                  isAccentBadge
+                    ? 'border-primary/20 bg-primary/10 text-primary'
+                    : 'border-border bg-muted text-muted-foreground'
+                )}
+              >
+                {pageIconNode}
+              </div>
+            )}
+
+            <div className="space-y-1">
+              {title && (
+                <p className="text-base font-semibold tracking-tight text-foreground">{title}</p>
+              )}
+              {description && (
+                <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                  {description}
+                </p>
+              )}
+            </div>
+
+            {actionsNode}
+          </div>
         </div>
       </CardContent>
     </Card>

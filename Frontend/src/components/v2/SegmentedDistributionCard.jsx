@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
+import { PieChart } from 'lucide-react';
 import { formatLocaleNumber } from '@/utils/formatters';
+import EmptyState from '@/components/v2/EmptyState';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -95,9 +97,12 @@ export default function SegmentedDistributionCard({
 
       <CardContent className="flex flex-col gap-4">
         {computedTotal === 0 ? (
-          <p className="rounded-lg border border-dashed border-border bg-background/50 px-4 py-5 text-center text-xs text-muted-foreground">
-            {emptyText}
-          </p>
+          <EmptyState
+            variant="card"
+            icon={PieChart}
+            description={emptyText}
+            className="min-h-36 py-6"
+          />
         ) : (
           <>
             {/* Orantılı yatay segment çubuğu */}

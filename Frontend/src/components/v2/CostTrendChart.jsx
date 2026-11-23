@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
-import { Info } from 'lucide-react';
+import { BarChart3, Info } from 'lucide-react';
 import { formatCurrency, formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
+import EmptyState from '@/components/v2/EmptyState';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -237,13 +238,17 @@ export default function CostTrendChart({
         )}
 
         {!hasVisibleSpend ? (
-          <div className="flex h-60 items-center justify-center rounded-xl border border-dashed border-border bg-background/50 px-4 text-center">
-            <p className="max-w-sm text-xs text-muted-foreground">
-              {activeTab === 'aylik'
+          <EmptyState
+            variant="card"
+            icon={BarChart3}
+            title="Gider verisi bulunmuyor"
+            description={
+              activeTab === 'aylik'
                 ? 'Son 6 ayda kaydedilmiş yakıt veya bakım gideri bulunmuyor.'
-                : 'Seçili kapsamda kaydedilmiş araç gideri bulunmuyor.'}
-            </p>
-          </div>
+                : 'Seçili kapsamda kaydedilmiş araç gideri bulunmuyor.'
+            }
+            className="h-60"
+          />
         ) : (
           <ChartContainer config={COST_CHART_CONFIG} className="aspect-auto h-72 w-full">
             <BarChart
