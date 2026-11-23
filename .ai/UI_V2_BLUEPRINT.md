@@ -205,7 +205,7 @@ Bağımlılık: `motion`, `kbd`, `sidebar`, `toggle-group`.
 | **S15** | `dashboard-dialog-19` | Cmd+K paleti + doğal dil modu | S4 |
 | **S16** | `empty-state-07` | Tüm ekranlar için boş durumlar | S4 |
 | **S17** | `login-page-12` | v2 Giriş (`/v2/login` önizleme), `?reason=expired` bandı korunur, OAuth butonları yok | S3 + S4: 401/expired akışı |
-| **S18** | `register-12` + `forgot-password-12` | v2 Kayıt + Şifremi Unuttum (Backend R3 yoksa "yöneticinize başvurun" modu) | S4 |
+| **S18** | `register-12` + `forgot-password-12` | v2 Kayıt + Şifremi Unuttum ("Yöneticinize başvurun" modu; R3 ertelendi) | S4 |
 | **S19** | `account-settings-09` | `/app/ayarlar` (Genel · Profil · Güvenlik · Bildirimler), `SettingsModal.js` yerine | S3: alan envanteri |
 | **S20** | `event-calendar-01` | `/app/takvim` salt-okunur Evrak Takvimi (muayene/sigorta/kasko + bakım) | S4 |
 | **S21** | `empty-state-01` + `empty-state-02` | KPI/grafik ve tablo boş durumları (S16 `empty-state-07` ile birlikte) | S4 |
@@ -325,7 +325,7 @@ Ardından önceki operasyondan kalan sıra devam eder: **MP-4R → MP-6 → MP-7
 ### 12.3 Backend bağımlılıkları
 | Konu | Durum | Çözüm |
 |---|---|---|
-| Şifremi Unuttum | Endpoint YOK | **R3** (S18'den önce) ya da UI "Yöneticinize başvurun" moduyla açılır |
+| Şifremi Unuttum | Endpoint YOK, SMTP YOK | **KARAR (23.11):** S18 "Yöneticinize başvurun" moduyla açılır (form yok, bilgi kartı + `/login` dönüş linki). **R3 UI v2 sonrasına ertelendi** (SMTP + token tablosu ön koşul). |
 | Org profili | Endpoint YOK | Faz 2 (`account-settings-03`) |
 | Kategori bazlı bildirim | Şema YOK | Faz 2 (`account-settings-10`) |
 
