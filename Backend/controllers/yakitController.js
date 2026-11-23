@@ -1,5 +1,6 @@
 const pool = require('../db');
 const { buildVehicleAccessFilter } = require('../middlewares/rbacMiddleware');
+const { ileriTarihMi, tarihStr } = require('../utils/dateUtils');
 
 // KULLANICININ ERİŞEBİLDİĞİ TÜM YAKIT KAYITLARINI LİSTELE (RBAC Filtreli)
 const getAllYakitlar = async (req, res) => {
@@ -59,8 +60,11 @@ const createYakit = async (req, res) => {
     return res.status(400).json({ message: 'Zorunlu alanlar (arac_id, litre, tutar, tarih) eksik.' });
   }
 
-  const bugun = new Date().toISOString().slice(0, 10);
-  if (String(tarih).slice(0, 10) > bugun) {
+  if (!tarihStr(tarih)) {
+    return res.status(400).json({ message: 'Geçersiz tarih formatı.' });
+  }
+
+  if (ileriTarihMi(tarih)) {
     return res.status(400).json({ message: 'İleri tarihli kayıt girilemez.' });
   }
 
@@ -161,8 +165,11 @@ const updateYakit = async (req, res) => {
     return res.status(400).json({ message: 'Zorunlu alanlar (litre, tutar, tarih) eksik.' });
   }
 
-  const bugun = new Date().toISOString().slice(0, 10);
-  if (String(tarih).slice(0, 10) > bugun) {
+  if (!tarihStr(tarih)) {
+    return res.status(400).json({ message: 'Geçersiz tarih formatı.' });
+  }
+
+  if (ileriTarihMi(tarih)) {
     return res.status(400).json({ message: 'İleri tarihli kayıt girilemez.' });
   }
 
