@@ -4,10 +4,11 @@ import { Filter, Plus, X } from 'lucide-react';
 import useAuthStore from '@/store/useAuthStore';
 import useVehicleStore from '@/store/useVehicleStore';
 import adminService from '@/services/adminService';
-import { canAccessChannel, resolveRole, ROLES } from '@/pages/ChronoBeta/channelAccess';
+import { resolveRole, ROLES } from '@/pages/ChronoBeta/channelAccess';
 import { formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import FleetDataTable from '@/components/v2/FleetDataTable';
 import ConfirmDialog from '@/components/v2/ConfirmDialog';
+import VehicleSheet from '@/components/v2/VehicleSheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -26,11 +27,12 @@ export default function Filo() {
   const [driverByAracId, setDriverByAracId] = useState({});
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState(null);
   const fetchAttemptedRef = useRef(false);
 
   const role = resolveRole(user);
   const canManage = [ROLES.SYSTEM_ADMIN, ROLES.FLEET_MANAGER].includes(role);
-  const canReadCrew = canAccessChannel(user, 'crew');
 
   useEffect(() => {
     if (!hasLoaded && !loading && !fetchAttemptedRef.current) {
@@ -39,9 +41,9 @@ export default function Filo() {
     }
   }, [hasLoaded, loading, fetchAraclar]);
 
-  // Zimmetli şoför eşlemesi: DRIVER rolünde (crew yetkisi yokken) adminService.getUsers() ASLA çağrılmaz.
+  // Zimmetli şoför eşlemesi: yalnızca yönetici rollerinde (canManage) çağrılır; DRIVER + yetkiler.ekip için 403 üretmez.
   useEffect(() => {
-    if (!canReadCrew) {
+    if (!canManage) {
       setDriverByAracId({});
       return;
     }
@@ -81,7 +83,7 @@ export default function Filo() {
     return () => {
       cancelled = true;
     };
-  }, [canReadCrew]);
+  }, [canManage]);
 
   const globalVehicleActive = Boolean(seciliAracId && seciliAracId !== 'tum');
 
@@ -106,6 +108,28 @@ export default function Filo() {
     },
     [setSeciliAracId, navigate]
   );
+
+  const handleCreateClick = useCallback(() => {
+    if (!canManage) return;
+    setEditingVehicle(null);
+    setSheetOpen(true);
+  }, [canManage]);
+
+  const handleEditClick = useCallback(
+    (arac) => {
+      if (!canManage) return;
+      setEditingVehicle(arac);
+      setSheetOpen(true);
+    },
+    [canManage]
+  );
+
+  const handleSheetOpenChange = useCallback((nextOpen) => {
+    setSheetOpen(nextOpen);
+    if (!nextOpen) {
+      setEditingVehicle(null);
+    }
+  }, []);
 
   const handleDeleteRequest = useCallback(
     (arac) => {
@@ -144,18 +168,15 @@ export default function Filo() {
         </div>
 
         {canManage && (
-          <span title="S4'te etkinleştirilecek" className="inline-block cursor-not-allowed">
-            <Button
-              type="button"
-              size="sm"
-              disabled
-              title="S4'te etkinleştirilecek"
-              className="gap-1.5"
-            >
-              <Plus className="size-4" />
-              <span>Yeni Araç</span>
-            </Button>
-          </span>
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleCreateClick}
+            className="gap-1.5"
+          >
+            <Plus className="size-4" />
+            <span>Yeni Araç</span>
+          </Button>
         )}
       </div>
 
@@ -191,8 +212,18 @@ export default function Filo() {
         globalVehicleActive={globalVehicleActive}
         onClearGlobalVehicle={handleClearGlobalVehicle}
         onDetail={handleDetail}
+        onCreateClick={handleCreateClick}
+        onEditClick={handleEditClick}
         onDeleteRequest={handleDeleteRequest}
       />
+
+      {canManage && (
+        <VehicleSheet
+          open={sheetOpen}
+          onOpenChange={handleSheetOpenChange}
+          arac={editingVehicle}
+        />
+      )}
 
       {canManage && (
         <ConfirmDialog

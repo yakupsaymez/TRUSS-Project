@@ -154,6 +154,8 @@ export default function FleetDataTable({
   globalVehicleActive = false,
   onClearGlobalVehicle,
   onDetail,
+  onCreateClick,
+  onEditClick,
   onDeleteRequest,
 }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -247,6 +249,21 @@ export default function FleetDataTable({
       setRowSelection({});
     }
   }, [canManage]);
+
+  useEffect(() => {
+    const validIds = new Set(araclar.map((a) => String(a.arac_id)));
+    setRowSelection((prev) => {
+      const keys = Object.keys(prev);
+      if (keys.length === 0) return prev;
+      let changed = false;
+      const next = {};
+      for (const k of keys) {
+        if (validIds.has(k)) next[k] = prev[k];
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [araclar]);
 
   const hasActiveFilters =
     searchQuery.trim().length > 0 ||
@@ -545,15 +562,10 @@ export default function FleetDataTable({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-40">
                     <DropdownMenuGroup>
-                      <span
-                        title="S4'te etkinleştirilecek"
-                        className="block cursor-not-allowed"
-                      >
-                        <DropdownMenuItem disabled>
-                          <Pencil className="size-4" />
-                          <span>Düzenle</span>
-                        </DropdownMenuItem>
-                      </span>
+                      <DropdownMenuItem onSelect={() => onEditClick?.(arac)}>
+                        <Pencil className="size-4" />
+                        <span>Düzenle</span>
+                      </DropdownMenuItem>
                     </DropdownMenuGroup>
                     <DropdownMenuSeparator />
                     <DropdownMenuGroup>
@@ -575,7 +587,7 @@ export default function FleetDataTable({
     );
 
     return cols;
-  }, [canManage, onDetail, onDeleteRequest]);
+  }, [canManage, onDetail, onEditClick, onDeleteRequest]);
 
   const table = useReactTable({
     data: filteredData,
@@ -781,8 +793,7 @@ export default function FleetDataTable({
                         <Button
                           type="button"
                           size="sm"
-                          disabled
-                          title="S4'te etkinleştirilecek"
+                          onClick={onCreateClick}
                         >
                           + Yeni Araç
                         </Button>
