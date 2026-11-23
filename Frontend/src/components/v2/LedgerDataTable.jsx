@@ -93,6 +93,10 @@ export default function LedgerDataTable({
   loading = false,
   hasLoaded = false,
   canManage = false,
+  onCreateYakit,
+  onCreateBakim,
+  onRepeatRow,
+  onEditRow,
   onDeleteRequest,
 }) {
   const [activeTab, setActiveTab] = useState(ALL_VALUE);
@@ -450,36 +454,28 @@ export default function LedgerDataTable({
           const item = row.original;
           return (
             <div className="flex items-center justify-end gap-1">
-              <span
-                title="S6'da etkinleştirilecek"
-                className="inline-flex cursor-not-allowed"
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => onRepeatRow?.(item)}
+                title="Son kaydı tekrarla"
+                aria-label="Son kaydı tekrarla"
               >
+                <Copy className="size-4" />
+              </Button>
+
+              {canManage && (
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  disabled
-                  aria-label="Son kaydı tekrarla"
+                  onClick={() => onEditRow?.(item)}
+                  title="Kaydı düzenle"
+                  aria-label="Kaydı düzenle"
                 >
-                  <Copy className="size-4" />
+                  <Pencil className="size-4" />
                 </Button>
-              </span>
-
-              {canManage && (
-                <span
-                  title="S6'da etkinleştirilecek"
-                  className="inline-flex cursor-not-allowed"
-                >
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    disabled
-                    aria-label="Kaydı düzenle"
-                  >
-                    <Pencil className="size-4" />
-                  </Button>
-                </span>
               )}
 
               {canManage && (
@@ -488,6 +484,7 @@ export default function LedgerDataTable({
                   variant="ghost"
                   size="icon-sm"
                   onClick={() => onDeleteRequest?.(item)}
+                  title="Kaydı sil"
                   aria-label="Kaydı sil"
                   className="text-muted-foreground hover:text-destructive"
                 >
@@ -499,7 +496,7 @@ export default function LedgerDataTable({
         },
       },
     ],
-    [canManage, onDeleteRequest]
+    [canManage, onRepeatRow, onEditRow, onDeleteRequest]
   );
 
   const table = useReactTable({
@@ -772,30 +769,25 @@ export default function LedgerDataTable({
                           </p>
                         </div>
                         <div className="flex flex-wrap items-center justify-center gap-2">
-                          <span
-                            title="S6'da etkinleştirilecek"
-                            className="inline-flex cursor-not-allowed"
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={onCreateYakit}
+                            className="gap-1.5"
                           >
-                            <Button type="button" size="sm" disabled className="gap-1.5">
-                              <Plus className="size-3.5" />
-                              <span>Yeni Yakıt</span>
-                            </Button>
-                          </span>
-                          <span
-                            title="S6'da etkinleştirilecek"
-                            className="inline-flex cursor-not-allowed"
+                            <Plus className="size-3.5" />
+                            <span>Yeni Yakıt</span>
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={onCreateBakim}
+                            className="gap-1.5"
                           >
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              disabled
-                              className="gap-1.5"
-                            >
-                              <Plus className="size-3.5" />
-                              <span>Yeni Bakım</span>
-                            </Button>
-                          </span>
+                            <Plus className="size-3.5" />
+                            <span>Yeni Bakım</span>
+                          </Button>
                         </div>
                       </>
                     ) : (

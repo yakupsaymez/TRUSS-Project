@@ -11,6 +11,7 @@ import { toLocalIsoDate } from '@/utils/dateUtils';
 import { formatCurrency, formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import LedgerDataTable from '@/components/v2/LedgerDataTable';
 import ConfirmDialog from '@/components/v2/ConfirmDialog';
+import MovementSheet from '@/components/v2/MovementSheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -78,6 +79,12 @@ export default function Hareketler() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [sheetState, setSheetState] = useState({
+    open: false,
+    mode: 'create',
+    initialTip: 'YAKIT',
+    record: null,
+  });
 
   const vehicleFetchAttemptedRef = useRef(false);
   const mountedRef = useRef(true);
@@ -213,6 +220,58 @@ export default function Hareketler() {
     return unified;
   }, [yakitlar, bakimlar, aracMap]);
 
+  const handleCreateYakit = useCallback(() => {
+    setSheetState({
+      open: true,
+      mode: 'create',
+      initialTip: 'YAKIT',
+      record: null,
+    });
+  }, []);
+
+  const handleCreateBakim = useCallback(() => {
+    setSheetState({
+      open: true,
+      mode: 'create',
+      initialTip: 'BAKIM',
+      record: null,
+    });
+  }, []);
+
+  const handleRepeatRow = useCallback((row) => {
+    setSheetState({
+      open: true,
+      mode: 'repeat',
+      initialTip: row?.tip === 'BAKIM' ? 'BAKIM' : 'YAKIT',
+      record: row,
+    });
+  }, []);
+
+  const handleEditRow = useCallback(
+    (row) => {
+      if (!canManage) return;
+      setSheetState({
+        open: true,
+        mode: 'edit',
+        initialTip: row?.tip === 'BAKIM' ? 'BAKIM' : 'YAKIT',
+        record: row,
+      });
+    },
+    [canManage]
+  );
+
+  const handleSheetOpenChange = useCallback((nextOpen) => {
+    setSheetState((prev) =>
+      nextOpen
+        ? { ...prev, open: true }
+        : { ...prev, open: false, record: null }
+    );
+  }, []);
+
+  const handleSheetSuccess = useCallback(async () => {
+    await Promise.all([verileriYukle(), fetchAraclar()]);
+  }, [verileriYukle, fetchAraclar]);
+
   const handleDeleteRequest = useCallback(
     (row) => {
       if (!canManage) return;
@@ -258,26 +317,27 @@ export default function Hareketler() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span title="S6'da etkinleştirilecek" className="inline-flex cursor-not-allowed">
-            <Button type="button" size="sm" disabled className="gap-1.5">
-              <Plus className="size-4" />
-              <Fuel className="size-3.5" />
-              <span>Yeni Yakıt</span>
-            </Button>
-          </span>
-          <span title="S6'da etkinleştirilecek" className="inline-flex cursor-not-allowed">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled
-              className="gap-1.5"
-            >
-              <Plus className="size-4" />
-              <Wrench className="size-3.5" />
-              <span>Yeni Bakım</span>
-            </Button>
-          </span>
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleCreateYakit}
+            className="gap-1.5"
+          >
+            <Plus className="size-4" />
+            <Fuel className="size-3.5" />
+            <span>Yeni Yakıt</span>
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleCreateBakim}
+            className="gap-1.5"
+          >
+            <Plus className="size-4" />
+            <Wrench className="size-3.5" />
+            <span>Yeni Bakım</span>
+          </Button>
         </div>
       </div>
 
@@ -289,7 +349,22 @@ export default function Hareketler() {
         loading={loading}
         hasLoaded={hasLoaded}
         canManage={canManage}
+        onCreateYakit={handleCreateYakit}
+        onCreateBakim={handleCreateBakim}
+        onRepeatRow={handleRepeatRow}
+        onEditRow={canManage ? handleEditRow : undefined}
         onDeleteRequest={handleDeleteRequest}
+      />
+
+      <MovementSheet
+        open={sheetState.open && (canManage || sheetState.mode !== 'edit')}
+        onOpenChange={handleSheetOpenChange}
+        mode={!canManage && sheetState.mode === 'edit' ? 'create' : sheetState.mode}
+        initialTip={sheetState.initialTip}
+        record={sheetState.record}
+        araclar={araclar}
+        defaultAracId={seciliAracId}
+        onSuccess={handleSheetSuccess}
       />
 
       {canManage && (
