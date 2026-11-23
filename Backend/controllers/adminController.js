@@ -2,6 +2,7 @@ const pool = require('../db');
 const bcrypt = require('bcrypt');
 const Joi = require('joi');
 const { buildVehicleAccessFilter } = require('../middlewares/rbacMiddleware');
+const { ileriTarihMi, tarihStr } = require('../utils/dateUtils');
 
 // Yöneticinin org_id bilgisini getirir (eski kayıtlar için otomatik organizasyon oluşturur)
 const ensureManagerOrgId = async (userId) => {
@@ -146,7 +147,7 @@ const assignVehicleToDriver = async (req, res) => {
   const schema = Joi.object({
     arac_id: Joi.number().integer().positive().required(),
     sofor_user_id: Joi.number().integer().positive().required(),
-    atanma_tarihi: Joi.date().iso().max('now').optional().allow(null, ''),
+    atanma_tarihi: Joi.string().trim().optional().allow(null, ''),
   });
 
   const { error, value } = schema.validate(req.body);
@@ -155,7 +156,17 @@ const assignVehicleToDriver = async (req, res) => {
   }
 
   const { arac_id, sofor_user_id } = value;
-  const atanmaTarihi = value.atanma_tarihi ? value.atanma_tarihi : null;
+  let atanmaTarihi = null;
+  if (value.atanma_tarihi) {
+    const gun = tarihStr(value.atanma_tarihi);
+    if (!gun) {
+      return res.status(400).json({ message: 'Geçersiz atanma tarihi formatı.' });
+    }
+    if (ileriTarihMi(value.atanma_tarihi)) {
+      return res.status(400).json({ message: 'İleri tarihli zimmet ataması yapılamaz.' });
+    }
+    atanmaTarihi = gun;
+  }
 
   const client = await pool.connect();
   try {

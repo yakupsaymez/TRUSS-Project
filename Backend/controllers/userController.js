@@ -35,11 +35,12 @@ const register = async (req, res) => {
     const org_id = orgResult.rows[0].org_id;
 
     // 2. Kullanıcıyı FLEET_MANAGER rolü ve org_id ile kaydet
+    const normalizedEmail = email.trim().toLowerCase();
     const userResult = await client.query(
       `INSERT INTO users (ad_soyad, email, sifre, org_id, role)
        VALUES ($1, $2, $3, $4, 'FLEET_MANAGER')
        RETURNING user_id, ad_soyad, email, org_id, role, kayit_tarihi`,
-      [ad_soyad, email, hashedPassword, org_id]
+      [ad_soyad.trim(), normalizedEmail, hashedPassword, org_id]
     );
 
     await client.query('COMMIT');
@@ -74,9 +75,10 @@ const login = async (req, res) => {
   }
 
   const { email, sifre } = value;
+  const normalizedEmail = email.trim().toLowerCase();
 
   try {
-    const result = await pool.query('SELECT * FROM users WHERE email = $1 LIMIT 1', [email]);
+    const result = await pool.query('SELECT * FROM users WHERE LOWER(email) = $1 LIMIT 1', [normalizedEmail]);
 
     if (result.rowCount === 0) {
       return res.status(401).json({ message: 'Hatalı email veya şifre' });

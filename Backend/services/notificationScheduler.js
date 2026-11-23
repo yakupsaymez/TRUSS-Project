@@ -94,6 +94,8 @@ const getParcaAdaylari = async () => {
       p.son_degisim_tarihi,
       a.arac_id,
       a.plaka,
+      a.sayac_tipi,
+      a.calisma_saati_bakim,
       u.user_id,
       u.ad_soyad,
       u.email,
@@ -139,15 +141,21 @@ const notifyParcalar = async () => {
   for (const item of parcalar) {
     const alerts = [];
     const currentKm = Number(item.guncel_km) || 0;
+    const isSmh = item.sayac_tipi === 'SMH';
+    const birim = isSmh ? 'saat' : 'KM';
 
     if (item.degisim_araligi_km !== null && item.degisim_araligi_km !== undefined) {
-      const nextKm = (Number(item.son_degisim_km) || 0) + Number(item.degisim_araligi_km);
+      const aralik = Number(item.degisim_araligi_km);
+      const nextKm = (Number(item.son_degisim_km) || 0) + aralik;
       const kalanKm = nextKm - currentKm;
+      const uyariEsigi = isSmh
+        ? Math.max(25, Math.round(aralik * 0.15))
+        : Math.min(PARCA_KM_WARNING_THRESHOLD, Math.round(aralik * 0.15) || PARCA_KM_WARNING_THRESHOLD);
 
       if (kalanKm <= 0) {
-        alerts.push(`${item.parca_adi} omru dolmus gorunuyor (${Math.abs(kalanKm)} KM gecikme).`);
-      } else if (kalanKm <= PARCA_KM_WARNING_THRESHOLD) {
-        alerts.push(`${item.parca_adi} degisimi yaklasiyor (${kalanKm} KM kaldi).`);
+        alerts.push(`${item.parca_adi} omru dolmus gorunuyor (${Math.abs(kalanKm)} ${birim} gecikme).`);
+      } else if (kalanKm <= uyariEsigi) {
+        alerts.push(`${item.parca_adi} degisimi yaklasiyor (${kalanKm} ${birim} kaldi).`);
       }
     }
 
@@ -190,7 +198,12 @@ const getPredictiveCandidatesWithSummary = async () => {
     SELECT
       a.arac_id,
       a.plaka,
-      COALESCE(NULLIF(a.onerilen_bakim_km, 0), 15000) AS bakim_periyodu,
+      a.sayac_tipi,
+      a.calisma_saati_bakim,
+      CASE
+        WHEN a.sayac_tipi = 'SMH' THEN COALESCE(NULLIF(a.calisma_saati_bakim, 0), 250)
+        ELSE COALESCE(NULLIF(a.onerilen_bakim_km, 0), 15000)
+      END AS bakim_periyodu,
       u.user_id,
       u.ad_soyad,
       u.email,
@@ -255,7 +268,9 @@ const computePredictiveSummaryFromRow = (row) => {
     return null;
   }
 
-  const periyot = Number(row.bakim_periyodu) || 15000;
+  const isSmh = row.sayac_tipi === 'SMH';
+  const varsayilanPeriyot = isSmh ? Number(row.calisma_saati_bakim) || 250 : 15000;
+  const periyot = Number(row.bakim_periyodu) || varsayilanPeriyot;
   const hedefKm = (Number(row.son_bakim_km) || 0) + periyot;
   const kalanKm = hedefKm - currentKm;
   const kalanGun = Math.ceil(kalanKm / gunlukOrtalamaKm);
@@ -278,14 +293,16 @@ const notifyPredictiveMaintenance = async () => {
       const prediction = computePredictiveSummaryFromRow(item);
       if (!prediction || prediction.kalanGun > PREDICTIVE_NOTIFY_DAY_THRESHOLD) continue;
 
+      const isSmh = item.sayac_tipi === 'SMH';
+      const birim = isSmh ? 'saat' : 'KM';
       const tahminiTarih = prediction.tahminiTarih.toLocaleDateString('tr-TR');
       const subject = `TRUSS Tahmini Bakim Hatirlatmasi - ${item.plaka}`;
       const text = prediction.kalanKm <= 0
-        ? `Merhaba ${item.ad_soyad || ''},\n\n${item.plaka} plakali araciniz icin tahmini bakim kilometresi ${Math.abs(prediction.kalanKm).toLocaleString('tr-TR')} KM asildi. Tahmini bakim tarihi: ${tahminiTarih}.\n\nTRUSS ekibi`
-        : `Merhaba ${item.ad_soyad || ''},\n\n${item.plaka} plakali araciniz icin tahmini bakim tarihi ${tahminiTarih} olarak hesaplandi. Kalan mesafe: ${Math.max(0, prediction.kalanKm).toLocaleString('tr-TR')} KM.\nGununluk ortalama kullanim: ${prediction.gunlukOrtalamaKm.toFixed(1)} KM.\n\nTRUSS ekibi`;
+        ? `Merhaba ${item.ad_soyad || ''},\n\n${item.plaka} plakali araciniz icin tahmini bakim sayaci ${Math.abs(prediction.kalanKm).toLocaleString('tr-TR')} ${birim} asildi. Tahmini bakim tarihi: ${tahminiTarih}.\n\nTRUSS ekibi`
+        : `Merhaba ${item.ad_soyad || ''},\n\n${item.plaka} plakali araciniz icin tahmini bakim tarihi ${tahminiTarih} olarak hesaplandi. Kalan: ${Math.max(0, prediction.kalanKm).toLocaleString('tr-TR')} ${birim}.\nGunluk ortalama kullanim: ${prediction.gunlukOrtalamaKm.toFixed(1)} ${birim}.\n\nTRUSS ekibi`;
 
       const smsText = prediction.kalanKm <= 0
-        ? `${item.plaka}: Bakim kilometresi asildi. Tahmini tarih ${tahminiTarih}.`
+        ? `${item.plaka}: Bakim sayaci (${birim}) asildi. Tahmini tarih ${tahminiTarih}.`
         : `${item.plaka}: Bakim ${prediction.kalanGun} gun icinde olabilir. Tahmini tarih ${tahminiTarih}.`;
 
       await dispatchNotifications(item, subject, text, smsText);

@@ -1,6 +1,10 @@
 const path = require('path');
-const { Pool } = require('pg'); // pg paketinden PostgreSQL bağlantı havuzunu oluşturmak için Pool sınıfını içe aktarır.
+const pg = require('pg');
+const { Pool } = pg; // pg paketinden PostgreSQL bağlantı havuzunu oluşturmak için Pool sınıfını içe aktarır.
 require('dotenv').config({ path: path.resolve(__dirname, '.env') }); // Backend/.env dosyasını çalışma dizininden bağımsız yükler.
+
+// DATE (OID 1082) kolonlarını UTC Date yerine saf 'YYYY-MM-DD' string olarak döndür (UTC-1 gün kaymasını önler)
+pg.types.setTypeParser(1082, (val) => val);
 
 const pool = new Pool({ // PostgreSQL bağlantı havuzunu oluşturur.
   user: process.env.DB_USER, // Veritabanı kullanıcı adını .env içinden alır.

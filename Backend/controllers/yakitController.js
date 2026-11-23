@@ -25,12 +25,16 @@ const getAllYakitlar = async (req, res) => {
 // BELİRLİ ARACIN TÜM YAKIT KAYITLARINI LİSTELE (RBAC Filtreli)
 const getYakitlarByArac = async (req, res) => {
   const { arac_id } = req.params;
+  const aracId = Number(arac_id);
+  if (!Number.isInteger(aracId) || aracId <= 0) {
+    return res.status(400).json({ message: 'Geçersiz araç kimliği.' });
+  }
 
   try {
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
     const sahiplik = await pool.query(
       `SELECT a.arac_id FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
-      [arac_id, ...params]
+      [aracId, ...params]
     );
 
     if (sahiplik.rowCount === 0) {
@@ -44,7 +48,7 @@ const getYakitlarByArac = async (req, res) => {
       WHERE y.arac_id = $1 AND (${clause})
       ORDER BY y.tarih DESC, y.yakit_id DESC
     `;
-    const result = await pool.query(query, [arac_id, ...params]);
+    const result = await pool.query(query, [aracId, ...params]);
 
     return res.status(200).json({ message: 'Yakit kayitlari listelendi', yakitlar: result.rows });
   } catch (err) {
@@ -83,7 +87,10 @@ const createYakit = async (req, res) => {
     return res.status(400).json({ message: 'Girilen litre ve tutar değerleri 0\'dan büyük olmalıdır.' });
   }
 
-  if (sayisalKm !== null && (!Number.isFinite(sayisalKm) || !Number.isInteger(sayisalKm) || sayisalKm < 0)) {
+  if (
+    sayisalKm !== null &&
+    (!Number.isFinite(sayisalKm) || !Number.isInteger(sayisalKm) || sayisalKm < 0 || sayisalKm > 2147483647)
+  ) {
     return res.status(400).json({ message: 'Geçersiz KM / Çalışma Saati değeri.' });
   }
 
@@ -190,7 +197,10 @@ const updateYakit = async (req, res) => {
     return res.status(400).json({ message: 'Girilen litre ve tutar değerleri 0\'dan büyük olmalıdır.' });
   }
 
-  if (sayisalKm !== null && (!Number.isFinite(sayisalKm) || !Number.isInteger(sayisalKm) || sayisalKm < 0)) {
+  if (
+    sayisalKm !== null &&
+    (!Number.isFinite(sayisalKm) || !Number.isInteger(sayisalKm) || sayisalKm < 0 || sayisalKm > 2147483647)
+  ) {
     return res.status(400).json({ message: 'Geçersiz KM / Çalışma Saati değeri.' });
   }
 

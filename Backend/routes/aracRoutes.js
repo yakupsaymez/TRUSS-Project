@@ -15,15 +15,17 @@ const olusturDinamikParcaSablonu = ({
   trigerDegisimKm,
   calismaSaatiBakim,
 }) => {
-  const normalizedYakit = String(yakitTipi || '').toLowerCase();
-  const normalizedKategori = String(kategoriAdi || '').toLowerCase();
-  const isElektrik = normalizedYakit.includes('elektrik');
+  const normalizedYakit = String(yakitTipi || '').toLocaleLowerCase('tr-TR');
+  const normalizedKategori = String(kategoriAdi || '').toLocaleLowerCase('tr-TR');
+  const isElektrik =
+    normalizedYakit.includes('elektrik') || normalizedKategori.includes('elektrik');
   const isIsMakinesi =
     sayacTipi === 'SMH' ||
     Boolean(calismaSaatiBakim) ||
     normalizedKategori.includes('iş makine') ||
     normalizedKategori.includes('is makine');
-  const isAgirVasita = normalizedKategori.includes('ağır vasıta') || normalizedKategori.includes('agir vasita');
+  const isAgirVasita =
+    normalizedKategori.includes('ağır vasıta') || normalizedKategori.includes('agir vasita');
 
   // 1. İŞ MAKİNESİ (Çalışma Saati - SMH Bazlı Endüstriyel Şablon)
   if (isIsMakinesi) {
@@ -95,8 +97,8 @@ const aracSchema = Joi.object({
   marka: Joi.string().min(2).required(),
   model: Joi.string().min(1).required(),
   yil: Joi.number().integer().min(1950).max(2027).required(),
-  guncel_km: Joi.number().integer().min(0).optional().allow(null, ''),
-  guncel_calisma_saati: Joi.number().integer().min(0).optional().allow(null, ''),
+  guncel_km: Joi.number().integer().min(0).max(2147483647).optional().allow(null, ''),
+  guncel_calisma_saati: Joi.number().integer().min(0).max(2147483647).optional().allow(null, ''),
   sayac_tipi: Joi.string().valid('KM', 'SMH').optional().allow(null, ''),
   varyant_id: Joi.number().integer().positive().optional().allow(null, ''),
   onerilen_bakim_km: Joi.number().integer().min(0).optional().allow(null, ''),
@@ -167,6 +169,7 @@ router.post('/ekle', authMiddleware, authorizeRoles('SYSTEM_ADMIN', 'FLEET_MANAG
     yil,
     guncel_km,
     guncel_calisma_saati,
+    sayac_tipi,
     varyant_id,
     onerilen_bakim_km,
     triger_degisim_km,
@@ -188,7 +191,25 @@ router.post('/ekle', authMiddleware, authorizeRoles('SYSTEM_ADMIN', 'FLEET_MANAG
       calisma_saati_bakim,
     });
 
-    const sayacTipi = varyantBilgi.calismaSaatiBakim ? 'SMH' : 'KM';
+    const normalizedKat = String(kategori || '').toLocaleLowerCase('tr-TR');
+    const isKategoriIsMakinesi =
+      normalizedKat.includes('iş makine') || normalizedKat.includes('is makine');
+
+    const sayacTipi =
+      sayac_tipi === 'KM' || sayac_tipi === 'SMH'
+        ? sayac_tipi
+        : varyantBilgi.calismaSaatiBakim || isKategoriIsMakinesi
+          ? 'SMH'
+          : 'KM';
+
+    if (sayacTipi === 'KM') {
+      varyantBilgi.calismaSaatiBakim = null;
+    } else {
+      varyantBilgi.onerilenBakimKm = null;
+      varyantBilgi.trigerDegisimKm = null;
+      varyantBilgi.trigerDegisimKmRaw = null;
+    }
+
     const baslangicKm =
       guncel_km !== undefined && guncel_km !== '' && guncel_km !== null ? Number(guncel_km) : 0;
     const baslangicSaat =
@@ -261,7 +282,7 @@ router.post('/ekle', authMiddleware, authorizeRoles('SYSTEM_ADMIN', 'FLEET_MANAG
     await client.query('COMMIT');
     res.status(201).json({ message: 'Araç eklendi', arac: result.rows[0] });
   } catch (err) {
-    await client.query('ROLLBACK');
+    await client.query('ROLLBACK').catch(() => null);
     console.error('Araç Ekleme Hatası:', err);
     if (err.code === '23505') return res.status(409).json({ message: 'Bu plaka zaten kayıtlı.' });
     res.status(500).json({ message: 'Sunucu hatası' });
@@ -404,11 +425,16 @@ router.put('/:id/konum', authMiddleware, async (req, res) => {
 // ARAÇ SİL (Sadece SYSTEM_ADMIN ve FLEET_MANAGER)
 router.delete('/:arac_id', authMiddleware, authorizeRoles('SYSTEM_ADMIN', 'FLEET_MANAGER'), async (req, res) => {
   const { arac_id } = req.params;
+  const aracId = Number(arac_id);
+  if (!Number.isInteger(aracId) || aracId <= 0) {
+    return res.status(400).json({ message: 'Geçersiz araç kimliği.' });
+  }
+
   try {
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
     const result = await pool.query(
       `DELETE FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
-      [arac_id, ...params]
+      [aracId, ...params]
     );
     if (result.rowCount === 0) return res.status(404).json({ message: 'Araç bulunamadı' });
     res.status(200).json({ message: 'Araç başarıyla silindi' });
@@ -420,10 +446,15 @@ router.delete('/:arac_id', authMiddleware, authorizeRoles('SYSTEM_ADMIN', 'FLEET
 
 // ARAÇ GÜNCELLE (Sadece SYSTEM_ADMIN ve FLEET_MANAGER)
 router.put('/:arac_id', authMiddleware, authorizeRoles('SYSTEM_ADMIN', 'FLEET_MANAGER'), async (req, res) => {
+  const { arac_id } = req.params;
+  const aracId = Number(arac_id);
+  if (!Number.isInteger(aracId) || aracId <= 0) {
+    return res.status(400).json({ message: 'Geçersiz araç kimliği.' });
+  }
+
   const { error, value } = aracSchema.validate(req.body);
   if (error) return res.status(400).json({ message: error.details[0].message });
 
-  const { arac_id } = req.params;
   const {
     plaka,
     kategori_id,
@@ -433,6 +464,7 @@ router.put('/:arac_id', authMiddleware, authorizeRoles('SYSTEM_ADMIN', 'FLEET_MA
     yil,
     guncel_km,
     guncel_calisma_saati,
+    sayac_tipi,
     varyant_id,
     onerilen_bakim_km,
     triger_degisim_km,
@@ -444,12 +476,15 @@ router.put('/:arac_id', authMiddleware, authorizeRoles('SYSTEM_ADMIN', 'FLEET_MA
 
   const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
     const mevcutRes = await client.query(
-      `SELECT a.* FROM araclar a WHERE a.arac_id = $1 AND (${clause}) LIMIT 1`,
-      [arac_id, ...params]
+      `SELECT a.* FROM araclar a WHERE a.arac_id = $1 AND (${clause}) FOR UPDATE OF a`,
+      [aracId, ...params]
     );
     if (mevcutRes.rowCount === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ message: 'Araç bulunamadı' });
     }
     const mevcut = mevcutRes.rows[0];
@@ -461,7 +496,24 @@ router.put('/:arac_id', authMiddleware, authorizeRoles('SYSTEM_ADMIN', 'FLEET_MA
       calisma_saati_bakim: calisma_saati_bakim !== undefined ? calisma_saati_bakim : mevcut.calisma_saati_bakim,
     });
 
-    const sayacTipi = varyantBilgi.calismaSaatiBakim ? 'SMH' : 'KM';
+    const sayacTipi =
+      sayac_tipi === 'KM' || sayac_tipi === 'SMH'
+        ? sayac_tipi
+        : calisma_saati_bakim !== undefined && calisma_saati_bakim !== '' && calisma_saati_bakim !== null
+          ? 'SMH'
+          : mevcut.sayac_tipi === 'KM' || mevcut.sayac_tipi === 'SMH'
+            ? mevcut.sayac_tipi
+            : varyantBilgi.calismaSaatiBakim
+              ? 'SMH'
+              : 'KM';
+
+    if (sayacTipi === 'KM') {
+      varyantBilgi.calismaSaatiBakim = null;
+    } else {
+      varyantBilgi.onerilenBakimKm = null;
+      varyantBilgi.trigerDegisimKm = null;
+    }
+
     const yeniGuncelKm =
       guncel_km !== undefined && guncel_km !== '' && guncel_km !== null
         ? Number(guncel_km)
@@ -477,15 +529,19 @@ router.put('/:arac_id', authMiddleware, authorizeRoles('SYSTEM_ADMIN', 'FLEET_MA
          COALESCE((SELECT MAX(km) FROM yakitlar WHERE arac_id = $1), 0),
          COALESCE((SELECT MAX(km) FROM bakimlar WHERE arac_id = $1), 0)
        )::int AS max_kayitli_sayac`,
-      [Number(arac_id)]
+      [aracId]
     );
     const maxKayitliSayac = Number(maxSayacRes.rows[0]?.max_kayitli_sayac || 0);
     const hedefSayacDegeri = sayacTipi === 'SMH' ? yeniGuncelSaat : yeniGuncelKm;
 
     if (hedefSayacDegeri < maxKayitliSayac) {
+      await client.query('ROLLBACK');
+      const birim = sayacTipi === 'SMH' ? 'saat' : 'km';
       return res.status(422).json({
-        message: `Sayaç geri sarılamaz (Odometer Rollback engeli). Girilen değer (${hedefSayacDegeri}), mevcut en yüksek yakıt/bakım kaydından (${maxKayitliSayac}) düşük olamaz.`,
+        message: `Sayaç geri sarılamaz (Odometer Rollback engeli). Girilen değer (${hedefSayacDegeri} ${birim}), mevcut en yüksek yakıt/bakım kaydından (${maxKayitliSayac} ${birim}) düşük olamaz.`,
         max_kayitli_sayac: maxKayitliSayac,
+        sayac_tipi: sayacTipi,
+        birim,
       });
     }
 
@@ -528,11 +584,13 @@ router.put('/:arac_id', authMiddleware, authorizeRoles('SYSTEM_ADMIN', 'FLEET_MA
       muayene_tarihi || null,
       kasko_tarihi || null,
       sigorta_tarihi || null,
-      arac_id,
+      aracId,
     ]);
 
+    await client.query('COMMIT');
     res.status(200).json({ message: 'Araç güncellendi', arac: result.rows[0] });
   } catch (err) {
+    await client.query('ROLLBACK').catch(() => null);
     console.error('Araç Güncelleme Hatası:', err);
     if (err.code === '23505') return res.status(409).json({ message: 'Bu plaka zaten kayıtlı.' });
     res.status(500).json({ message: 'Sunucu hatası' });

@@ -26,7 +26,11 @@ const getMarkalar = async (req, res) => {
 
   try {
     let result;
-    if (kategori_id) {
+    if (kategori_id !== undefined && kategori_id !== '') {
+      const katId = Number(kategori_id);
+      if (!Number.isInteger(katId) || katId <= 0) {
+        return res.status(400).json({ message: 'Geçersiz kategori_id parametresi.' });
+      }
       const query = `
         SELECT m.marka_id, m.ad, m.slug, m.logo_url, km.kategori_id
         FROM ref_markalar m
@@ -35,7 +39,7 @@ const getMarkalar = async (req, res) => {
           AND km.kategori_id = $1
         ORDER BY m.ad ASC
       `;
-      result = await pool.query(query, [Number(kategori_id)]);
+      result = await pool.query(query, [katId]);
     } else {
       const query = `
         SELECT marka_id, ad, slug, logo_url
@@ -64,9 +68,22 @@ const getModellerByMarka = async (req, res) => {
     return res.status(400).json({ message: 'marka_id parametresi zorunludur.' });
   }
 
+  const markaId = Number(marka_id);
+  if (!Number.isInteger(markaId) || markaId <= 0) {
+    return res.status(400).json({ message: 'Geçersiz marka_id parametresi.' });
+  }
+
+  let katId = null;
+  if (kategori_id !== undefined && kategori_id !== '') {
+    katId = Number(kategori_id);
+    if (!Number.isInteger(katId) || katId <= 0) {
+      return res.status(400).json({ message: 'Geçersiz kategori_id parametresi.' });
+    }
+  }
+
   try {
     let result;
-    if (kategori_id) {
+    if (katId !== null) {
       const filteredQuery = `
         SELECT model_id, marka_id, kategori_id, ad, arac_sinifi, baslangic_yili, bitis_yili
         FROM ref_modeller
@@ -74,7 +91,7 @@ const getModellerByMarka = async (req, res) => {
           AND kategori_id = $2
         ORDER BY ad ASC
       `;
-      result = await pool.query(filteredQuery, [Number(marka_id), Number(kategori_id)]);
+      result = await pool.query(filteredQuery, [markaId, katId]);
 
       // Markanın ilgili kategoride özel modeli yoksa markanın tüm modellerini dön
       if (result.rows.length === 0) {
@@ -84,7 +101,7 @@ const getModellerByMarka = async (req, res) => {
           WHERE marka_id = $1
           ORDER BY ad ASC
         `;
-        result = await pool.query(fallbackQuery, [Number(marka_id)]);
+        result = await pool.query(fallbackQuery, [markaId]);
       }
     } else {
       const query = `
@@ -93,7 +110,7 @@ const getModellerByMarka = async (req, res) => {
         WHERE marka_id = $1
         ORDER BY ad ASC
       `;
-      result = await pool.query(query, [Number(marka_id)]);
+      result = await pool.query(query, [markaId]);
     }
 
     return res.status(200).json({
@@ -114,6 +131,11 @@ const getVaryantlarByModel = async (req, res) => {
     return res.status(400).json({ message: 'model_id parametresi zorunludur.' });
   }
 
+  const modelId = Number(model_id);
+  if (!Number.isInteger(modelId) || modelId <= 0) {
+    return res.status(400).json({ message: 'Geçersiz model_id parametresi.' });
+  }
+
   try {
     const query = `
       SELECT
@@ -132,7 +154,7 @@ const getVaryantlarByModel = async (req, res) => {
       WHERE model_id = $1
       ORDER BY kasa_tipi ASC, motor_adi ASC
     `;
-    const result = await pool.query(query, [Number(model_id)]);
+    const result = await pool.query(query, [modelId]);
     return res.status(200).json({
       message: 'Varyantlar listelendi',
       varyantlar: result.rows,

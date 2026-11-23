@@ -215,10 +215,23 @@ const getButceAnalizi = async (req, res) => {
       params
     );
 
+    const hesaplaKullanim = (gerceklesen, butce) => {
+      if (butce > 0) return Math.round((gerceklesen / butce) * 100);
+      return gerceklesen > 0 ? 101 : 0;
+    };
+
+    const hesaplaDurum = (gerceklesen, butce, yuzde) => {
+      if ((butce <= 0 && gerceklesen > 0) || yuzde > 100) return 'ASIM';
+      if (yuzde >= 80) return 'RISK';
+      return 'NORMAL';
+    };
+
     const aylikSerisi = trendRes.rows.map((r) => {
       const yakitGerceklesen = Number(r.toplam_yakit || 0);
       const bakimGerceklesen = Number(r.toplam_bakim || 0);
       const toplamGerceklesen = Number(r.toplam_harcama || 0);
+      const kullanimYuzdesi = hesaplaKullanim(toplamGerceklesen, toplamButce);
+      const durum = hesaplaDurum(toplamGerceklesen, toplamButce, kullanimYuzdesi);
       return {
         ay: r.ay,
         yakit_butce: aylikYakitButcesi,
@@ -227,8 +240,9 @@ const getButceAnalizi = async (req, res) => {
         yakit_gerceklesen: yakitGerceklesen,
         bakim_gerceklesen: bakimGerceklesen,
         toplam_gerceklesen: toplamGerceklesen,
-        kullanim_yuzdesi:
-          toplamButce > 0 ? Math.round((toplamGerceklesen / toplamButce) * 100) : 0,
+        kullanim_yuzdesi: kullanimYuzdesi,
+        durum,
+        asim: durum === 'ASIM',
       };
     });
 
@@ -241,6 +255,8 @@ const getButceAnalizi = async (req, res) => {
       bakim_gerceklesen: 0,
       toplam_gerceklesen: 0,
       kullanim_yuzdesi: 0,
+      durum: 'NORMAL',
+      asim: false,
     };
 
     return res.status(200).json({
@@ -258,6 +274,8 @@ const getButceAnalizi = async (req, res) => {
         bakim_gerceklesen: sonEleman.bakim_gerceklesen,
         toplam_gerceklesen: sonEleman.toplam_gerceklesen,
         kullanim_yuzdesi: sonEleman.kullanim_yuzdesi,
+        durum: sonEleman.durum,
+        asim: sonEleman.asim,
       },
       aylik_serisi: aylikSerisi,
     });

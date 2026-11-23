@@ -32,12 +32,16 @@ const getAllBakimlar = async (req, res) => {
 // BELİRLİ ARACIN TÜM BAKIMLARINI LİSTELE (RBAC Filtreli)
 const getBakimlarByArac = async (req, res) => {
   const { arac_id } = req.params;
+  const aracId = Number(arac_id);
+  if (!Number.isInteger(aracId) || aracId <= 0) {
+    return res.status(400).json({ message: 'Geçersiz araç kimliği.' });
+  }
 
   try {
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
     const sahiplik = await pool.query(
       `SELECT a.arac_id FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
-      [arac_id, ...params]
+      [aracId, ...params]
     );
 
     if (sahiplik.rowCount === 0) {
@@ -51,7 +55,7 @@ const getBakimlarByArac = async (req, res) => {
       WHERE b.arac_id = $1 AND (${clause})
       ORDER BY b.tarih DESC, b.bakim_id DESC
     `;
-    const result = await pool.query(query, [arac_id, ...params]);
+    const result = await pool.query(query, [aracId, ...params]);
 
     return res.status(200).json({ message: 'Bakimlar listelendi', bakimlar: result.rows });
   } catch (err) {
@@ -89,6 +93,7 @@ const createBakim = async (req, res) => {
     !Number.isFinite(sayisalKm) ||
     !Number.isInteger(sayisalKm) ||
     sayisalKm < 0 ||
+    sayisalKm > 2147483647 ||
     !Number.isFinite(sayisalMaliyet) ||
     sayisalMaliyet <= 0
   ) {
@@ -153,10 +158,12 @@ const createBakim = async (req, res) => {
          SET son_degisim_km = $1,
              son_degisim_tarihi = $2
          WHERE arac_id = $3
+           AND COALESCE(son_degisim_km, 0) <= $1
            AND parca_adi IN (
              'Motor Yağı',
              'Yağ Filtresi',
              'Hava Filtresi',
+             'Hava Filtresi (İç/Dış)',
              'Polen Filtresi',
              'Polen / Kabin Filtresi'
            )`,
@@ -218,6 +225,7 @@ const updateBakim = async (req, res) => {
     !Number.isFinite(sayisalKm) ||
     !Number.isInteger(sayisalKm) ||
     sayisalKm < 0 ||
+    sayisalKm > 2147483647 ||
     !Number.isFinite(sayisalMaliyet) ||
     sayisalMaliyet <= 0
   ) {
