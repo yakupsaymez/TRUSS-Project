@@ -98,7 +98,7 @@ export default function RegisterV2() {
     <p className="text-center text-sm text-muted-foreground">
       Zaten hesabınız var mı?{' '}
       <Link
-        to="/v2/login"
+        to="/login"
         className="font-semibold text-foreground underline underline-offset-4 transition-colors hover:text-primary"
       >
         Giriş yapın

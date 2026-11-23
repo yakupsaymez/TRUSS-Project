@@ -4,7 +4,7 @@ import { Link2, UserPlus } from 'lucide-react';
 import useAuthStore from '@/store/useAuthStore';
 import useVehicleStore from '@/store/useVehicleStore';
 import adminService from '@/services/adminService';
-import { resolveRole, ROLES } from '@/pages/ChronoBeta/channelAccess';
+import { resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { getErrorStatus, notifyApiError } from '@/utils/apiError';
 import { formatLocaleNumber } from '@/utils/formatters';
 import CrewDataTable, {

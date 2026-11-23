@@ -21,7 +21,7 @@ import api from '@/services/api';
 import useAuthStore from '@/store/useAuthStore';
 import useAppStore from '@/store/useAppStore';
 import useVehicleStore from '@/store/useVehicleStore';
-import { resolveRole, ROLES } from '@/pages/ChronoBeta/channelAccess';
+import { resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { notifyApiError } from '@/utils/apiError';
 import { useTheme } from '@/components/theme-provider';
 import { Badge } from '@/components/ui/badge';

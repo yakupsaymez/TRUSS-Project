@@ -5,7 +5,7 @@ import useAuthStore from '@/store/useAuthStore';
 import useVehicleStore from '@/store/useVehicleStore';
 import yakitService from '@/services/yakitService';
 import bakimService from '@/services/bakimService';
-import { resolveRole, ROLES } from '@/pages/ChronoBeta/channelAccess';
+import { resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { notifyApiError } from '@/utils/apiError';
 import { toLocalIsoDate } from '@/utils/dateUtils';
 import { formatCurrency, formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';

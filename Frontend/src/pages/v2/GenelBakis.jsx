@@ -4,7 +4,7 @@ import { Truck, X } from 'lucide-react';
 import useAuthStore from '@/store/useAuthStore';
 import useVehicleStore from '@/store/useVehicleStore';
 import raporService from '@/services/raporService';
-import { canAccessChannel, resolveRole, ROLES } from '@/pages/ChronoBeta/channelAccess';
+import { canAccessChannel, resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { notifyApiError } from '@/utils/apiError';
 import { formatTurkishPlate } from '@/utils/formatters';
 import OverviewKpiStrip from '@/components/v2/OverviewKpiStrip';

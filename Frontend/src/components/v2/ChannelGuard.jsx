@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import useAuthStore from '@/store/useAuthStore';
-import { canAccessChannel } from '@/pages/ChronoBeta/channelAccess';
+import { canAccessChannel } from '@/components/v2/channelAccess';
 
 export default function ChannelGuard({ channel, children }) {
   const user = useAuthStore((s) => s.user);

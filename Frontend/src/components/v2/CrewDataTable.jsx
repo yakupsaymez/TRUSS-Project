@@ -24,7 +24,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { ROLES } from '@/pages/ChronoBeta/channelAccess';
+import { ROLES } from '@/components/v2/channelAccess';
 import { formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import { usePagination } from '@/hooks/use-pagination';
 import EmptyState from '@/components/v2/EmptyState';

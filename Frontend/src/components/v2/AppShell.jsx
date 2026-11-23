@@ -14,7 +14,7 @@ import { useTheme } from '@/components/theme-provider';
 import useAuthStore from '@/store/useAuthStore';
 import useAppStore from '@/store/useAppStore';
 import useVehicleStore from '@/store/useVehicleStore';
-import { canAccessChannel, resolveRole, ROLES } from '@/pages/ChronoBeta/channelAccess';
+import { canAccessChannel, resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { evrakRiskliMi, hesaplaBakimDurumu } from '@/utils/aracDurum';
 import { formatTurkishPlate } from '@/utils/formatters';
 import { navConfig } from '@/components/v2/navConfig';

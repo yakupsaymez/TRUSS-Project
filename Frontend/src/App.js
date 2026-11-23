@@ -3,9 +3,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from '@/components/theme-provider';
 import HomePage from '@/pages/HomePage';
-import Register from '@/pages/Register';
-import Login from '@/pages/Login';
-import ChronoApp from '@/pages/ChronoBeta/ChronoApp';
 import useAuthStore from '@/store/useAuthStore';
 import AppShell from '@/components/v2/AppShell';
 import ChannelGuard from '@/components/v2/ChannelGuard';
@@ -31,6 +28,17 @@ function ProtectedRoute({ children }) {
     return children;
 }
 
+function RootRoute() {
+    const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+    const token = useAuthStore((s) => s.token) || localStorage.getItem('token');
+
+    if (isAuthenticated || token) {
+        return <Navigate to="/app" replace />;
+    }
+
+    return <HomePage />;
+}
+
 function App() {
     return (
         <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
@@ -47,9 +55,14 @@ function App() {
                     }}
                 />
                 <Routes>
-                    <Route path="/" element={<HomePage />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/register" element={<Register />} />
+                    <Route path="/" element={<RootRoute />} />
+                    <Route path="/login" element={<LoginV2 />} />
+                    <Route path="/register" element={<RegisterV2 />} />
+                    <Route path="/forgot-password" element={<ForgotPasswordV2 />} />
+                    <Route path="/v2/login" element={<Navigate to="/login" replace />} />
+                    <Route path="/v2/register" element={<Navigate to="/register" replace />} />
+                    <Route path="/v2/forgot-password" element={<Navigate to="/forgot-password" replace />} />
+                    <Route path="/dashboard" element={<Navigate to="/app" replace />} />
                     <Route
                         path="/app"
                         element={
@@ -109,14 +122,11 @@ function App() {
                         <Route path="ayarlar" element={<Ayarlar />} />
                         <Route path="*" element={<Navigate to="/app" replace />} />
                     </Route>
-                    <Route path="/v2/login" element={<LoginV2 />} />
-                    <Route path="/v2/register" element={<RegisterV2 />} />
-                    <Route path="/v2/forgot-password" element={<ForgotPasswordV2 />} />
                     <Route
                         path="*"
                         element={
                             <ProtectedRoute>
-                                <ChronoApp />
+                                <Navigate to="/app" replace />
                             </ProtectedRoute>
                         }
                     />

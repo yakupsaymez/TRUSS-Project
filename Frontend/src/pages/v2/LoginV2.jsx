@@ -94,7 +94,7 @@ export default function LoginV2() {
     <p className="text-center text-sm text-muted-foreground">
       Hesabınız yok mu?{' '}
       <Link
-        to="/v2/register"
+        to="/register"
         className="font-semibold text-foreground underline underline-offset-4 transition-colors hover:text-primary"
       >
         Kayıt olun
@@ -146,7 +146,7 @@ export default function LoginV2() {
           <div className="flex items-center justify-between gap-2">
             <Label htmlFor="v2-login-password">Şifre</Label>
             <Link
-              to="/v2/forgot-password"
+              to="/forgot-password"
               className="text-xs font-medium text-primary underline-offset-4 hover:underline"
             >
               Şifremi unuttum

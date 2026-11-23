@@ -4,7 +4,7 @@ import { Filter, Plus, X } from 'lucide-react';
 import useAuthStore from '@/store/useAuthStore';
 import useVehicleStore from '@/store/useVehicleStore';
 import adminService from '@/services/adminService';
-import { resolveRole, ROLES } from '@/pages/ChronoBeta/channelAccess';
+import { resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import FleetDataTable from '@/components/v2/FleetDataTable';
 import ConfirmDialog from '@/components/v2/ConfirmDialog';

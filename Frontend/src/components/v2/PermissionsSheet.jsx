@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Lock } from 'lucide-react';
 import adminService from '@/services/adminService';
-import { ROLES } from '@/pages/ChronoBeta/channelAccess';
+import { ROLES } from '@/components/v2/channelAccess';
 import { getErrorStatus, notifyApiError } from '@/utils/apiError';
 import { formatLocaleNumber } from '@/utils/formatters';
 import AppSheet from '@/components/v2/AppSheet';

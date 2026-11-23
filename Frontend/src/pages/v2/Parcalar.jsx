@@ -4,7 +4,7 @@ import { Plus } from 'lucide-react';
 import useAuthStore from '@/store/useAuthStore';
 import useVehicleStore from '@/store/useVehicleStore';
 import parcaService from '@/services/parcaService';
-import { resolveRole, ROLES } from '@/pages/ChronoBeta/channelAccess';
+import { resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { notifyApiError } from '@/utils/apiError';
 import { formatCurrency, formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import ComponentDataTable, { hesaplaParcaOmru } from '@/components/v2/ComponentDataTable';

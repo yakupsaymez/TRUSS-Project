@@ -48,7 +48,7 @@ export default function ForgotPasswordV2() {
         </div>
 
         <Button asChild className="w-full gap-2">
-          <Link to="/v2/login">
+          <Link to="/login">
             <ArrowLeft className="size-4" aria-hidden="true" />
             <span>Giriş Sayfasına Dön</span>
           </Link>

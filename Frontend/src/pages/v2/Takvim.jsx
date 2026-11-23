@@ -4,7 +4,7 @@ import { CalendarDays, ExternalLink, Truck, X } from 'lucide-react';
 import useAuthStore from '@/store/useAuthStore';
 import useVehicleStore from '@/store/useVehicleStore';
 import bakimService from '@/services/bakimService';
-import { canAccessChannel, resolveRole, ROLES } from '@/pages/ChronoBeta/channelAccess';
+import { canAccessChannel, resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { notifyApiError } from '@/utils/apiError';
 import { getTodayIso } from '@/utils/dateUtils';
 import { formatTurkishPlate } from '@/utils/formatters';
