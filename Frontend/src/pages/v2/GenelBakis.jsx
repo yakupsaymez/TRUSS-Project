@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
 import useAuthStore from '@/store/useAuthStore';
@@ -9,6 +9,7 @@ import { notifyApiError } from '@/utils/apiError';
 import { formatTurkishPlate } from '@/utils/formatters';
 import OverviewKpiStrip from '@/components/v2/OverviewKpiStrip';
 import CostTrendChart from '@/components/v2/CostTrendChart';
+import FleetHealthWidget from '@/components/v2/FleetHealthWidget';
 import DocumentComplianceCard from '@/components/v2/DocumentComplianceCard';
 import { Button } from '@/components/ui/button';
 
@@ -84,6 +85,15 @@ export default function GenelBakis() {
 
   const selectedVehicle = isSingleVehicle ? filtreliAraclar[0] || null : null;
 
+  const handleSelectVehicle = useCallback(
+    (arac) => {
+      if (!arac?.arac_id) return;
+      setSeciliAracId(String(arac.arac_id));
+      navigate('/app/filo');
+    },
+    [setSeciliAracId, navigate]
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -127,20 +137,44 @@ export default function GenelBakis() {
         loadingFinance={loadingFinance}
       />
 
-      {canViewAnalytics && (
-        <CostTrendChart
-          aylikTrend={aylikTrend}
-          aracMaliyet={aracMaliyet}
-          seciliAracId={seciliAracId}
-          loading={loadingFinance}
-        />
-      )}
+      {canViewAnalytics ? (
+        <>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+            <CostTrendChart
+              aylikTrend={aylikTrend}
+              aracMaliyet={aracMaliyet}
+              seciliAracId={seciliAracId}
+              loading={loadingFinance}
+              className="lg:col-span-7"
+            />
+            <FleetHealthWidget
+              araclar={filtreliAraclar}
+              loading={loading && !hasLoaded}
+              onSelectVehicle={handleSelectVehicle}
+              className="lg:col-span-5"
+            />
+          </div>
 
-      <DocumentComplianceCard
-        araclar={filtreliAraclar}
-        loading={loading && !hasLoaded}
-        onSelectStatus={() => navigate('/app/filo')}
-      />
+          <DocumentComplianceCard
+            araclar={filtreliAraclar}
+            loading={loading && !hasLoaded}
+            onSelectStatus={() => navigate('/app/filo')}
+          />
+        </>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <FleetHealthWidget
+            araclar={filtreliAraclar}
+            loading={loading && !hasLoaded}
+            onSelectVehicle={handleSelectVehicle}
+          />
+          <DocumentComplianceCard
+            araclar={filtreliAraclar}
+            loading={loading && !hasLoaded}
+            onSelectStatus={() => navigate('/app/filo')}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -23,3 +23,4 @@ export { default as AssignVehicleSheet } from '@/components/v2/AssignVehicleShee
 export { default as CreateMemberSheet } from '@/components/v2/CreateMemberSheet';
 export { default as OverviewKpiStrip } from '@/components/v2/OverviewKpiStrip';
 export { default as CostTrendChart } from '@/components/v2/CostTrendChart';
+export { default as FleetHealthWidget } from '@/components/v2/FleetHealthWidget';
