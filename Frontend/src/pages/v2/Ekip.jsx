@@ -11,6 +11,7 @@ import CrewDataTable, {
   ADMIN_LOCK_MESSAGE,
   SELF_LOCK_MESSAGE,
 } from '@/components/v2/CrewDataTable';
+import CrewRoleSummaryStrip from '@/components/v2/CrewRoleSummaryStrip';
 import PermissionsSheet from '@/components/v2/PermissionsSheet';
 import AssignVehicleSheet from '@/components/v2/AssignVehicleSheet';
 import CreateMemberSheet from '@/components/v2/CreateMemberSheet';
@@ -255,6 +256,14 @@ export default function Ekip() {
           </Button>
         </div>
       </div>
+
+      {(users.length > 0 || loading) && (
+        <CrewRoleSummaryStrip
+          users={users}
+          vehicles={araclar}
+          loading={loading && !hasLoaded}
+        />
+      )}
 
       <CrewDataTable
         users={users}

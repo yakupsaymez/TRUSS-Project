@@ -28,3 +28,4 @@ export { default as CommandPalette } from '@/components/v2/CommandPalette';
 export { default as EmptyState } from '@/components/v2/EmptyState';
 export { default as AuthFrame } from '@/components/v2/AuthFrame';
 export { default as FleetCalendar } from '@/components/v2/FleetCalendar';
+export { default as CrewRoleSummaryStrip } from '@/components/v2/CrewRoleSummaryStrip';
