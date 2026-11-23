@@ -16,17 +16,6 @@ const raporService = {
         return response.data;
     },
 
-    // Geriye donuk uyumluluk (Dashboard.js)
-    getAracGiderleri: async () => {
-        const response = await api.get('/raporlar/arac-giderleri');
-        return response.data;
-    },
-
-    getAylikOzet: async () => {
-        const response = await api.get('/raporlar/aylik-ozet');
-        return response.data;
-    },
-
     getButceAnalizi: async () => (await api.get('/raporlar/butce')).data,
 
     updateButceHedefi: async (payload) => (await api.put('/raporlar/butce', payload)).data,
