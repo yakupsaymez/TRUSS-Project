@@ -11,6 +11,7 @@ import OverviewKpiStrip from '@/components/v2/OverviewKpiStrip';
 import CostTrendChart from '@/components/v2/CostTrendChart';
 import FleetHealthWidget from '@/components/v2/FleetHealthWidget';
 import DocumentComplianceCard from '@/components/v2/DocumentComplianceCard';
+import BudgetVarianceCard from '@/components/v2/BudgetVarianceCard';
 import EmptyState from '@/components/v2/EmptyState';
 import VehicleSheet from '@/components/v2/VehicleSheet';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,7 @@ export default function GenelBakis() {
 
   const [aylikTrend, setAylikTrend] = useState([]);
   const [aracMaliyet, setAracMaliyet] = useState([]);
+  const [butceAnalizi, setButceAnalizi] = useState(null);
   const [loadingFinance, setLoadingFinance] = useState(false);
   const [vehicleSheetOpen, setVehicleSheetOpen] = useState(false);
 
@@ -48,12 +50,14 @@ export default function GenelBakis() {
     if (!canViewAnalytics) return;
     setLoadingFinance(true);
     try {
-      const [trendRes, maliyetRes] = await Promise.all([
+      const [trendRes, maliyetRes, butceRes] = await Promise.all([
         raporService.getAylikHarcamaTrendi(),
         raporService.getAracMaliyetDagilimi(),
+        raporService.getButceAnalizi(),
       ]);
       setAylikTrend(Array.isArray(trendRes) ? trendRes : []);
       setAracMaliyet(Array.isArray(maliyetRes) ? maliyetRes : []);
+      setButceAnalizi(butceRes || null);
     } catch (err) {
       notifyApiError(err, 'Finansal özet yüklenemedi.');
     } finally {
@@ -66,6 +70,7 @@ export default function GenelBakis() {
     if (!canViewAnalytics) {
       setAylikTrend([]);
       setAracMaliyet([]);
+      setButceAnalizi(null);
       setLoadingFinance(false);
       return;
     }
@@ -76,11 +81,13 @@ export default function GenelBakis() {
     Promise.all([
       raporService.getAylikHarcamaTrendi(),
       raporService.getAracMaliyetDagilimi(),
+      raporService.getButceAnalizi(),
     ])
-      .then(([trendRes, maliyetRes]) => {
+      .then(([trendRes, maliyetRes, butceRes]) => {
         if (cancelled) return;
         setAylikTrend(Array.isArray(trendRes) ? trendRes : []);
         setAracMaliyet(Array.isArray(maliyetRes) ? maliyetRes : []);
+        setButceAnalizi(butceRes || null);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -209,11 +216,21 @@ export default function GenelBakis() {
                 />
               </div>
 
-              <DocumentComplianceCard
-                araclar={filtreliAraclar}
-                loading={loading && !hasLoaded}
-                onSelectStatus={() => navigate('/app/filo')}
-              />
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+                <BudgetVarianceCard
+                  butceData={butceAnalizi}
+                  canManage={canManage}
+                  loading={loadingFinance}
+                  onBudgetUpdated={fetchFinanceData}
+                  className="lg:col-span-6"
+                />
+                <DocumentComplianceCard
+                  araclar={filtreliAraclar}
+                  loading={loading && !hasLoaded}
+                  onSelectStatus={() => navigate('/app/filo')}
+                  className="lg:col-span-6"
+                />
+              </div>
             </>
           ) : (
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

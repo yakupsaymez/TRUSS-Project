@@ -1,9 +1,12 @@
 const express = require('express');
 const authMiddleware = require('../middlewares/authMiddleware');
+const { authorizeRoles } = require('../middlewares/rbacMiddleware');
 const {
   getGenelOzet,
   getAylikHarcamaTrendi,
   getAracMaliyetDagilimi,
+  getButceAnalizi,
+  updateButceHedefi,
 } = require('../controllers/raporController');
 
 const router = express.Router();
@@ -28,6 +31,8 @@ const requireFinanceAccess = (req, res, next) => {
 router.get('/genel-ozet', authMiddleware, requireFinanceAccess, getGenelOzet);
 router.get('/aylik-trend', authMiddleware, requireFinanceAccess, getAylikHarcamaTrendi);
 router.get('/arac-maliyet', authMiddleware, requireFinanceAccess, getAracMaliyetDagilimi);
+router.get('/butce', authMiddleware, requireFinanceAccess, getButceAnalizi);
+router.put('/butce', authMiddleware, authorizeRoles('SYSTEM_ADMIN', 'FLEET_MANAGER'), updateButceHedefi);
 
 // Geriye donuk uyumluluk (Dashboard.js icin)
 router.get('/aylik-ozet', authMiddleware, requireFinanceAccess, getAylikHarcamaTrendi);
