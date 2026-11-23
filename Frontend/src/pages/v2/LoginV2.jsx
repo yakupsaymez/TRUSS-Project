@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { AlertCircle, Eye, EyeOff, Loader2, ShieldAlert } from 'lucide-react';
 import useAuthStore from '@/store/useAuthStore';
+import useVehicleStore from '@/store/useVehicleStore';
 import AuthFrame from '@/components/v2/AuthFrame';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -68,6 +69,7 @@ export default function LoginV2() {
 
     try {
       await login({ email: trimmedEmail, sifre: password });
+      useVehicleStore.getState().reset();
       toast.success('Giriş başarılı! Yönlendiriliyorsunuz...');
       navigate('/app');
     } catch (err) {

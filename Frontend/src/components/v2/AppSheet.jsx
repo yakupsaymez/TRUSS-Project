@@ -140,6 +140,15 @@ export default function AppSheet({
   const preventCloseIfBlocked = (event) => {
     if (isSubmitting || discardConfirmOpen) {
       event.preventDefault();
+      return;
+    }
+    const target = event?.target;
+    if (
+      target instanceof Element &&
+      (target.closest('[data-slot="popover-content"]') ||
+        target.closest('[data-radix-popper-content-wrapper]'))
+    ) {
+      event.preventDefault();
     }
   };
 

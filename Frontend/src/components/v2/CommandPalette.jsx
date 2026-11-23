@@ -214,6 +214,8 @@ export default function CommandPalette({
   open,
   onOpenChange,
   canManage = false,
+  canAddFuel = true,
+  canAddMaintenance = true,
   visibleNavItems = [],
   araclar = [],
   seciliAracId = 'tum',
@@ -252,7 +254,10 @@ export default function CommandPalette({
     if (trimmedQuery.length >= 4) {
       const nlItems = [];
       const ledgerParsed = parseLedgerNaturalInput(trimmedQuery, araclar, seciliAracId);
-      if (ledgerParsed) {
+      const isAllowedLedgerNl =
+        ledgerParsed &&
+        (ledgerParsed.initialTip === 'YAKIT' ? canAddFuel : canAddMaintenance);
+      if (isAllowedLedgerNl) {
         const summaryParts = [ledgerParsed.plateLabel];
         if (ledgerParsed.initialTip === 'YAKIT') {
           summaryParts.push(`${formatLocaleNumber(ledgerParsed.litre, 2)} L`);
@@ -313,28 +318,36 @@ export default function CommandPalette({
 
     // 2. Hızlı İşlemler (RBAC filtreli)
     const quickActions = [
-      {
-        id: 'action-fuel',
-        icon: Fuel,
-        label: 'Yakıt Ekle',
-        subtitle: 'Yeni yakıt ikmali kaydı oluştur',
-        keywords: 'yakıt yakit mazot benzin lpg litre ikmal',
-        onSelect: () => {
-          onOpenChange?.(false);
-          onOpenMovementSheet?.({ initialTip: 'YAKIT', prefill: null });
-        },
-      },
-      {
-        id: 'action-maintenance',
-        icon: Wrench,
-        label: 'Bakım Ekle',
-        subtitle: 'Yeni servis veya onarım kaydı oluştur',
-        keywords: 'bakım bakim servis tamir arıza ariza onarım',
-        onSelect: () => {
-          onOpenChange?.(false);
-          onOpenMovementSheet?.({ initialTip: 'BAKIM', prefill: null });
-        },
-      },
+      ...(canAddFuel
+        ? [
+            {
+              id: 'action-fuel',
+              icon: Fuel,
+              label: 'Yakıt Ekle',
+              subtitle: 'Yeni yakıt ikmali kaydı oluştur',
+              keywords: 'yakıt yakit mazot benzin lpg litre ikmal',
+              onSelect: () => {
+                onOpenChange?.(false);
+                onOpenMovementSheet?.({ initialTip: 'YAKIT', prefill: null });
+              },
+            },
+          ]
+        : []),
+      ...(canAddMaintenance
+        ? [
+            {
+              id: 'action-maintenance',
+              icon: Wrench,
+              label: 'Bakım Ekle',
+              subtitle: 'Yeni servis veya onarım kaydı oluştur',
+              keywords: 'bakım bakim servis tamir arıza ariza onarım',
+              onSelect: () => {
+                onOpenChange?.(false);
+                onOpenMovementSheet?.({ initialTip: 'BAKIM', prefill: null });
+              },
+            },
+          ]
+        : []),
       ...(canManage
         ? [
             {
@@ -480,6 +493,8 @@ export default function CommandPalette({
     seciliAracId,
     isSingleVehicle,
     canManage,
+    canAddFuel,
+    canAddMaintenance,
     visibleNavItems,
     onOpenChange,
     onNavigate,

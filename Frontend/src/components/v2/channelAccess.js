@@ -21,7 +21,7 @@ const CHANNELS = [
   {
     key: 'crew',
     label: 'Ekip Komutası',
-    isAllowed: (role, yetkiler) => MANAGEMENT_ROLES.includes(role) || yetkiler.ekip === true,
+    isAllowed: (role) => MANAGEMENT_ROLES.includes(role),
   },
 ];
 

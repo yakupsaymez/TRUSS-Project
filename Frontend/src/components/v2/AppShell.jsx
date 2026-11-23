@@ -128,6 +128,8 @@ export default function AppShell() {
   const setSeciliAracId = useVehicleStore((s) => s.setSeciliAracId);
 
   const lastRefreshRef = useRef(0);
+  const vehicleFetchAttemptedRef = useRef(false);
+  const lastUserIdRef = useRef(user?.user_id ?? null);
 
   // Yetki senkronu: mount + visibilitychange (60 sn throttle, cleanup'lı)
   useEffect(() => {
@@ -146,16 +148,34 @@ export default function AppShell() {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [refreshUser]);
 
-  // Araç listesi yüklü değilse yükle
+  // Oturum kullanıcısı değiştiğinde araç store'unu sıfırla ve yeniden yükle
+  useEffect(() => {
+    const currentUserId = user?.user_id ?? null;
+    if (lastUserIdRef.current !== currentUserId) {
+      lastUserIdRef.current = currentUserId;
+      vehicleFetchAttemptedRef.current = false;
+      useVehicleStore.getState().reset();
+      const token = localStorage.getItem('token');
+      if (token && currentUserId) {
+        vehicleFetchAttemptedRef.current = true;
+        fetchAraclar();
+      }
+    }
+  }, [user?.user_id, fetchAraclar]);
+
+  // Araç listesi yüklü değilse bir kez yükle (hata sonrası sonsuz döngü önlenir)
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (token && !hasLoaded && !loading) {
+    if (token && !hasLoaded && !loading && !vehicleFetchAttemptedRef.current) {
+      vehicleFetchAttemptedRef.current = true;
       fetchAraclar();
     }
   }, [hasLoaded, loading, fetchAraclar]);
 
   const role = resolveRole(user);
   const canManage = [ROLES.SYSTEM_ADMIN, ROLES.FLEET_MANAGER].includes(role);
+  const canAddFuel = canManage || user?.yetkiler?.yakit === true;
+  const canAddMaintenance = canManage || user?.yetkiler?.bakim === true;
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [vehicleSheetOpen, setVehicleSheetOpen] = useState(false);
@@ -514,7 +534,7 @@ export default function AppShell() {
                 <Select value={selectValue} onValueChange={handleVehicleSelectChange}>
                   <SelectTrigger
                     aria-label="Global araç filtresi"
-                    className="h-8 w-44 rounded-lg border-border bg-card text-xs font-medium tabular-nums sm:w-52"
+                    className="h-8 w-32 rounded-lg border-border bg-card text-xs font-medium tabular-nums sm:w-52"
                   >
                     <SelectValue placeholder="Tüm araçlar" />
                   </SelectTrigger>
@@ -574,7 +594,7 @@ export default function AppShell() {
                 </Button>
 
                 {/* Rol Rozeti */}
-                <RoleBadge role={role} />
+                <RoleBadge role={role} className="hidden md:inline-flex" />
               </div>
             </header>
 
@@ -591,6 +611,8 @@ export default function AppShell() {
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
         canManage={canManage}
+        canAddFuel={canAddFuel}
+        canAddMaintenance={canAddMaintenance}
         visibleNavItems={visibleNavItems}
         araclar={araclar}
         seciliAracId={seciliAracId}
@@ -614,6 +636,8 @@ export default function AppShell() {
         prefill={movementSheetState.prefill}
         araclar={araclar}
         defaultAracId={seciliAracId}
+        canAddFuel={canAddFuel}
+        canAddMaintenance={canAddMaintenance}
         onSuccess={() => notifyDataChanged('movement')}
       />
 

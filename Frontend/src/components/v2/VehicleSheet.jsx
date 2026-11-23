@@ -1,8 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import aracService from '@/services/aracService';
+import katalogService from '@/services/katalogService';
 import useVehicleStore from '@/store/useVehicleStore';
 import { getErrorStatus, notifyApiError } from '@/utils/apiError';
+import { toLocalIsoDate } from '@/utils/dateUtils';
 import { formatLocaleNumber, formatTurkishPlate, parseLocaleNumber } from '@/utils/formatters';
 import { parseSayacHatasi, sayacAria } from '@/utils/sayacHatasi';
 import AppSheet, {
@@ -22,24 +24,36 @@ import {
 import { TrussDatePicker } from '@/components/ui/truss-date-picker';
 import { cn } from '@/lib/utils';
 
-const ARAC_TIPLERI = [
-  'Otomobil',
-  'Ticari / Hafif Ticari',
-  'Ağır Vasıta / Çekici',
-  'SUV / Pick-Up',
-  'İş Makinesi',
-  'Elektrikli Araç',
-];
-
+const MANUAL_OPTION = '__MANUAL__';
 const CURRENT_DEFAULT_YEAR = String(Math.min(2027, Math.max(1950, new Date().getFullYear())));
+
+function normalizeLocalIsoDate(raw) {
+  if (!raw) return '';
+  const str = String(raw).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  const parsed = new Date(str);
+  if (!Number.isNaN(parsed.getTime())) {
+    return toLocalIsoDate(parsed);
+  }
+  return str.slice(0, 10);
+}
+
+function isHeavyEquipmentName(kategoriName) {
+  const lower = String(kategoriName || '').toLocaleLowerCase('tr-TR');
+  return lower.includes('iş makine') || lower.includes('is makine');
+}
 
 function buildInitialForm(arac) {
   if (!arac) {
     return {
       plaka: '',
+      kategori_id: null,
       kategori: 'Otomobil',
+      marka_id: null,
       marka: '',
+      model_id: null,
       model: '',
+      varyant_id: null,
       yil: CURRENT_DEFAULT_YEAR,
       sayac_tipi: 'KM',
       guncel_sayac: '0',
@@ -61,9 +75,13 @@ function buildInitialForm(arac) {
 
   return {
     plaka: formatTurkishPlate(arac.plaka || ''),
+    kategori_id: arac.kategori_id ? Number(arac.kategori_id) : null,
     kategori: arac.kategori || 'Otomobil',
+    marka_id: null,
     marka: arac.marka || '',
+    model_id: null,
     model: arac.model || '',
+    varyant_id: arac.varyant_id ? Number(arac.varyant_id) : null,
     yil: arac.yil !== null && arac.yil !== undefined ? String(arac.yil) : CURRENT_DEFAULT_YEAR,
     sayac_tipi: isSmh ? 'SMH' : 'KM',
     guncel_sayac: formatLocaleNumber(mevcutSayac, 0),
@@ -71,10 +89,29 @@ function buildInitialForm(arac) {
     triger_degisim_km: arac.triger_degisim_km
       ? formatLocaleNumber(arac.triger_degisim_km, 0)
       : '',
-    muayene_tarihi: arac.muayene_tarihi ? String(arac.muayene_tarihi).slice(0, 10) : '',
-    sigorta_tarihi: arac.sigorta_tarihi ? String(arac.sigorta_tarihi).slice(0, 10) : '',
-    kasko_tarihi: arac.kasko_tarihi ? String(arac.kasko_tarihi).slice(0, 10) : '',
+    muayene_tarihi: normalizeLocalIsoDate(arac.muayene_tarihi),
+    sigorta_tarihi: normalizeLocalIsoDate(arac.sigorta_tarihi),
+    kasko_tarihi: normalizeLocalIsoDate(arac.kasko_tarihi),
   };
+}
+
+function serializeFormForDirtyCheck(f) {
+  return JSON.stringify({
+    plaka: f.plaka,
+    kategori_id: f.kategori_id ?? null,
+    kategori: f.kategori,
+    marka: f.marka,
+    model: f.model,
+    varyant_id: f.varyant_id ?? null,
+    yil: f.yil,
+    sayac_tipi: f.sayac_tipi,
+    guncel_sayac: f.guncel_sayac,
+    bakim_periyodu: f.bakim_periyodu,
+    triger_degisim_km: f.triger_degisim_km,
+    muayene_tarihi: f.muayene_tarihi,
+    sigorta_tarihi: f.sigorta_tarihi,
+    kasko_tarihi: f.kasko_tarihi,
+  });
 }
 
 function parseNonNegativeInteger(raw, { required = false } = {}) {
@@ -99,26 +136,214 @@ export default function VehicleSheet({ open, onOpenChange, arac = null, onSucces
   const [sayacHatasi, setSayacHatasi] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // 4 Kademeli Araç Katalogu Durumu
+  const [kategoriler, setKategoriler] = useState([]);
+  const [markalar, setMarkalar] = useState([]);
+  const [modeller, setModeller] = useState([]);
+  const [varyantlar, setVaryantlar] = useState([]);
+
+  const [loadingKatalog, setLoadingKatalog] = useState(false);
+  const [manualKategori, setManualKategori] = useState(false);
+  const [manualMarka, setManualMarka] = useState(false);
+  const [manualModel, setManualModel] = useState(false);
+  const [manualVaryant, setManualVaryant] = useState(false);
+
+  // Yarış koşulu (stale response) önleyici sayaçlar
+  const initRequestIdRef = useRef(0);
+  const markaRequestIdRef = useRef(0);
+  const modelRequestIdRef = useRef(0);
+  const varyantRequestIdRef = useRef(0);
+
   useEffect(() => {
     if (!open) return;
-    const next = buildInitialForm(arac);
-    setForm(next);
-    setInitialSnapshot(next);
+
+    const nextForm = buildInitialForm(arac);
+    setForm(nextForm);
+    setInitialSnapshot(nextForm);
     setFieldErrors({});
     setSayacHatasi(null);
+
+    const currentInitId = ++initRequestIdRef.current;
+    setLoadingKatalog(true);
+
+    (async () => {
+      try {
+        const katList = await katalogService.getKategoriler();
+        if (initRequestIdRef.current !== currentInitId) return;
+        setKategoriler(katList);
+
+        if (!arac) {
+          // Yeni araç: varsayılan ilk kategori (veya Otomobil)
+          const defaultKat =
+            katList.find(
+              (k) =>
+                String(k.ad || '').toLocaleLowerCase('tr-TR') ===
+                String(nextForm.kategori || 'Otomobil').toLocaleLowerCase('tr-TR')
+            ) ||
+            katList[0] ||
+            null;
+
+          if (!defaultKat) {
+            setManualKategori(true);
+            setManualMarka(true);
+            setManualModel(true);
+            setManualVaryant(true);
+            setMarkalar([]);
+            setModeller([]);
+            setVaryantlar([]);
+            return;
+          }
+
+          const resolvedKatId = Number(defaultKat.kategori_id);
+          const resolvedKatAd = defaultKat.ad;
+
+          setManualKategori(false);
+          setManualMarka(false);
+          setManualModel(false);
+          setManualVaryant(false);
+
+          const resolvedForm = {
+            ...nextForm,
+            kategori_id: resolvedKatId,
+            kategori: resolvedKatAd,
+          };
+          setForm(resolvedForm);
+          setInitialSnapshot(resolvedForm);
+
+          const markaList = await katalogService.getMarkalar(resolvedKatId);
+          if (initRequestIdRef.current !== currentInitId) return;
+          setMarkalar(markaList);
+          setModeller([]);
+          setVaryantlar([]);
+          return;
+        }
+
+        // Düzenleme modu: arac.kategori_id / arac.kategori -> arac.marka -> arac.model -> arac.varyant_id eşleştir
+        const matchedKat =
+          (arac.kategori_id
+            ? katList.find((k) => Number(k.kategori_id) === Number(arac.kategori_id))
+            : null) ||
+          katList.find(
+            (k) =>
+              String(k.ad || '').toLocaleLowerCase('tr-TR') ===
+              String(arac.kategori || '').toLocaleLowerCase('tr-TR')
+          ) ||
+          null;
+
+        if (!matchedKat) {
+          setManualKategori(true);
+          setManualMarka(true);
+          setManualModel(true);
+          setManualVaryant(true);
+          setMarkalar([]);
+          setModeller([]);
+          setVaryantlar([]);
+          return;
+        }
+
+        const resolvedKatId = Number(matchedKat.kategori_id);
+        setManualKategori(false);
+
+        const markaList = await katalogService.getMarkalar(resolvedKatId);
+        if (initRequestIdRef.current !== currentInitId) return;
+        setMarkalar(markaList);
+
+        const matchedMarka =
+          markaList.find(
+            (m) =>
+              String(m.ad || '').toLocaleLowerCase('tr-TR') ===
+              String(arac.marka || '').toLocaleLowerCase('tr-TR')
+          ) || null;
+
+        if (!matchedMarka) {
+          setManualMarka(true);
+          setManualModel(true);
+          setManualVaryant(true);
+          setModeller([]);
+          setVaryantlar([]);
+          const updated = {
+            ...nextForm,
+            kategori_id: resolvedKatId,
+            kategori: matchedKat.ad,
+          };
+          setForm(updated);
+          setInitialSnapshot(updated);
+          return;
+        }
+
+        const resolvedMarkaId = Number(matchedMarka.marka_id);
+        setManualMarka(false);
+
+        const modelList = await katalogService.getModeller(resolvedMarkaId, resolvedKatId);
+        if (initRequestIdRef.current !== currentInitId) return;
+        setModeller(modelList);
+
+        const matchedModel =
+          modelList.find(
+            (mod) =>
+              String(mod.ad || '').toLocaleLowerCase('tr-TR') ===
+              String(arac.model || '').toLocaleLowerCase('tr-TR')
+          ) || null;
+
+        if (!matchedModel) {
+          setManualModel(true);
+          setManualVaryant(true);
+          setVaryantlar([]);
+          const updated = {
+            ...nextForm,
+            kategori_id: resolvedKatId,
+            kategori: matchedKat.ad,
+            marka_id: resolvedMarkaId,
+            marka: matchedMarka.ad,
+          };
+          setForm(updated);
+          setInitialSnapshot(updated);
+          return;
+        }
+
+        const resolvedModelId = Number(matchedModel.model_id);
+        setManualModel(false);
+
+        const varyantList = await katalogService.getVaryantlar(resolvedModelId);
+        if (initRequestIdRef.current !== currentInitId) return;
+        setVaryantlar(varyantList);
+
+        const matchedVaryant = arac.varyant_id
+          ? varyantList.find((v) => Number(v.varyant_id) === Number(arac.varyant_id)) || null
+          : null;
+
+        setManualVaryant(!matchedVaryant);
+
+        const updated = {
+          ...nextForm,
+          kategori_id: resolvedKatId,
+          kategori: matchedKat.ad,
+          marka_id: resolvedMarkaId,
+          marka: matchedMarka.ad,
+          model_id: resolvedModelId,
+          model: matchedModel.ad,
+          varyant_id: matchedVaryant ? Number(matchedVaryant.varyant_id) : null,
+        };
+        setForm(updated);
+        setInitialSnapshot(updated);
+      } catch (_err) {
+        if (initRequestIdRef.current !== currentInitId) return;
+        setManualKategori(true);
+        setManualMarka(true);
+        setManualModel(true);
+        setManualVaryant(true);
+      } finally {
+        if (initRequestIdRef.current === currentInitId) {
+          setLoadingKatalog(false);
+        }
+      }
+    })();
   }, [open, arac]);
 
   const isDirty = useMemo(
-    () => JSON.stringify(form) !== JSON.stringify(initialSnapshot),
+    () => serializeFormForDirtyCheck(form) !== serializeFormForDirtyCheck(initialSnapshot),
     [form, initialSnapshot]
   );
-
-  const kategoriOptions = useMemo(() => {
-    if (form.kategori && !ARAC_TIPLERI.includes(form.kategori)) {
-      return [form.kategori, ...ARAC_TIPLERI];
-    }
-    return ARAC_TIPLERI;
-  }, [form.kategori]);
 
   const isSmh = form.sayac_tipi === 'SMH';
 
@@ -136,19 +361,217 @@ export default function VehicleSheet({ open, onOpenChange, arac = null, onSucces
     clearFieldError(name);
   };
 
-  const handleKategoriChange = (nextKategori) => {
-    setForm((prev) => {
-      if (!isEditMode && nextKategori === 'İş Makinesi') {
-        return {
-          ...prev,
-          kategori: nextKategori,
-          sayac_tipi: 'SMH',
-          bakim_periyodu: '250',
-        };
-      }
-      return { ...prev, kategori: nextKategori };
-    });
+  // 1. Kademe: Kategori Seçimi
+  const handleKategoriSelect = async (val) => {
     clearFieldError('kategori');
+    clearFieldError('marka');
+    clearFieldError('model');
+
+    if (val === MANUAL_OPTION) {
+      setManualKategori(true);
+      setManualMarka(true);
+      setManualModel(true);
+      setManualVaryant(true);
+      setMarkalar([]);
+      setModeller([]);
+      setVaryantlar([]);
+      setForm((prev) => ({
+        ...prev,
+        kategori_id: null,
+        kategori: prev.kategori || '',
+        marka_id: null,
+        model_id: null,
+        varyant_id: null,
+      }));
+      return;
+    }
+
+    const katId = Number(val);
+    const selectedKat = kategoriler.find((k) => Number(k.kategori_id) === katId);
+    const katAd = selectedKat?.ad || 'Otomobil';
+    const nextIsSmh = !isEditMode && isHeavyEquipmentName(katAd);
+
+    setManualKategori(false);
+    setManualMarka(false);
+    setManualModel(false);
+    setManualVaryant(false);
+    setModeller([]);
+    setVaryantlar([]);
+
+    setForm((prev) => ({
+      ...prev,
+      kategori_id: katId,
+      kategori: katAd,
+      marka_id: null,
+      marka: '',
+      model_id: null,
+      model: '',
+      varyant_id: null,
+      ...(nextIsSmh
+        ? { sayac_tipi: 'SMH', bakim_periyodu: '250', triger_degisim_km: '' }
+        : !isEditMode
+          ? { sayac_tipi: 'KM', bakim_periyodu: '15000' }
+          : {}),
+    }));
+
+    const reqId = ++markaRequestIdRef.current;
+    try {
+      const list = await katalogService.getMarkalar(katId);
+      if (markaRequestIdRef.current !== reqId) return;
+      setMarkalar(list);
+      if (list.length === 0) {
+        setManualMarka(true);
+        setManualModel(true);
+        setManualVaryant(true);
+      }
+    } catch (_err) {
+      if (markaRequestIdRef.current !== reqId) return;
+      setManualMarka(true);
+      setManualModel(true);
+      setManualVaryant(true);
+    }
+  };
+
+  // 2. Kademe: Marka Seçimi
+  const handleMarkaSelect = async (val) => {
+    clearFieldError('marka');
+    clearFieldError('model');
+
+    if (val === MANUAL_OPTION) {
+      setManualMarka(true);
+      setManualModel(true);
+      setManualVaryant(true);
+      setModeller([]);
+      setVaryantlar([]);
+      setForm((prev) => ({
+        ...prev,
+        marka_id: null,
+        marka: '',
+        model_id: null,
+        model: '',
+        varyant_id: null,
+      }));
+      return;
+    }
+
+    const markaId = Number(val);
+    const selectedMarka = markalar.find((m) => Number(m.marka_id) === markaId);
+    const markaAd = selectedMarka?.ad || '';
+
+    setManualMarka(false);
+    setManualModel(false);
+    setManualVaryant(false);
+    setVaryantlar([]);
+
+    setForm((prev) => ({
+      ...prev,
+      marka_id: markaId,
+      marka: markaAd,
+      model_id: null,
+      model: '',
+      varyant_id: null,
+    }));
+
+    const reqId = ++modelRequestIdRef.current;
+    try {
+      const list = await katalogService.getModeller(markaId, form.kategori_id);
+      if (modelRequestIdRef.current !== reqId) return;
+      setModeller(list);
+      if (list.length === 0) {
+        setManualModel(true);
+        setManualVaryant(true);
+      }
+    } catch (_err) {
+      if (modelRequestIdRef.current !== reqId) return;
+      setManualModel(true);
+      setManualVaryant(true);
+    }
+  };
+
+  // 3. Kademe: Model Seçimi
+  const handleModelSelect = async (val) => {
+    clearFieldError('model');
+
+    if (val === MANUAL_OPTION) {
+      setManualModel(true);
+      setManualVaryant(true);
+      setVaryantlar([]);
+      setForm((prev) => ({
+        ...prev,
+        model_id: null,
+        model: '',
+        varyant_id: null,
+      }));
+      return;
+    }
+
+    const modelId = Number(val);
+    const selectedModel = modeller.find((m) => Number(m.model_id) === modelId);
+    const modelAd = selectedModel?.ad || '';
+
+    setManualModel(false);
+    setManualVaryant(false);
+
+    setForm((prev) => ({
+      ...prev,
+      model_id: modelId,
+      model: modelAd,
+      varyant_id: null,
+    }));
+
+    const reqId = ++varyantRequestIdRef.current;
+    try {
+      const list = await katalogService.getVaryantlar(modelId);
+      if (varyantRequestIdRef.current !== reqId) return;
+      setVaryantlar(list);
+      if (list.length === 0) {
+        setManualVaryant(true);
+      }
+    } catch (_err) {
+      if (varyantRequestIdRef.current !== reqId) return;
+      setManualVaryant(true);
+    }
+  };
+
+  // 4. Kademe: Varyant Seçimi (Otomatik Kalibrasyon)
+  const handleVaryantSelect = (val) => {
+    if (val === MANUAL_OPTION) {
+      setManualVaryant(true);
+      setForm((prev) => ({
+        ...prev,
+        varyant_id: null,
+      }));
+      return;
+    }
+
+    const varyantId = Number(val);
+    const selectedVaryant = varyantlar.find((v) => Number(v.varyant_id) === varyantId);
+    if (!selectedVaryant) return;
+
+    setManualVaryant(false);
+
+    const hasSmhInterval = Number(selectedVaryant.calisma_saati_bakim) > 0;
+    const nextSayacTipi = hasSmhInterval ? 'SMH' : 'KM';
+    const rawPeriyot = hasSmhInterval
+      ? Number(selectedVaryant.calisma_saati_bakim)
+      : Number(selectedVaryant.onerilen_bakim_km) || 15000;
+    const rawTriger =
+      !hasSmhInterval && Number(selectedVaryant.triger_degisim_km) > 0
+        ? formatLocaleNumber(Number(selectedVaryant.triger_degisim_km), 0)
+        : '';
+
+    setForm((prev) => ({
+      ...prev,
+      varyant_id: varyantId,
+      sayac_tipi: nextSayacTipi,
+      bakim_periyodu: formatLocaleNumber(rawPeriyot, 0),
+      triger_degisim_km: rawTriger,
+    }));
+
+    setSayacHatasi(null);
+    clearFieldError('sayac_tipi');
+    clearFieldError('bakim_periyodu');
+    clearFieldError('triger_degisim_km');
   };
 
   const handleSayacTipiChange = (nextTip) => {
@@ -181,18 +604,28 @@ export default function VehicleSheet({ open, onOpenChange, arac = null, onSucces
       errors.plaka = 'Plaka 5 ile 11 karakter arasında olmalıdır.';
     }
 
-    const trimmedMarka = form.marka.trim();
+    const trimmedKategori = String(form.kategori || '').trim();
+    if (!trimmedKategori) {
+      errors.kategori = 'Kategori zorunludur.';
+    }
+
+    const trimmedMarka = String(form.marka || '').trim();
     if (trimmedMarka.length < 2) {
       errors.marka = 'Marka en az 2 karakter olmalıdır.';
     }
 
-    const trimmedModel = form.model.trim();
+    const trimmedModel = String(form.model || '').trim();
     if (trimmedModel.length < 1) {
       errors.model = 'Model zorunludur.';
     }
 
     const parsedYil = Number(form.yil);
-    if (!String(form.yil).trim() || !Number.isInteger(parsedYil) || parsedYil < 1950 || parsedYil > 2027) {
+    if (
+      !String(form.yil).trim() ||
+      !Number.isInteger(parsedYil) ||
+      parsedYil < 1950 ||
+      parsedYil > 2027
+    ) {
       errors.yil = 'Model yılı 1950 ile 2027 arasında bir tam sayı olmalıdır.';
     }
 
@@ -218,11 +651,23 @@ export default function VehicleSheet({ open, onOpenChange, arac = null, onSucces
       return;
     }
 
+    const resolvedKategoriId = manualKategori
+      ? null
+      : form.kategori_id
+        ? Number(form.kategori_id)
+        : null;
+    const resolvedVaryantId =
+      manualKategori || manualMarka || manualModel || manualVaryant
+        ? null
+        : form.varyant_id
+          ? Number(form.varyant_id)
+          : null;
+
     const payload = {
       plaka: formattedPlaka,
-      kategori_id: arac?.kategori_id || null,
-      kategori: form.kategori || 'Otomobil',
-      varyant_id: arac?.varyant_id || null,
+      kategori_id: resolvedKategoriId,
+      kategori: trimmedKategori || 'Otomobil',
+      varyant_id: resolvedVaryantId,
       sayac_tipi: form.sayac_tipi,
       marka: trimmedMarka,
       model: trimmedModel,
@@ -294,6 +739,30 @@ export default function VehicleSheet({ open, onOpenChange, arac = null, onSucces
 
   const hasSayacError = Boolean(sayacHatasi || fieldErrors.guncel_sayac);
 
+  const kategoriSelectValue = manualKategori
+    ? MANUAL_OPTION
+    : form.kategori_id
+      ? String(form.kategori_id)
+      : '';
+
+  const markaSelectValue = manualMarka
+    ? MANUAL_OPTION
+    : form.marka_id
+      ? String(form.marka_id)
+      : '';
+
+  const modelSelectValue = manualModel
+    ? MANUAL_OPTION
+    : form.model_id
+      ? String(form.model_id)
+      : '';
+
+  const varyantSelectValue = manualVaryant
+    ? MANUAL_OPTION
+    : form.varyant_id
+      ? String(form.varyant_id)
+      : '';
+
   return (
     <AppSheet
       open={open}
@@ -301,8 +770,8 @@ export default function VehicleSheet({ open, onOpenChange, arac = null, onSucces
       title={isEditMode ? 'Aracı Düzenle' : 'Yeni Araç Ekle'}
       description={
         isEditMode
-          ? 'Araç kimliği, sayaç kalibrasyonu, bakım periyodu ve belge vadelerini güncelleyin.'
-          : 'Filoya yeni araç ekleyin; sayaç tipi, bakım periyodu ve resmi evrak vadelerini tanımlayın.'
+          ? 'Araç kimliği, katalog varyantı, sayaç kalibrasyonu, bakım periyodu ve belge vadelerini güncelleyin.'
+          : 'Filoya yeni araç ekleyin; 4 kademeli araç katalogundan varyant seçerek bakım periyotlarını otomatik doldurun.'
       }
       badge={isEditMode ? formatTurkishPlate(arac.plaka) : null}
       submitLabel={isEditMode ? 'Değişiklikleri Kaydet' : 'Aracı Ekle'}
@@ -310,10 +779,10 @@ export default function VehicleSheet({ open, onOpenChange, arac = null, onSucces
       isSubmitting={isSubmitting}
       onSubmit={handleSubmit}
     >
-      {/* 1. Bölüm: Kimlik & Sınıflandırma */}
+      {/* 1. Bölüm: Kimlik & Sınıflandırma (4 Kademeli Araç Katalogu) */}
       <SheetFormSection
         title="Kimlik & Sınıflandırma"
-        description="Plaka, araç kategorisi ve temel marka/model bilgileri"
+        description="Plaka, kategori, marka, model ve motor/kasa varyantı seçimi"
       >
         <SheetFormGrid columns={2}>
           <SheetField
@@ -337,19 +806,46 @@ export default function VehicleSheet({ open, onOpenChange, arac = null, onSucces
             />
           </SheetField>
 
-          <SheetField label="Kategori" htmlFor="vehicle-kategori" error={fieldErrors.kategori}>
-            <Select value={form.kategori} onValueChange={handleKategoriChange}>
-              <SelectTrigger id="vehicle-kategori" className="w-full">
-                <SelectValue placeholder="Kategori seçin" />
-              </SelectTrigger>
-              <SelectContent>
-                {kategoriOptions.map((tip) => (
-                  <SelectItem key={tip} value={tip}>
-                    {tip}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <SheetField
+            label="Kategori"
+            htmlFor="vehicle-kategori"
+            required
+            error={fieldErrors.kategori}
+          >
+            <div className="space-y-2">
+              <Select
+                value={kategoriSelectValue}
+                onValueChange={handleKategoriSelect}
+                disabled={loadingKatalog}
+              >
+                <SelectTrigger id="vehicle-kategori" className="w-full">
+                  <SelectValue
+                    placeholder={loadingKatalog ? 'Katalog yükleniyor...' : 'Kategori seçin'}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {kategoriler.map((kat) => (
+                    <SelectItem key={kat.kategori_id} value={String(kat.kategori_id)}>
+                      {kat.ad}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value={MANUAL_OPTION}>Diğer / Manuel Gir</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {manualKategori && (
+                <Input
+                  id="vehicle-kategori-manual"
+                  value={form.kategori}
+                  onChange={(e) => updateField('kategori', e.target.value)}
+                  placeholder="Kategori adı girin (Örn: Özel Amaçlı Araç)"
+                  aria-invalid={Boolean(fieldErrors.kategori) || undefined}
+                  className={cn(
+                    fieldErrors.kategori && 'border-destructive focus-visible:border-destructive'
+                  )}
+                />
+              )}
+            </div>
           </SheetField>
 
           <SheetField
@@ -358,16 +854,36 @@ export default function VehicleSheet({ open, onOpenChange, arac = null, onSucces
             required
             error={fieldErrors.marka}
           >
-            <Input
-              id="vehicle-marka"
-              value={form.marka}
-              onChange={(e) => updateField('marka', e.target.value)}
-              placeholder="Örn: Mercedes-Benz"
-              aria-invalid={Boolean(fieldErrors.marka) || undefined}
-              className={cn(
-                fieldErrors.marka && 'border-destructive focus-visible:border-destructive'
+            <div className="space-y-2">
+              {!manualKategori && markalar.length > 0 && (
+                <Select value={markaSelectValue} onValueChange={handleMarkaSelect}>
+                  <SelectTrigger id="vehicle-marka-select" className="w-full">
+                    <SelectValue placeholder="Marka seçin" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {markalar.map((m) => (
+                      <SelectItem key={m.marka_id} value={String(m.marka_id)}>
+                        {m.ad}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value={MANUAL_OPTION}>Diğer / Manuel Gir</SelectItem>
+                  </SelectContent>
+                </Select>
               )}
-            />
+
+              {(manualKategori || manualMarka || markalar.length === 0) && (
+                <Input
+                  id="vehicle-marka"
+                  value={form.marka}
+                  onChange={(e) => updateField('marka', e.target.value)}
+                  placeholder="Örn: Mercedes-Benz"
+                  aria-invalid={Boolean(fieldErrors.marka) || undefined}
+                  className={cn(
+                    fieldErrors.marka && 'border-destructive focus-visible:border-destructive'
+                  )}
+                />
+              )}
+            </div>
           </SheetField>
 
           <SheetField
@@ -376,16 +892,77 @@ export default function VehicleSheet({ open, onOpenChange, arac = null, onSucces
             required
             error={fieldErrors.model}
           >
-            <Input
-              id="vehicle-model"
-              value={form.model}
-              onChange={(e) => updateField('model', e.target.value)}
-              placeholder="Örn: Actros 1848"
-              aria-invalid={Boolean(fieldErrors.model) || undefined}
-              className={cn(
-                fieldErrors.model && 'border-destructive focus-visible:border-destructive'
+            <div className="space-y-2">
+              {!manualKategori && !manualMarka && modeller.length > 0 && (
+                <Select value={modelSelectValue} onValueChange={handleModelSelect}>
+                  <SelectTrigger id="vehicle-model-select" className="w-full">
+                    <SelectValue placeholder="Model seçin" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {modeller.map((mod) => (
+                      <SelectItem key={mod.model_id} value={String(mod.model_id)}>
+                        {mod.ad}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value={MANUAL_OPTION}>Diğer / Manuel Gir</SelectItem>
+                  </SelectContent>
+                </Select>
               )}
-            />
+
+              {(manualKategori ||
+                manualMarka ||
+                manualModel ||
+                !form.marka_id ||
+                modeller.length === 0) && (
+                <Input
+                  id="vehicle-model"
+                  value={form.model}
+                  onChange={(e) => updateField('model', e.target.value)}
+                  placeholder="Örn: Actros 1848"
+                  aria-invalid={Boolean(fieldErrors.model) || undefined}
+                  className={cn(
+                    fieldErrors.model && 'border-destructive focus-visible:border-destructive'
+                  )}
+                />
+              )}
+            </div>
+          </SheetField>
+
+          <SheetField
+            label="Motor / Kasa Varyantı"
+            htmlFor="vehicle-varyant"
+            hint="Varyant seçildiğinde sayaç tipi ve bakım periyotları otomatik kalibre edilir"
+          >
+            <Select
+              value={varyantSelectValue}
+              onValueChange={handleVaryantSelect}
+              disabled={manualKategori || manualMarka || manualModel || varyantlar.length === 0}
+            >
+              <SelectTrigger id="vehicle-varyant" className="w-full">
+                <SelectValue
+                  placeholder={
+                    manualKategori || manualMarka || manualModel || varyantlar.length === 0
+                      ? 'Diğer / Manuel Kalibrasyon'
+                      : 'Varyant seçin (opsiyonel)'
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {varyantlar.map((v) => {
+                  const label =
+                    v.etiket ||
+                    [v.kasa_tipi, v.motor_adi, v.sanziman_tipi, v.yakit_tipi]
+                      .filter(Boolean)
+                      .join(' • ');
+                  return (
+                    <SelectItem key={v.varyant_id} value={String(v.varyant_id)}>
+                      {label}
+                    </SelectItem>
+                  );
+                })}
+                <SelectItem value={MANUAL_OPTION}>Diğer / Manuel Gir</SelectItem>
+              </SelectContent>
+            </Select>
           </SheetField>
 
           <SheetField
@@ -508,8 +1085,9 @@ export default function VehicleSheet({ open, onOpenChange, arac = null, onSucces
         description="Muayene, trafik sigortası ve kasko bitiş tarihleri"
       >
         <SheetFormGrid columns={2}>
-          <SheetField label="Muayene Tarihi">
+          <SheetField label="Muayene Tarihi" htmlFor="vehicle-muayene-tarihi">
             <TrussDatePicker
+              id="vehicle-muayene-tarihi"
               name="muayene_tarihi"
               value={form.muayene_tarihi}
               onChange={(e) => updateField('muayene_tarihi', e.target.value)}
@@ -517,8 +1095,9 @@ export default function VehicleSheet({ open, onOpenChange, arac = null, onSucces
             />
           </SheetField>
 
-          <SheetField label="Trafik Sigortası Tarihi">
+          <SheetField label="Trafik Sigortası Tarihi" htmlFor="vehicle-sigorta-tarihi">
             <TrussDatePicker
+              id="vehicle-sigorta-tarihi"
               name="sigorta_tarihi"
               value={form.sigorta_tarihi}
               onChange={(e) => updateField('sigorta_tarihi', e.target.value)}
@@ -526,8 +1105,9 @@ export default function VehicleSheet({ open, onOpenChange, arac = null, onSucces
             />
           </SheetField>
 
-          <SheetField label="Kasko Tarihi">
+          <SheetField label="Kasko Tarihi" htmlFor="vehicle-kasko-tarihi">
             <TrussDatePicker
+              id="vehicle-kasko-tarihi"
               name="kasko_tarihi"
               value={form.kasko_tarihi}
               onChange={(e) => updateField('kasko_tarihi', e.target.value)}

@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Fuel, Wrench } from 'lucide-react';
+import useAuthStore from '@/store/useAuthStore';
 import yakitService from '@/services/yakitService';
 import bakimService from '@/services/bakimService';
+import { resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { isSmhArac } from '@/utils/aracDurum';
 import { getErrorStatus, notifyApiError } from '@/utils/apiError';
 import { getTodayIso } from '@/utils/dateUtils';
@@ -207,13 +209,54 @@ export default function MovementSheet({
   prefill = null,
   araclar = [],
   defaultAracId = null,
+  canAddFuel: canAddFuelProp,
+  canAddMaintenance: canAddMaintenanceProp,
   onSuccess,
 }) {
+  const user = useAuthStore((s) => s.user);
+  const role = resolveRole(user);
+  const canManage = [ROLES.SYSTEM_ADMIN, ROLES.FLEET_MANAGER].includes(role);
+  const canAddFuel =
+    canAddFuelProp !== undefined
+      ? Boolean(canAddFuelProp)
+      : canManage || user?.yetkiler?.yakit === true;
+  const canAddMaintenance =
+    canAddMaintenanceProp !== undefined
+      ? Boolean(canAddMaintenanceProp)
+      : canManage || user?.yetkiler?.bakim === true;
+
+  const resolveAllowedTip = (requestedTip) => {
+    const normalized = requestedTip === 'BAKIM' ? 'BAKIM' : 'YAKIT';
+    if (normalized === 'YAKIT' && !canAddFuel && canAddMaintenance) {
+      return 'BAKIM';
+    }
+    if (normalized === 'BAKIM' && !canAddMaintenance && canAddFuel) {
+      return 'YAKIT';
+    }
+    return normalized;
+  };
+
+  const effectiveInitialTip = resolveAllowedTip(initialTip);
+
   const [form, setForm] = useState(() =>
-    buildInitialForm({ mode, initialTip, record, defaultAracId, araclar, prefill })
+    buildInitialForm({
+      mode,
+      initialTip: effectiveInitialTip,
+      record,
+      defaultAracId,
+      araclar,
+      prefill,
+    })
   );
   const [initialSnapshot, setInitialSnapshot] = useState(() =>
-    buildInitialForm({ mode, initialTip, record, defaultAracId, araclar, prefill })
+    buildInitialForm({
+      mode,
+      initialTip: effectiveInitialTip,
+      record,
+      defaultAracId,
+      araclar,
+      prefill,
+    })
   );
   const [fieldErrors, setFieldErrors] = useState({});
   const [sayacHatasi, setSayacHatasi] = useState(null);
@@ -224,9 +267,15 @@ export default function MovementSheet({
 
   useEffect(() => {
     if (!open) return;
+    const allowedTip =
+      mode === 'create'
+        ? resolveAllowedTip(initialTip)
+        : record?.tip === 'BAKIM'
+          ? 'BAKIM'
+          : 'YAKIT';
     const next = buildInitialForm({
       mode,
-      initialTip,
+      initialTip: allowedTip,
       record,
       defaultAracId,
       araclar: araclarRef.current,
@@ -236,7 +285,8 @@ export default function MovementSheet({
     setInitialSnapshot(next);
     setFieldErrors({});
     setSayacHatasi(null);
-  }, [open, mode, initialTip, record, defaultAracId, prefill]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, mode, initialTip, record, defaultAracId, prefill, canAddFuel, canAddMaintenance]);
 
   // Araç listesi sheet açıkken sonradan yüklenirse ve araç henüz boşsa ilk aracı varsayılan seç (snapshot ile senkron)
   useEffect(() => {
@@ -303,6 +353,8 @@ export default function MovementSheet({
 
   const handleTipChange = (nextTip) => {
     if (mode !== 'create') return;
+    if (nextTip === 'YAKIT' && !canAddFuel) return;
+    if (nextTip === 'BAKIM' && !canAddMaintenance) return;
     setForm((prev) => ({ ...prev, tip: nextTip === 'BAKIM' ? 'BAKIM' : 'YAKIT' }));
     setFieldErrors({});
     setSayacHatasi(null);
@@ -504,8 +556,8 @@ export default function MovementSheet({
       isSubmitting={isSubmitting}
       onSubmit={handleSubmit}
     >
-      {/* Kayıt Türü Seçimi (Yalnızca Yeni Kayıt Modunda) */}
-      {mode === 'create' && (
+      {/* Kayıt Türü Seçimi (Yalnızca Yeni Kayıt Modunda ve Her İki Yetki Açıkken) */}
+      {mode === 'create' && canAddFuel && canAddMaintenance && (
         <Tabs value={form.tip} onValueChange={handleTipChange} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="YAKIT" className="gap-1.5 text-xs">

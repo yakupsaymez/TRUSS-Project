@@ -94,6 +94,8 @@ export default function LedgerDataTable({
   loading = false,
   hasLoaded = false,
   canManage = false,
+  canAddFuel = true,
+  canAddMaintenance = true,
   onCreateYakit,
   onCreateBakim,
   onRepeatRow,
@@ -453,18 +455,28 @@ export default function LedgerDataTable({
         enableSorting: false,
         cell: ({ row }) => {
           const item = row.original;
+          const canRepeat =
+            Boolean(onRepeatRow) &&
+            (item.tip === 'BAKIM' ? canAddMaintenance : canAddFuel);
+
+          if (!canRepeat && !canManage) {
+            return <span className="block text-right text-xs text-muted-foreground">—</span>;
+          }
+
           return (
             <div className="flex items-center justify-end gap-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => onRepeatRow?.(item)}
-                title="Son kaydı tekrarla"
-                aria-label="Son kaydı tekrarla"
-              >
-                <Copy className="size-4" />
-              </Button>
+              {canRepeat && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => onRepeatRow?.(item)}
+                  title="Son kaydı tekrarla"
+                  aria-label="Son kaydı tekrarla"
+                >
+                  <Copy className="size-4" />
+                </Button>
+              )}
 
               {canManage && (
                 <Button
@@ -497,7 +509,7 @@ export default function LedgerDataTable({
         },
       },
     ],
-    [canManage, onRepeatRow, onEditRow, onDeleteRequest]
+    [canManage, canAddFuel, canAddMaintenance, onRepeatRow, onEditRow, onDeleteRequest]
   );
 
   const table = useReactTable({
@@ -760,10 +772,30 @@ export default function LedgerDataTable({
                       icon={ReceiptText}
                       title="Henüz hareket kaydı yok"
                       description="İlk yakıt ikmalinizi veya servis bakım kaydınızı ekleyerek gider defterini başlatın."
-                      actionLabel="Yeni Yakıt"
-                      onAction={onCreateYakit}
-                      secondaryActionLabel="Yeni Bakım"
-                      onSecondaryAction={onCreateBakim}
+                      actionLabel={
+                        canAddFuel && onCreateYakit
+                          ? 'Yeni Yakıt'
+                          : canAddMaintenance && onCreateBakim
+                            ? 'Yeni Bakım'
+                            : undefined
+                      }
+                      onAction={
+                        canAddFuel && onCreateYakit
+                          ? onCreateYakit
+                          : canAddMaintenance && onCreateBakim
+                            ? onCreateBakim
+                            : undefined
+                      }
+                      secondaryActionLabel={
+                        canAddFuel && canAddMaintenance && onCreateYakit && onCreateBakim
+                          ? 'Yeni Bakım'
+                          : undefined
+                      }
+                      onSecondaryAction={
+                        canAddFuel && canAddMaintenance && onCreateYakit && onCreateBakim
+                          ? onCreateBakim
+                          : undefined
+                      }
                     />
                   ) : (
                     <EmptyState

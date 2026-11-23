@@ -32,10 +32,10 @@
   --color-truss-muted: var(--truss-muted);
   --color-truss-border: var(--truss-border);
 
-  --color-status-success: #10b981;
-  --color-status-warning: #f59e0b;
-  --color-status-danger: #f43f5e;
-  --color-status-info: #38bdf8;
+  --color-status-success: var(--status-success);
+  --color-status-warning: var(--status-warning);
+  --color-status-danger: var(--status-danger);
+  --color-status-info: var(--status-info);
 
   --color-border: var(--border);
   --color-input: var(--input);
@@ -92,14 +92,6 @@
     0 24px 64px -12px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
-/*
-  The default border color has changed to `currentcolor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
-
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
 @layer base {
   *,
   ::after,
@@ -108,63 +100,12 @@
   ::file-selector-button {
     border-color: var(--color-gray-200, currentcolor);
   }
-}
 
-@layer base {
   button:not(:disabled),
   [role='button']:not(:disabled) {
     cursor: pointer;
   }
-}
 
-@layer utilities {
-  :root,
-  html[data-theme='light'] {
-    --app-bg: #f3f5fb;
-    --text-main: #0f172a;
-    --text-strong: #0f172a;
-    --text-muted: #64748b;
-    --glass-bg: #ffffff;
-    --glass-border: #e7eaf3;
-    --toast-bg: #ffffff;
-    --toast-text: #0f172a;
-    --toast-border: #e7eaf3;
-    --shadow-soft:
-      0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 28px -16px rgba(30, 41, 59, 0.12);
-    --shadow-soft-hover:
-      0 4px 14px rgba(15, 23, 42, 0.06),
-      0 22px 45px -20px rgba(124, 58, 237, 0.22);
-    --accent-glow: rgba(124, 58, 237, 0.35);
-    --noir-bg: linear-gradient(135deg, #07070b 0%, #0e0e14 45%, #14141d 100%);
-    --noir-border: rgba(124, 58, 237, 0.24);
-    --noir-text: #fafafc;
-    --noir-text-muted: rgba(250, 250, 252, 0.64);
-  }
-
-  html.dark,
-  html[data-theme='dark'] {
-    --app-bg: #09090b;
-    --text-main: #e4e4e7;
-    --text-strong: #fafafa;
-    --text-muted: #a1a1aa;
-    --glass-bg: #09090b;
-    --glass-border: rgba(255, 255, 255, 0.05);
-    --toast-bg: #09090b;
-    --toast-text: #fafafa;
-    --toast-border: rgba(255, 255, 255, 0.06);
-    --shadow-soft:
-      0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 28px -16px rgba(0, 0, 0, 0.6);
-    --shadow-soft-hover:
-      0 4px 18px rgba(0, 0, 0, 0.45), 0 22px 48px -18px rgba(124, 58, 237, 0.32);
-    --accent-glow: rgba(124, 58, 237, 0.3);
-    --noir-bg: linear-gradient(135deg, #09090b 0%, #0c0c0f 50%, #121217 100%);
-    --noir-border: rgba(124, 58, 237, 0.22);
-    --noir-text: #fafafa;
-    --noir-text-muted: rgba(250, 250, 250, 0.62);
-  }
-}
-
-@layer base {
   * {
     @apply border-border outline-ring;
   }
@@ -172,58 +113,73 @@
   body {
     @apply bg-background text-foreground font-sans;
   }
+
   .theme {
     --font-heading: 'Space Grotesk', sans-serif;
     --font-sans: 'Plus Jakarta Sans', 'Inter Variable', sans-serif;
   }
+
   :root {
-    /* Açık (Light) Mod — TRUSS ham değişkenler */
+    /* Açık (Light) Mod — TRUSS değişkenleri (ayrıştırılmış yüzeyler) */
     --truss-bg: #F4F4F5;
     --truss-surface: #FFFFFF;
-    --truss-purple: #8B5CF6;
-    --truss-purple-hover: #7C3AED;
+    --truss-purple: #7C3AED;
+    --truss-purple-hover: #6D28D9;
     --truss-text: #09090B;
-    --truss-muted: #71717A;
+    --truss-muted: #52525B;
     --truss-border: #E4E4E7;
 
-    /* shadcn semantik → TRUSS eşlemesi */
-    --background: var(--truss-bg);
-    --foreground: var(--truss-text);
-    --card: var(--truss-surface);
-    --card-foreground: var(--truss-text);
-    --popover: var(--truss-surface);
-    --popover-foreground: var(--truss-text);
-    --primary: var(--truss-purple);
+    --background: #F4F4F5;
+    --foreground: #09090B;
+    --card: #FFFFFF;
+    --card-foreground: #09090B;
+    --popover: #FFFFFF;
+    --popover-foreground: #09090B;
+    --primary: #7C3AED;
     --primary-foreground: #FFFFFF;
-    --secondary: #F4F4F5;
+    --secondary: #E4E4E7;
     --secondary-foreground: #18181B;
-    --muted: #F4F4F5;
-    --muted-foreground: var(--truss-muted);
-    --accent: #F4F4F5;
+    --muted: #E4E4E7;
+    --muted-foreground: #52525B;
+    --accent: #E4E4E7;
     --accent-foreground: #18181B;
-    --destructive: #F43F5E;
-    --border: var(--truss-border);
-    --input: var(--truss-border);
-    --ring: var(--truss-purple);
-    --chart-1: #C4B5FD;
-    --chart-2: #A78BFA;
+    --destructive: #BE123C;
+    --border: #E4E4E7;
+    --input: #D4D4D8;
+    --ring: #7C3AED;
+
+    /* Semantik durum renkleri (Light — koyu kontrastlı) */
+    --status-success: #047857;
+    --status-warning: #b45309;
+    --status-danger: #be123c;
+    --status-info: #0284c7;
+
+    /* Grafik renkleri (Light — yüksek kontrastlı) */
+    --chart-1: #7C3AED;
+    --chart-2: #6D28D9;
     --chart-3: #8B5CF6;
-    --chart-4: #7C3AED;
+    --chart-4: #A78BFA;
     --chart-5: #5B21B6;
     --radius: 0.75rem;
 
-    /* Kesintisiz tema: sidebar = içerik zemini, ayrım yalnızca border */
-    --sidebar: var(--truss-bg);
-    --sidebar-foreground: var(--truss-text);
-    --sidebar-primary: var(--truss-purple);
+    /* Sidebar (Light) */
+    --sidebar: #F4F4F5;
+    --sidebar-foreground: #09090B;
+    --sidebar-primary: #7C3AED;
     --sidebar-primary-foreground: #FFFFFF;
-    --sidebar-accent: #F4F4F5;
+    --sidebar-accent: #E4E4E7;
     --sidebar-accent-foreground: #18181B;
-    --sidebar-border: var(--truss-border);
-    --sidebar-ring: var(--truss-purple);
+    --sidebar-border: #E4E4E7;
+    --sidebar-ring: #7C3AED;
+
+    /* Toast (Light) */
+    --toast-bg: #FFFFFF;
+    --toast-text: #09090B;
+    --toast-border: #E4E4E7;
   }
+
   .dark {
-    /* Koyu (Dark) Mod — TRUSS ham değişkenler */
+    /* Koyu (Dark) Mod — TRUSS değişkenleri */
     --truss-bg: #09090B;
     --truss-surface: #18181B;
     --truss-purple: #8B5CF6;
@@ -232,42 +188,68 @@
     --truss-muted: #A1A1AA;
     --truss-border: #27272A;
 
-    /* shadcn semantik → TRUSS eşlemesi (.dark içinde yeniden bağlanır) */
-    --background: var(--truss-bg);
-    --foreground: var(--truss-text);
-    --card: var(--truss-surface);
-    --card-foreground: var(--truss-text);
-    --popover: var(--truss-surface);
-    --popover-foreground: var(--truss-text);
-    --primary: var(--truss-purple);
+    --background: #09090B;
+    --foreground: #FAFAFA;
+    --card: #18181B;
+    --card-foreground: #FAFAFA;
+    --popover: #18181B;
+    --popover-foreground: #FAFAFA;
+    --primary: #8B5CF6;
     --primary-foreground: #FFFFFF;
     --secondary: #121215;
     --secondary-foreground: #FAFAFA;
     --muted: #121215;
-    --muted-foreground: var(--truss-muted);
-    --accent: #18181B;
+    --muted-foreground: #A1A1AA;
+    --accent: #27272A;
     --accent-foreground: #FAFAFA;
     --destructive: #F43F5E;
-    --border: var(--truss-border);
-    --input: var(--truss-border);
-    --ring: var(--truss-purple);
+    --border: #27272A;
+    --input: #27272A;
+    --ring: #8B5CF6;
+
+    /* Semantik durum renkleri (Dark — parlak tonlar) */
+    --status-success: #10b981;
+    --status-warning: #f59e0b;
+    --status-danger: #f43f5e;
+    --status-info: #38bdf8;
+
+    /* Grafik renkleri (Dark) */
     --chart-1: #DDD6FE;
     --chart-2: #C4B5FD;
     --chart-3: #A78BFA;
     --chart-4: #8B5CF6;
     --chart-5: #7C3AED;
 
-    --sidebar: var(--truss-bg);
-    --sidebar-foreground: var(--truss-text);
-    --sidebar-primary: var(--truss-purple);
+    /* Sidebar (Dark) */
+    --sidebar: #09090B;
+    --sidebar-foreground: #FAFAFA;
+    --sidebar-primary: #8B5CF6;
     --sidebar-primary-foreground: #FFFFFF;
     --sidebar-accent: #18181B;
     --sidebar-accent-foreground: #FAFAFA;
-    --sidebar-border: var(--truss-border);
-    --sidebar-ring: var(--truss-purple);
+    --sidebar-border: #27272A;
+    --sidebar-ring: #8B5CF6;
+
+    /* Toast (Dark) */
+    --toast-bg: #18181B;
+    --toast-text: #FAFAFA;
+    --toast-border: #27272A;
   }
+
   html {
     @apply font-sans;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  .font-display {
+    font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.025em;
   }
 }
 
@@ -284,25 +266,13 @@ body {
     radial-gradient(1100px 480px at 0% -10%, rgba(124, 58, 237, 0.06), transparent 60%),
     radial-gradient(900px 460px at 100% 0%, rgba(6, 182, 212, 0.03), transparent 55%);
   background-attachment: fixed;
-  transition: background 260ms ease, color 260ms ease;
+  transition: background-color 220ms ease, color 220ms ease;
   min-height: 100vh;
   letter-spacing: -0.005em;
 }
 
 #root {
   min-height: 100vh;
-}
-
-/* ---------------------------------------------------------------- */
-/* Headings, Logotype & Tabular Data Typography                      */
-/* ---------------------------------------------------------------- */
-
-h1, h2, h3, h4, h5, h6,
-.font-display {
-  font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  color: var(--text-strong);
 }
 
 .truss-logotype {
@@ -318,358 +288,8 @@ table,
   font-variant-numeric: tabular-nums;
 }
 
-/* ---------------------------------------------------------------- */
-/* Surfaces: cards, panels, glass effect                              */
-/* ---------------------------------------------------------------- */
-
-.glass-card {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: 1.25rem;
-  box-shadow: var(--shadow-soft);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  transition: box-shadow 240ms ease, transform 240ms ease, border-color 240ms ease;
-}
-
-html:not(.dark) .glass-card,
-html[data-theme='light'] .glass-card {
-  background: #ffffff;
-  border: 1px solid #e7eaf3;
-  box-shadow: var(--shadow-soft);
-}
-
-.interactive-card {
-  cursor: pointer;
-}
-
-.interactive-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-soft-hover);
-  border-color: rgba(99, 102, 241, 0.35);
-}
-
-.interactive-card:active {
-  transform: translateY(-1px) scale(0.997);
-}
-
-/* ---------------------------------------------------------------- */
-/* Accent (siyah + sari) vurgu sistemi                                */
-/* ---------------------------------------------------------------- */
-
 .text-gradient-accent {
   color: var(--primary);
-}
-
-.chip-accent {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  border-radius: 9999px;
-  border: 1px solid color-mix(in oklch, var(--primary) 35%, transparent);
-  background: color-mix(in oklch, var(--primary) 12%, transparent);
-  color: var(--primary);
-  font-weight: 600;
-  font-size: 0.75rem;
-  padding: 0.3rem 0.7rem;
-}
-
-html.dark .chip-accent,
-html[data-theme='dark'] .chip-accent {
-  color: var(--primary);
-  background: color-mix(in oklch, var(--primary) 10%, transparent);
-  border-color: color-mix(in oklch, var(--primary) 30%, transparent);
-}
-
-.glow-accent-hover {
-  transition: box-shadow 240ms ease, border-color 240ms ease, transform 240ms ease;
-}
-
-.glow-accent-hover:hover {
-  border-color: var(--noir-border);
-  box-shadow: 0 16px 40px -22px var(--accent-glow), 0 0 0 1px var(--accent-glow);
-}
-
-.sort-btn:hover {
-  color: var(--primary);
-}
-
-/* Siyah + sari "noir" banner / vurgu yuzeyi */
-.banner-noir {
-  position: relative;
-  overflow: hidden;
-  border-radius: 1.5rem;
-  background: var(--noir-bg);
-  border: 1px solid var(--noir-border);
-  color: var(--noir-text);
-  box-shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.65);
-  isolation: isolate;
-}
-
-.banner-noir::before,
-.banner-noir::after {
-  content: '';
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: -1;
-}
-
-.banner-noir::before {
-  width: 22rem;
-  height: 22rem;
-  right: -7rem;
-  top: -9rem;
-  background: radial-gradient(circle, color-mix(in oklch, var(--primary) 28%, transparent), transparent 70%);
-}
-
-.banner-noir::after {
-  width: 18rem;
-  height: 18rem;
-  left: -6rem;
-  bottom: -8rem;
-  background: radial-gradient(circle, rgba(37, 99, 235, 0.22), transparent 70%);
-}
-
-.banner-noir .banner-noir-muted {
-  color: var(--noir-text-muted);
-}
-
-.banner-noir-stat {
-  border-radius: 1rem;
-  border: 1px solid rgba(248, 250, 252, 0.1);
-  background: rgba(248, 250, 252, 0.05);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  transition: border-color 220ms ease, background-color 220ms ease, transform 220ms ease;
-}
-
-.banner-noir-stat:hover {
-  border-color: color-mix(in oklch, var(--primary) 35%, transparent);
-  background: rgba(248, 250, 252, 0.08);
-  transform: translateY(-2px);
-}
-
-/* Dashboard ozet kartlari: ikon rozeti + aksan seridi */
-.stat-card {
-  position: relative;
-  overflow: hidden;
-  padding-top: 1.75rem !important;
-}
-
-.stat-card::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 3px;
-  background: linear-gradient(90deg, transparent, var(--accent-glow) 50%, transparent);
-  opacity: 0.7;
-}
-
-.stat-card-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 0.75rem;
-  margin-bottom: 0.65rem;
-}
-
-.stat-card-icon-rose {
-  color: #f43f5e;
-  background: rgba(244, 63, 94, 0.12);
-}
-
-.stat-card-icon-amber {
-  color: #f59e0b;
-  background: rgba(245, 158, 11, 0.12);
-}
-
-.stat-card-icon-emerald {
-  color: #10b981;
-  background: rgba(16, 185, 129, 0.12);
-}
-
-.stat-card-icon-accent {
-  color: var(--primary);
-  background: color-mix(in oklch, var(--primary) 16%, transparent);
-}
-
-.stat-card-accent {
-  background: var(--noir-bg);
-  border: 1px solid var(--noir-border);
-  color: var(--noir-text);
-}
-
-.stat-card-accent p:first-of-type {
-  color: var(--noir-text-muted) !important;
-}
-
-/* ---------------------------------------------------------------- */
-/* Buttons                                                            */
-/* ---------------------------------------------------------------- */
-
-.neo-btn {
-  font-weight: 600;
-  border-radius: 0.75rem;
-  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms ease, background-color 200ms ease, filter 200ms ease, opacity 200ms ease;
-}
-
-.theme-switch-btn {
-  border-radius: 9999px;
-  padding: 0.45rem 0.7rem;
-  font-size: 0.875rem;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  color: var(--text-main);
-  backdrop-filter: blur(8px);
-}
-
-button,
-a,
-.neo-btn,
-.theme-switch-btn,
-input,
-select,
-textarea {
-  transition: background-color 220ms ease, border-color 220ms ease, color 220ms ease, box-shadow 220ms ease, transform 180ms cubic-bezier(0.22, 1, 0.36, 1), filter 200ms ease, opacity 200ms ease;
-}
-
-button:hover:not(:disabled),
-.neo-btn:hover:not(:disabled),
-.theme-switch-btn:hover:not(:disabled) {
-  filter: none;
-  transform: translateY(-1.5px);
-  box-shadow: 0 10px 22px -12px rgba(15, 23, 42, 0.35);
-}
-
-a:hover {
-  filter: none;
-}
-
-button:active:not(:disabled),
-.neo-btn:active:not(:disabled),
-.theme-switch-btn:active:not(:disabled),
-.interactive-card:active {
-  transform: translateY(0) scale(0.97);
-  box-shadow: 0 2px 6px -2px rgba(15, 23, 42, 0.25);
-}
-
-button:disabled,
-.neo-btn:disabled {
-  cursor: not-allowed;
-}
-
-/* ---------------------------------------------------------------- */
-/* Forms: inputs, selects, textareas                                  */
-/* ---------------------------------------------------------------- */
-
-.auth-stage {
-  background-color: var(--app-bg);
-  background-image:
-    radial-gradient(900px 420px at 20% 0%, rgba(99, 102, 241, 0.10), transparent 60%),
-    radial-gradient(900px 460px at 85% 100%, rgba(37, 99, 235, 0.08), transparent 55%);
-  border: 1px solid var(--glass-border);
-}
-
-input,
-select,
-textarea {
-  border-radius: 0.7rem;
-}
-
-input::placeholder,
-textarea::placeholder {
-  color: #94a3b8;
-}
-
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible,
-button:focus-visible {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 4px color-mix(in oklch, var(--primary) 16%, transparent);
-}
-
-.neon-focus:focus,
-.neon-focus:focus-visible {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 4px color-mix(in oklch, var(--primary) 16%, transparent);
-}
-
-/* ---------------------------------------------------------------- */
-/* Apple-Style Minimalist Date Picker & Modal Input Ergonomics       */
-/* ---------------------------------------------------------------- */
-
-input[type="date"],
-.apple-date-input {
-  position: relative;
-  appearance: none;
-  -webkit-appearance: none;
-  height: 2.5rem;
-  padding: 0.5rem 0.85rem;
-  border-radius: 0.75rem;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
-  line-height: 1.25rem;
-  cursor: pointer;
-  transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
-}
-
-input[type="date"]::-webkit-datetime-edit,
-.apple-date-input::-webkit-datetime-edit {
-  padding: 0;
-}
-
-input[type="date"]::-webkit-datetime-edit-fields-wrapper,
-.apple-date-input::-webkit-datetime-edit-fields-wrapper {
-  padding: 0;
-}
-
-input[type="date"]::-webkit-datetime-edit-day-field:focus,
-input[type="date"]::-webkit-datetime-edit-month-field:focus,
-input[type="date"]::-webkit-datetime-edit-year-field:focus,
-.apple-date-input::-webkit-datetime-edit-day-field:focus,
-.apple-date-input::-webkit-datetime-edit-month-field:focus,
-.apple-date-input::-webkit-datetime-edit-year-field:focus {
-  background-color: color-mix(in oklch, var(--primary) 18%, transparent);
-  color: inherit;
-  border-radius: 0.25rem;
-  padding: 0 2px;
-}
-
-input[type="date"]::-webkit-calendar-picker-indicator,
-.apple-date-input::-webkit-calendar-picker-indicator {
-  cursor: pointer;
-  opacity: 0.75;
-  width: 1.15rem;
-  height: 1.15rem;
-  padding: 0.2rem;
-  margin-left: 0.35rem;
-  border-radius: 0.45rem;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='18' x='3' y='4' rx='3'/%3E%3Cline x1='16' x2='16' y1='2' y2='6'/%3E%3Cline x1='8' x2='8' y1='2' y2='6'/%3E%3Cline x1='3' x2='21' y1='10' y2='10'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 1rem 1rem;
-  transition: opacity 160ms ease, background-color 160ms ease, transform 160ms ease;
-}
-
-html.dark input[type="date"]::-webkit-calendar-picker-indicator,
-html[data-theme='dark'] input[type="date"]::-webkit-calendar-picker-indicator,
-html.dark .apple-date-input::-webkit-calendar-picker-indicator,
-html[data-theme='dark'] .apple-date-input::-webkit-calendar-picker-indicator {
-  filter: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='18' x='3' y='4' rx='3'/%3E%3Cline x1='16' x2='16' y1='2' y2='6'/%3E%3Cline x1='8' x2='8' y1='2' y2='6'/%3E%3Cline x1='3' x2='21' y1='10' y2='10'/%3E%3C/svg%3E");
-}
-
-input[type="date"]::-webkit-calendar-picker-indicator:hover,
-.apple-date-input::-webkit-calendar-picker-indicator:hover {
-  opacity: 1;
-  background-color: rgba(100, 116, 139, 0.14);
-  transform: scale(1.06);
 }
 
 /* ---------------------------------------------------------------- */
@@ -719,225 +339,17 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover,
   }
 }
 
-@keyframes modalBackdropIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes modalBackdropOut {
-  from { opacity: 1; }
-  to { opacity: 0; }
-}
-
-@keyframes modalPanelIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes modalPanelOut {
-  from {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(10px) scale(0.97);
-  }
-}
-
-@keyframes tabSwitchIn {
-  from {
-    opacity: 0;
-    transform: translateX(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes staggerFadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 .animate-fade-in { animation: fadeIn 260ms ease both; }
 .animate-slide-up { animation: slideUp 320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 .animate-scale-in { animation: scaleIn 260ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-
-.modal-backdrop-enter { animation: modalBackdropIn 220ms ease both; }
-.modal-backdrop-exit { animation: modalBackdropOut 200ms ease both; }
-.modal-panel-enter { animation: modalPanelIn 240ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-.modal-panel-exit { animation: modalPanelOut 200ms ease both; }
-
-.tab-switch-enter { animation: tabSwitchIn 260ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-
-.stagger-fade-in {
-  opacity: 0;
-  animation: staggerFadeUp 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes obsidianShimmer {
-  0% {
-    background-position: -220% 0;
-  }
-  100% {
-    background-position: 220% 0;
-  }
-}
-
-.skeleton-block {
-  background-color: rgba(148, 163, 184, 0.28);
-  background-image: linear-gradient(90deg, rgba(148, 163, 184, 0.22) 0%, rgba(203, 213, 225, 0.6) 45%, rgba(148, 163, 184, 0.22) 100%);
-  background-size: 220% 100%;
-  animation: obsidianShimmer 1.8s linear infinite;
-  border-radius: 0.5rem;
-}
-
-html.dark .skeleton-block,
-html[data-theme='dark'] .skeleton-block {
-  background-color: rgba(30, 41, 59, 0.72);
-  background-image: linear-gradient(90deg, rgba(30, 41, 59, 0.72) 0%, rgba(51, 65, 85, 0.92) 45%, rgba(30, 41, 59, 0.72) 100%);
-}
 
 @media (prefers-reduced-motion: reduce) {
   .page-enter,
   .animate-fade-in,
   .animate-slide-up,
-  .animate-scale-in,
-  .modal-backdrop-enter,
-  .modal-backdrop-exit,
-  .modal-panel-enter,
-  .modal-panel-exit,
-  .tab-switch-enter,
-  .stagger-fade-in,
-  .skeleton-block,
-  .neon-focus:focus,
-  .neon-focus:focus-visible {
+  .animate-scale-in {
     animation: none !important;
   }
-
-  button,
-  a,
-  .neo-btn,
-  .theme-switch-btn,
-  input,
-  select,
-  textarea,
-  .interactive-card {
-    transition: none !important;
-  }
-}
-
-/* ---------------------------------------------------------------- */
-/* Legacy "dark glass" component normalization                       */
-/* Several components were authored assuming a dark glass surface.   */
-/* These rules keep their structure intact while restoring a clean,  */
-/* readable light-theme hierarchy on white cards/panels.              */
-/* ---------------------------------------------------------------- */
-
-html:not(.dark) .glass-card .text-white,
-html:not(.dark) .glass-card .text-slate-50,
-html:not(.dark) .glass-card .text-slate-100 {
-  color: #0f172a;
-}
-
-html:not(.dark) .glass-card .text-slate-200 {
-  color: #1e293b;
-}
-
-html:not(.dark) .glass-card .text-slate-300 {
-  color: #475569;
-}
-
-html:not(.dark) .glass-card .text-emerald-300 {
-  color: #059669;
-}
-
-html:not(.dark) .glass-card .text-slate-400,
-html:not(.dark) .glass-card .text-slate-500 {
-  color: #64748b;
-}
-
-html:not(.dark) .glass-card .border-white\/10,
-html:not(.dark) .glass-card .border-white\/15,
-html:not(.dark) .glass-card .border-white\/20,
-html:not(.dark) .glass-card .border-white\/25,
-html:not(.dark) .glass-card .border-white\/30,
-html:not(.dark) .glass-card .border-white\/35,
-html:not(.dark) .glass-card .divide-white\/10,
-html:not(.dark) .glass-card .divide-white\/15 {
-  border-color: #eef0f6;
-}
-
-html:not(.dark) .glass-card .bg-slate-900\/70,
-html:not(.dark) .glass-card .bg-slate-900\/75,
-html:not(.dark) .glass-card .bg-slate-900\/80,
-html:not(.dark) .glass-card .bg-slate-950\/30,
-html:not(.dark) .glass-card .bg-slate-950\/35,
-html:not(.dark) .glass-card .bg-slate-950\/40,
-html:not(.dark) .glass-card .bg-slate-950\/45,
-html:not(.dark) .glass-card .bg-slate-700\/40,
-html:not(.dark) .glass-card .bg-black\/60 {
-  background-color: #f1f5f9;
-}
-
-html:not(.dark) .glass-card .bg-slate-800\/70,
-html:not(.dark) .glass-card .bg-slate-800\/80,
-html:not(.dark) .glass-card .bg-slate-800\/90 {
-  background-color: #e2e8f0;
-}
-
-html:not(.dark) .glass-card .text-emerald-100 {
-  color: #047857;
-}
-
-/* Solid-color buttons keep their own text color even inside a glass card */
-.glass-card button.text-white,
-.glass-card a.text-white {
-  color: #ffffff;
-}
-
-html:not(.dark) .auth-stage .text-white,
-html:not(.dark) .auth-stage .text-slate-50,
-html:not(.dark) .auth-stage .text-slate-100 {
-  color: #0f172a;
-}
-
-html:not(.dark) .auth-stage .text-slate-200,
-html:not(.dark) .auth-stage .text-slate-300 {
-  color: #64748b;
-}
-
-/* Chart tooltips are intentionally dark surfaces, even on a light page */
-.chart-tooltip-dark {
-  background: #0f172a;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 1rem;
-  box-shadow: 0 18px 45px -20px rgba(15, 23, 42, 0.55);
-}
-
-.chart-tooltip-dark .text-slate-50,
-.chart-tooltip-dark .text-slate-100,
-.chart-tooltip-dark .text-white {
-  color: #f8fafc;
-}
-
-.chart-tooltip-dark .text-slate-300,
-.chart-tooltip-dark .text-slate-400 {
-  color: #94a3b8;
 }
 
 /* ---------------------------------------------------------------- */

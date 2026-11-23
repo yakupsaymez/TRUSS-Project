@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { AlertCircle, Building2, Eye, EyeOff, Loader2 } from 'lucide-react';
 import authService from '@/services/authService';
 import useAuthStore from '@/store/useAuthStore';
+import useVehicleStore from '@/store/useVehicleStore';
 import AuthFrame from '@/components/v2/AuthFrame';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -83,6 +84,7 @@ export default function RegisterV2() {
         email: trimmedEmail,
         sifre: password,
       });
+      useVehicleStore.getState().reset();
       navigate('/app');
     } catch (err) {
       const message =
@@ -173,7 +175,7 @@ export default function RegisterV2() {
           ) : null}
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4">
           <div className="grid gap-2">
             <Label htmlFor="v2-register-password">Şifre</Label>
             <InputGroup>

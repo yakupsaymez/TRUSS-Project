@@ -1,19 +1,40 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta name="description" content="TRUSS" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F4F4F5" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#09090B" />
+    <meta name="description" content="TRUSS — Filo Operasyon ve Varlık Yönetim Platformu" />
     <link rel="apple-touch-icon" href="/logo192.png" />
     <link rel="manifest" href="/manifest.json" />
     <title>TRUSS</title>
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('vite-ui-theme');
+          var theme = stored || 'dark';
+          var resolved =
+            theme === 'system'
+              ? window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light'
+              : theme === 'light'
+                ? 'light'
+                : 'dark';
+          var root = document.documentElement;
+          root.classList.remove('light', 'dark');
+          root.classList.add(resolved);
+          root.setAttribute('data-theme', resolved);
+          root.style.colorScheme = resolved;
+        } catch (_e) {}
+      })();
+    </script>
   </head>
   <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <noscript>Bu uygulamayı çalıştırmak için JavaScript etkinleştirilmelidir.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/index.js"></script>
   </body>
 </html>
-

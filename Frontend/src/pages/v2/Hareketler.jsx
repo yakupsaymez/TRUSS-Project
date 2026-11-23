@@ -91,6 +91,8 @@ export default function Hareketler() {
 
   const role = resolveRole(user);
   const canManage = [ROLES.SYSTEM_ADMIN, ROLES.FLEET_MANAGER].includes(role);
+  const canAddFuel = canManage || user?.yetkiler?.yakit === true;
+  const canAddMaintenance = canManage || user?.yetkiler?.bakim === true;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -231,31 +233,39 @@ export default function Hareketler() {
   }, [yakitlar, bakimlar, aracMap]);
 
   const handleCreateYakit = useCallback(() => {
+    if (!canAddFuel) return;
     setSheetState({
       open: true,
       mode: 'create',
       initialTip: 'YAKIT',
       record: null,
     });
-  }, []);
+  }, [canAddFuel]);
 
   const handleCreateBakim = useCallback(() => {
+    if (!canAddMaintenance) return;
     setSheetState({
       open: true,
       mode: 'create',
       initialTip: 'BAKIM',
       record: null,
     });
-  }, []);
+  }, [canAddMaintenance]);
 
-  const handleRepeatRow = useCallback((row) => {
-    setSheetState({
-      open: true,
-      mode: 'repeat',
-      initialTip: row?.tip === 'BAKIM' ? 'BAKIM' : 'YAKIT',
-      record: row,
-    });
-  }, []);
+  const handleRepeatRow = useCallback(
+    (row) => {
+      const tip = row?.tip === 'BAKIM' ? 'BAKIM' : 'YAKIT';
+      if (tip === 'YAKIT' && !canAddFuel) return;
+      if (tip === 'BAKIM' && !canAddMaintenance) return;
+      setSheetState({
+        open: true,
+        mode: 'repeat',
+        initialTip: tip,
+        record: row,
+      });
+    },
+    [canAddFuel, canAddMaintenance]
+  );
 
   const handleEditRow = useCallback(
     (row) => {
@@ -326,29 +336,35 @@ export default function Hareketler() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleCreateYakit}
-            className="gap-1.5"
-          >
-            <Plus className="size-4" />
-            <Fuel className="size-3.5" />
-            <span>Yeni Yakıt</span>
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleCreateBakim}
-            className="gap-1.5"
-          >
-            <Plus className="size-4" />
-            <Wrench className="size-3.5" />
-            <span>Yeni Bakım</span>
-          </Button>
-        </div>
+        {(canAddFuel || canAddMaintenance) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {canAddFuel && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleCreateYakit}
+                className="gap-1.5"
+              >
+                <Plus className="size-4" />
+                <Fuel className="size-3.5" />
+                <span>Yeni Yakıt</span>
+              </Button>
+            )}
+            {canAddMaintenance && (
+              <Button
+                type="button"
+                variant={canAddFuel ? 'outline' : 'default'}
+                size="sm"
+                onClick={handleCreateBakim}
+                className="gap-1.5"
+              >
+                <Plus className="size-4" />
+                <Wrench className="size-3.5" />
+                <span>Yeni Bakım</span>
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       <LedgerDataTable
@@ -359,21 +375,28 @@ export default function Hareketler() {
         loading={loading}
         hasLoaded={hasLoaded}
         canManage={canManage}
-        onCreateYakit={handleCreateYakit}
-        onCreateBakim={handleCreateBakim}
-        onRepeatRow={handleRepeatRow}
+        canAddFuel={canAddFuel}
+        canAddMaintenance={canAddMaintenance}
+        onCreateYakit={canAddFuel ? handleCreateYakit : undefined}
+        onCreateBakim={canAddMaintenance ? handleCreateBakim : undefined}
+        onRepeatRow={canAddFuel || canAddMaintenance ? handleRepeatRow : undefined}
         onEditRow={canManage ? handleEditRow : undefined}
         onDeleteRequest={handleDeleteRequest}
       />
 
       <MovementSheet
-        open={sheetState.open && (canManage || sheetState.mode !== 'edit')}
+        open={
+          sheetState.open &&
+          (canManage || (sheetState.mode !== 'edit' && (canAddFuel || canAddMaintenance)))
+        }
         onOpenChange={handleSheetOpenChange}
         mode={!canManage && sheetState.mode === 'edit' ? 'create' : sheetState.mode}
         initialTip={sheetState.initialTip}
         record={sheetState.record}
         araclar={araclar}
         defaultAracId={seciliAracId}
+        canAddFuel={canAddFuel}
+        canAddMaintenance={canAddMaintenance}
         onSuccess={handleSheetSuccess}
       />
 

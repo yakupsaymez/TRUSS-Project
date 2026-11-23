@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import api from '@/services/api';
 import aracService from '@/services/aracService';
 import { formatTurkishPlate } from '@/utils/formatters';
+import { toLocalIsoDate } from '@/utils/dateUtils';
 
 const MILLISECONDS_IN_DAY = 1000 * 60 * 60 * 24;
 const EVRAK_UYARI_GUN = 15;
@@ -25,7 +26,14 @@ const bosForm = {
 
 const bosRisk = { tehlike: [], evrak: [] };
 
-const tarihInput = (deger) => (deger ? String(deger).slice(0, 10) : '');
+const tarihInput = (deger) => {
+  if (!deger) return '';
+  const raw = String(deger).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) return toLocalIsoDate(parsed);
+  return raw.slice(0, 10);
+};
 
 const evrakRiskliMi = (arac) => {
   const bugun = new Date();
