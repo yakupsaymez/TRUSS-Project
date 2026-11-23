@@ -9,3 +9,4 @@ export {
   SheetField,
 } from '@/components/v2/AppSheet';
 export { default as SayacFieldError } from '@/components/v2/SayacFieldError';
+export { default as FleetDataTable } from '@/components/v2/FleetDataTable';
