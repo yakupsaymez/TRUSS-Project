@@ -1,6 +1,7 @@
 const pool = require('../db');
 const { buildVehicleAccessFilter } = require('../middlewares/rbacMiddleware');
 const { ileriTarihMi, tarihStr } = require('../utils/dateUtils');
+const { araclariKilitle, sayacSinirlari, sayacIhlaliMi, sayac422Govdesi, sayacBirimi } = require('../utils/odometerGuard');
 
 // KULLANICININ ERİŞEBİLDİĞİ TÜM YAKIT KAYITLARINI LİSTELE (RBAC Filtreli)
 const getAllYakitlar = async (req, res) => {
@@ -52,7 +53,7 @@ const getYakitlarByArac = async (req, res) => {
   }
 };
 
-// YENİ YAKIT KAYDI EKLE (RBAC + Pozitif Değer + Odometer Rollback 422 Validasyonu)
+// YENİ YAKIT KAYDI EKLE (RBAC + Pozitif Değer + Odometer Kronoloji 422 Validasyonu)
 const createYakit = async (req, res) => {
   const { arac_id, yakit_tipi, tarih, litre, tutar, km, notlar } = req.body;
 
@@ -60,7 +61,13 @@ const createYakit = async (req, res) => {
     return res.status(400).json({ message: 'Zorunlu alanlar (arac_id, litre, tutar, tarih) eksik.' });
   }
 
-  if (!tarihStr(tarih)) {
+  const aracId = Number(arac_id);
+  if (!Number.isInteger(aracId) || aracId <= 0) {
+    return res.status(400).json({ message: 'Geçersiz araç kimliği.' });
+  }
+
+  const gun = tarihStr(tarih);
+  if (!gun) {
     return res.status(400).json({ message: 'Geçersiz tarih formatı.' });
   }
 
@@ -76,46 +83,37 @@ const createYakit = async (req, res) => {
     return res.status(400).json({ message: 'Girilen litre ve tutar değerleri 0\'dan büyük olmalıdır.' });
   }
 
-  if (sayisalKm !== null && (!Number.isFinite(sayisalKm) || sayisalKm < 0)) {
+  if (sayisalKm !== null && (!Number.isFinite(sayisalKm) || !Number.isInteger(sayisalKm) || sayisalKm < 0)) {
     return res.status(400).json({ message: 'Geçersiz KM / Çalışma Saati değeri.' });
   }
 
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
-    const aracOwnershipCheck = await pool.query(
-      `SELECT a.arac_id, a.sayac_tipi, a.guncel_km, a.guncel_calisma_saati
-       FROM araclar a
-       WHERE a.arac_id = $1 AND (${clause})`,
-      [arac_id, ...params]
+    const aracOwnershipCheck = await client.query(
+      `SELECT a.arac_id FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
+      [aracId, ...params]
     );
 
     if (aracOwnershipCheck.rowCount === 0) {
+      await client.query('ROLLBACK');
       return res.status(403).json({ message: 'Bu aracı duzenlemek icin yetkiniz yoktur.' });
     }
 
-    const aracRow = aracOwnershipCheck.rows[0];
+    const [hedefArac] = await araclariKilitle(client, [aracId]);
+    if (!hedefArac) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ message: 'Bu aracı duzenlemek icin yetkiniz yoktur.' });
+    }
 
-    // KM / SMH Düşürme (Odometer Rollback) Kontrolü
+    // Kronoloji kontrolü: tarihe göre alt/üst sınır (araclar.guncel_* alt sınıra katılmaz)
     if (sayisalKm !== null) {
-      const kmCheck = await pool.query(
-        `SELECT GREATEST(
-           COALESCE((SELECT MAX(km) FROM yakitlar WHERE arac_id = $1 AND tarih <= $2), 0),
-           COALESCE((SELECT MAX(km) FROM bakimlar WHERE arac_id = $1 AND tarih <= $2), 0),
-           COALESCE($3::int, 0)
-         ) AS max_gecmis_km`,
-        [
-          Number(arac_id),
-          tarih,
-          aracRow.sayac_tipi === 'SMH' ? aracRow.guncel_calisma_saati : aracRow.guncel_km,
-        ]
-      );
-
-      const maxGecmisKm = Number(kmCheck.rows[0]?.max_gecmis_km || 0);
-      if (sayisalKm < maxGecmisKm) {
-        const birimEtiketi = aracRow.sayac_tipi === 'SMH' ? 'Saat' : 'km';
-        return res.status(422).json({
-          message: `Girilen sayaç değeri (${sayisalKm.toLocaleString('tr-TR')} ${birimEtiketi}), aracın mevcut/önceki kayıtlı değerinden (${maxGecmisKm.toLocaleString('tr-TR')} ${birimEtiketi}) düşük olamaz.`,
-        });
+      const sinirlar = await sayacSinirlari(client, { aracId, tarih: gun });
+      if (sayacIhlaliMi(sayisalKm, sinirlar)) {
+        await client.query('ROLLBACK');
+        return res.status(422).json(sayac422Govdesi(sayisalKm, sinirlar, hedefArac.sayac_tipi));
       }
     }
 
@@ -125,10 +123,10 @@ const createYakit = async (req, res) => {
       RETURNING *
     `;
 
-    const result = await pool.query(query, [
-      Number(arac_id),
+    const result = await client.query(query, [
+      aracId,
       yakit_tipi || null,
-      tarih,
+      gun,
       sayisalLitre,
       sayisalTutar,
       sayisalKm,
@@ -136,23 +134,28 @@ const createYakit = async (req, res) => {
     ]);
 
     if (sayisalKm !== null) {
-      if (aracRow.sayac_tipi === 'SMH') {
-        await pool.query(
+      if (hedefArac.sayac_tipi === 'SMH') {
+        await client.query(
           'UPDATE araclar SET guncel_calisma_saati = GREATEST(COALESCE(guncel_calisma_saati, 0), $1) WHERE arac_id = $2',
-          [sayisalKm, Number(arac_id)]
+          [sayisalKm, aracId]
         );
       } else {
-        await pool.query(
+        await client.query(
           'UPDATE araclar SET guncel_km = GREATEST(COALESCE(guncel_km, 0), $1) WHERE arac_id = $2',
-          [sayisalKm, Number(arac_id)]
+          [sayisalKm, aracId]
         );
       }
     }
 
+    await client.query('COMMIT');
+
     return res.status(201).json({ message: 'Yakit kaydi eklendi', yakit: result.rows[0] });
   } catch (err) {
-    console.error('🚨 YAKIT EKLEME HATASI DETAYI:', err);
-    return res.status(500).json({ message: 'Sunucu hatasi', detay: err.message });
+    await client.query('ROLLBACK').catch(() => null);
+    console.error('Yakıt ekleme hatası:', err);
+    return res.status(500).json({ message: 'Sunucu hatasi' });
+  } finally {
+    client.release();
   }
 };
 
@@ -161,11 +164,17 @@ const updateYakit = async (req, res) => {
   const { yakit_id } = req.params;
   const { arac_id, yakit_tipi, tarih, litre, tutar, km, notlar } = req.body;
 
+  const yakitId = Number(yakit_id);
+  if (!Number.isInteger(yakitId) || yakitId <= 0) {
+    return res.status(400).json({ message: 'Geçersiz yakıt kimliği.' });
+  }
+
   if (!tarih || litre === undefined || litre === '' || tutar === undefined || tutar === '') {
     return res.status(400).json({ message: 'Zorunlu alanlar (litre, tutar, tarih) eksik.' });
   }
 
-  if (!tarihStr(tarih)) {
+  const gun = tarihStr(tarih);
+  if (!gun) {
     return res.status(400).json({ message: 'Geçersiz tarih formatı.' });
   }
 
@@ -181,57 +190,79 @@ const updateYakit = async (req, res) => {
     return res.status(400).json({ message: 'Girilen litre ve tutar değerleri 0\'dan büyük olmalıdır.' });
   }
 
-  if (sayisalKm !== null && (!Number.isFinite(sayisalKm) || sayisalKm < 0)) {
+  if (sayisalKm !== null && (!Number.isFinite(sayisalKm) || !Number.isInteger(sayisalKm) || sayisalKm < 0)) {
     return res.status(400).json({ message: 'Geçersiz KM / Çalışma Saati değeri.' });
   }
 
   const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+
+    // Kaydı kilitle: eşzamanlı güncelleme araya giremez
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
     const yakitOwnershipCheck = await client.query(
       `SELECT y.yakit_id, y.arac_id
        FROM yakitlar y
        INNER JOIN araclar a ON y.arac_id = a.arac_id
-       WHERE y.yakit_id = $1 AND (${clause})`,
-      [yakit_id, ...params]
+       WHERE y.yakit_id = $1 AND (${clause})
+       FOR UPDATE OF y`,
+      [yakitId, ...params]
     );
 
     if (yakitOwnershipCheck.rowCount === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ message: 'Yakit kaydi bulunamadi veya yetkiniz yok.' });
     }
 
-    const hedefAracId = arac_id ? Number(arac_id) : yakitOwnershipCheck.rows[0].arac_id;
+    const kaynakAracId = Number(yakitOwnershipCheck.rows[0].arac_id);
+    const hedefAracId = Number(arac_id || kaynakAracId);
+    if (!Number.isInteger(hedefAracId) || hedefAracId <= 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'Geçersiz araç kimliği.' });
+    }
 
-    // Hedef araca erişim + sayaç tipi (araç değişmese de tek sorguda doğrulanır)
+    // Hedef araca erişim doğrulaması
     const hedefAracCheck = await client.query(
-      `SELECT a.arac_id, a.sayac_tipi FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
+      `SELECT a.arac_id FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
       [hedefAracId, ...params]
     );
     if (hedefAracCheck.rowCount === 0) {
+      await client.query('ROLLBACK');
       return res.status(403).json({ message: 'Hedef araca erişim yetkiniz yoktur.' });
     }
-    const aracRow = hedefAracCheck.rows[0];
 
-    // KM / SMH Düşürme (Odometer Rollback) Kontrolü: güncellenen kaydın kendisi hariç, ilgili tarihe kadarki en yüksek sayaç
-    if (sayisalKm !== null) {
-      const kmCheck = await client.query(
-        `SELECT GREATEST(
-           COALESCE((SELECT MAX(km) FROM yakitlar WHERE arac_id = $1 AND tarih <= $2 AND yakit_id <> $3), 0),
-           COALESCE((SELECT MAX(km) FROM bakimlar WHERE arac_id = $1 AND tarih <= $2), 0)
-         ) AS max_gecmis_km`,
-        [hedefAracId, tarih, yakit_id]
-      );
-
-      const maxGecmisKm = Number(kmCheck.rows[0]?.max_gecmis_km || 0);
-      if (sayisalKm < maxGecmisKm) {
-        const birimEtiketi = aracRow.sayac_tipi === 'SMH' ? 'Saat' : 'km';
-        return res.status(422).json({
-          message: `Girilen sayaç değeri (${sayisalKm.toLocaleString('tr-TR')} ${birimEtiketi}), aracın önceki kayıtlı değerinden (${maxGecmisKm.toLocaleString('tr-TR')} ${birimEtiketi}) düşük olamaz.`,
-        });
-      }
+    // Kaynak + hedef araçları sıralı kilitle (deadlock koruması) ve sayaç tiplerini al
+    const kilitler = await araclariKilitle(client, [kaynakAracId, hedefAracId]);
+    const hedefArac = kilitler.find((a) => Number(a.arac_id) === hedefAracId);
+    const kaynakArac = kilitler.find((a) => Number(a.arac_id) === kaynakAracId);
+    if (!hedefArac) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ message: 'Hedef araca erişim yetkiniz yoktur.' });
     }
 
-    await client.query('BEGIN');
+    if (kaynakAracId !== hedefAracId && kaynakArac && kaynakArac.sayac_tipi !== hedefArac.sayac_tipi) {
+      await client.query('ROLLBACK');
+      return res.status(422).json({
+        code: 'SAYAC_TIPI_UYUSMAZ',
+        message: 'Kayıt farklı sayaç tipindeki (KM/SMH) bir araca taşınamaz.',
+        sayac_tipi: hedefArac.sayac_tipi,
+        birim: sayacBirimi(hedefArac.sayac_tipi),
+      });
+    }
+
+    // Kronoloji kontrolü: güncellenen kayıt hariç, tarihe göre alt/üst sınır
+    if (sayisalKm !== null) {
+      const sinirlar = await sayacSinirlari(client, {
+        aracId: hedefAracId,
+        tarih: gun,
+        haricTablo: 'yakitlar',
+        haricId: yakitId,
+      });
+      if (sayacIhlaliMi(sayisalKm, sinirlar)) {
+        await client.query('ROLLBACK');
+        return res.status(422).json(sayac422Govdesi(sayisalKm, sinirlar, hedefArac.sayac_tipi));
+      }
+    }
 
     const result = await client.query(
       `UPDATE yakitlar
@@ -247,12 +278,12 @@ const updateYakit = async (req, res) => {
       [
         hedefAracId,
         yakit_tipi || null,
-        tarih,
+        gun,
         sayisalLitre,
         sayisalTutar,
         sayisalKm,
         notlar || null,
-        yakit_id,
+        yakitId,
       ]
     );
 
