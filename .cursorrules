@@ -1,7 +1,6 @@
-You are an AI assistant working on the TRUSS project.
-CRITICAL RULE: Before answering any query or writing any code, you MUST silently read the following files:
-- .ai/00-CONSTITUTION.md
-- .ai/01-DESIGN-SYSTEM.md
-- .ai/03-ROADMAP-STATE.md
-- .ai/04-TOKEN-ECONOMY.md
-Strictly follow the TRUSS Constitution, Zero-Yapping policy, and the Linear-style compact design system.
+# TRUSS AI Pointer
+Before answering or editing any file:
+1. Read `AGENTS.md` (universal entry point).
+2. Read `.ai/PROGRESS.md` (live state & queue).
+3. Read `.ai/SWARM_PLAYBOOK.md` and `.ai/skills/caveman.md` for your assigned role.
+4. Before writing or auditing code, read `.ai/ENGINEERING_GUARDRAILS.md` and `.ai/DECISIONS.md`.

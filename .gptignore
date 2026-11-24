@@ -1,10 +1,12 @@
 # 1. Dependency Directories
 node_modules/
+**/node_modules/
 .pnp
 .pnp.js
 
 # 2. Build & Production Outputs
 dist/
+Frontend/dist/
 build/
 out/
 .next/
@@ -29,6 +31,7 @@ yarn-error.log*
 
 # 5. Environment & Security (CRITICAL)
 .env
+.env*
 .env.local
 .env.development
 .env.test
@@ -49,6 +52,7 @@ public/assets/
 *.webm
 *.pdf
 
-# 7. OS & Editor Files
+# 7. OS & Editor Files & AI Archives
 .DS_Store
 *.map
+.ai/archive/
