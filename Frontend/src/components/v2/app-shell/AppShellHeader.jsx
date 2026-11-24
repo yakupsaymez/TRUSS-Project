@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import NotificationBell from '@/components/v2/NotificationBell';
 import { ALL_VEHICLES_VALUE, RoleBadge } from './appShellHelpers';
 
 export default function AppShellHeader({
@@ -114,6 +115,8 @@ export default function AppShellHeader({
           <span>Ara...</span>
           <Kbd>⌘K</Kbd>
         </Button>
+
+        <NotificationBell />
 
         <Button
           type="button"

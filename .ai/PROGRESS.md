@@ -20,10 +20,11 @@
   - `V2.1-HOTFIX-W3` (Wave 3 / `FIX-4` — Faz A Kapanış): `H-13` kök/BE `package*.json` `ABTS` & `recharts` temizliği ve `ARCHITECTURE_MAP` DB senkronu, `H-16` `yakitController`/`bakimController` Joi taşma validasyonu + `raporController` `detay` sızıntı temizliği + `CORS_ORIGIN` + Gate 2 `utils/**` + OKLCH `index.css` & ölü kod temizliği (`exporter.js`, `sayacInputSinifi`), `H-15` `useAppStore` `vite-ui-theme` koruması + tablo `autoResetPageIndex: false` + `OrganizasyonTab`/`PasswordChangeForm` tek-toast ve `/app/parcalar` açık tema kontrastı — **QA PASS**.
   - `V2.2-DBPERF`: `araclar.org_id` kiracı kolonu + backfill, `yakitlar`/`bakimlar` `fatura_no`/`belge_url`/`olusturan_user_id` normalizasyonu, 5 kompozit/kısmi indeks (`idx_araclar_org_id`, `idx_yakitlar_arac_tarih_km`, `idx_bakimlar_arac_tarih_km`, `idx_parca_takip_arac_id`, `idx_atamalar_aktif_arac`), runtime `ALTER TABLE` kaldırımı ve `ADR-17` — **QA PASS**.
   - `V2.2-NOTIFY`: Bildirim motoru, `bildirim_olaylari` dedup (`uq_bildirim_user_kat_ref`), `predictiveService.js`, `alertEvaluators.js`, `dateUtils.js` TR takvim yardımcıları, `/api/bildirimler` + `/aksiyon-merkezi` ve `bildirim_tercihleri` + `hasFinanceAccess` RBAC matrisi (`ADR-18`) — **QA PASS**.
+  - `V2.2-INBOX`: `bildirimService.js`, `NotificationBell.jsx` popover/tekil-toplu okundu/navigasyon, `ActionCenterCard.jsx` kategori filtreleri/kompakt liste/RBAC finans gizliliği ve `BildirimlerTab.jsx` `Uygulama İçi` kanalı — **QA PASS**.
 
 ## 2. Sıradaki Kuyruk (Öncelik Sırasıyla)
-- **Mühürlenenler:** `PERF-1/1b`, `REFACTOR-1` (`14/14 -> 0` monolit), `OPS-1..5`, `QA-SWEEP` (`BE+FE`), `V2.1-FE4`, `CLEANUP-1`, `V2.1-HOTFIX-W1`, `V2.1-HOTFIX-W2`, `V2.1-HOTFIX-W3` (`FIX-4` — Faz A), `V2.2-DBPERF` ve `V2.2-NOTIFY` mühürlendi.
-- **Sırada / Beklemede:** `V2.2-INBOX` -> `V2.2-TCO` + `V2.2-ANOMALY`.
+- **Mühürlenenler:** `PERF-1/1b`, `REFACTOR-1` (`14/14 -> 0` monolit), `OPS-1..5`, `QA-SWEEP` (`BE+FE`), `V2.1-FE4`, `CLEANUP-1`, `V2.1-HOTFIX-W1`, `V2.1-HOTFIX-W2`, `V2.1-HOTFIX-W3` (`FIX-4` — Faz A), `V2.2-DBPERF`, `V2.2-NOTIFY` ve `V2.2-INBOX` mühürlendi.
+- **Sırada / Beklemede:** `V2.2-TCO` + `V2.2-ANOMALY`.
 
 ## 3. Açık Teknik Riskler
 - **Bundle Bütçesi (`PASS` / Kilitlendi):** Ana giriş chunk'ı `1416.5 KB → 89.6 KB`, en büyük vendor chunk `351.3 KB` (`maxChunkKb: 352 KB` ratchet tavanına kilitlendi).
@@ -33,8 +34,8 @@
 ## 4. 📌 Durum Panosu (Her Yanıt Sonunda Zorunlu Şablon)
 | Ajan | Model / Güç | Şu An Ne Yapıyor | Hemen Şimdi Ne Yapmalı | İleride Ne Yapacak |
 | :--- | :--- | :--- | :--- | :--- |
-| **S5 (Baş Mimar)** | `pro` (`Neon High` / Opus) | `V2.2-NOTIFY` mühürlendi (`QA PASS`) | Temiz oturumda `V2.2-INBOX` planlamasına geçmeli | `V2.2-TCO`, `V2.2-ANOMALY` orkestrasyonu |
-| **S1 (Frontend)** | `inherit` (`Neon` Normal) | Beklemede (`0 diff`) | `V2.2-INBOX` için hazır beklemeli | `V2.2-INBOX`, `V2.2-TCO`, `V2.2-ANOMALY` FE |
-| **S2 (Backend / Ops)** | `inherit` (`Argon` / `Neon`) | `V2.2-NOTIFY` `/s2-seal` tamamlandı (`main` mühürlendi) | `V2.2-TCO` / `V2.2-ANOMALY` için hazır beklemeli | `V2.2` Backend paketleri |
-| **S3 (QA / Denetçi)** | `pro` (`Hidrojen` / `Argon`) | `V2.2-NOTIFY` Cycle 2 QA `PASS` onaylandı | `V2.2-INBOX` QA için hazır beklemeli | `V2.2` paketlerinde 7 kapılı QA |
+| **S5 (Baş Mimar)** | `pro` (`Neon High` / Opus) | `V2.2-INBOX` mühürlendi (`QA PASS`) | Temiz oturumda `V2.2-TCO` planlamasına geçmeli | `V2.2-TCO`, `V2.2-ANOMALY` orkestrasyonu |
+| **S1 (Frontend)** | `inherit` (`Neon` Normal) | `V2.2-INBOX` tamamlandı (`QA PASS`) | `V2.2-TCO` / `V2.2-ANOMALY` için hazır beklemeli | `V2.2-TCO`, `V2.2-ANOMALY` FE |
+| **S2 (Backend / Ops)** | `inherit` (`Argon` / `Neon`) | `V2.2-INBOX` `/s2-seal` tamamlandı (`main` mühürlendi) | `V2.2-TCO` / `V2.2-ANOMALY` için hazır beklemeli | `V2.2` Backend paketleri |
+| **S3 (QA / Denetçi)** | `pro` (`Hidrojen` / `Argon`) | `V2.2-INBOX` QA `PASS` onaylandı | `V2.2-TCO` QA için hazır beklemeli | `V2.2` paketlerinde 7 kapılı QA |
 | **S4 (Bug Hunter)** | `flash` (`2.8 Flash`) | `QA-SWEEP` tamamlandı (`0` açık hata) | Beklemede kalmalı | `V2.2` sonrası cerrahi hata avı |

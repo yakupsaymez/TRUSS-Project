@@ -23,10 +23,10 @@ export const BASE_SETTINGS_TABS = [
 export const TAX_NUMBER_RE = /^\d{10,11}$/;
 
 export const DEFAULT_NOTIFICATION_MATRIX = {
-  belge_vadesi: { email: true, sms: true },
-  periyodik_bakim: { email: true, sms: true },
-  parca_omru: { email: true, sms: false },
-  maliyet_ozeti: { email: true, sms: false },
+  belge_vadesi: { uygulama: true, email: true, sms: true },
+  periyodik_bakim: { uygulama: true, email: true, sms: true },
+  parca_omru: { uygulama: true, email: true, sms: false },
+  maliyet_ozeti: { uygulama: true, email: true, sms: false },
 };
 
 export const NOTIFICATION_CATEGORIES = [
@@ -61,10 +61,11 @@ export function normalizeNotificationMatrix(raw) {
   return Object.keys(DEFAULT_NOTIFICATION_MATRIX).reduce((acc, key) => {
     const def = DEFAULT_NOTIFICATION_MATRIX[key];
     const item = src[key] && typeof src[key] === 'object' ? src[key] : {};
-    acc[key] = {
-      email: typeof item.email === 'boolean' ? item.email : def.email,
-      sms: typeof item.sms === 'boolean' ? item.sms : def.sms,
-    };
+    const email = typeof item.email === 'boolean' ? item.email : def.email;
+    const sms = typeof item.sms === 'boolean' ? item.sms : def.sms;
+    const uygulama =
+      typeof item.uygulama === 'boolean' ? item.uygulama : Boolean(email) || Boolean(sms);
+    acc[key] = { uygulama, email, sms };
     return acc;
   }, {});
 }

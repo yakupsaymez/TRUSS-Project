@@ -151,7 +151,7 @@ export default function BildirimlerTab({
               Kategori Bazlı Bildirim Matrisi
             </h3>
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Hangi uyarı kategorilerinin E-posta veya SMS kanalından iletileceğini özelleştirin.
+              Hangi uyarı kategorilerinin Uygulama İçi, E-posta veya SMS kanalından iletileceğini özelleştirin.
             </p>
           </div>
         </div>
@@ -163,7 +163,10 @@ export default function BildirimlerTab({
                 <TableHead className="min-w-64 pl-4 text-xs font-medium text-muted-foreground">
                   Bildirim Kategorisi
                 </TableHead>
-                <TableHead className="w-36 text-center text-xs font-medium text-muted-foreground">
+                <TableHead className="w-28 text-center text-xs font-medium text-muted-foreground">
+                  Uygulama İçi
+                </TableHead>
+                <TableHead className="w-32 text-center text-xs font-medium text-muted-foreground">
                   <div className="flex flex-col items-center gap-0.5">
                     <span>E-posta</span>
                     {!emailBildirimAktif && (
@@ -190,6 +193,8 @@ export default function BildirimlerTab({
                 const CategoryIcon = category.icon;
                 const rowPrefs =
                   bildirimTercihleri[category.key] || DEFAULT_NOTIFICATION_MATRIX[category.key];
+                const uygulamaChecked =
+                  rowPrefs?.uygulama ?? (Boolean(rowPrefs?.email) || Boolean(rowPrefs?.sms));
 
                 return (
                   <TableRow key={category.key}>
@@ -205,6 +210,18 @@ export default function BildirimlerTab({
                           </p>
                         </div>
                       </div>
+                    </TableCell>
+
+                    <TableCell className="py-3 text-center">
+                      <Switch
+                        id={`notif-matrix-${category.key}-uygulama`}
+                        checked={Boolean(uygulamaChecked)}
+                        disabled={savingNotifications}
+                        onCheckedChange={(checked) =>
+                          handleToggleCategoryChannel(category.key, 'uygulama', checked)
+                        }
+                        aria-label={`${category.label} için Uygulama İçi bildirimleri`}
+                      />
                     </TableCell>
 
                     <TableCell className="py-3 text-center">

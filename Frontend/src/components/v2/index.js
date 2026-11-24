@@ -32,5 +32,7 @@ export { default as CrewRoleSummaryStrip } from '@/components/v2/CrewRoleSummary
 export { default as ResetPasswordSheet } from '@/components/v2/ResetPasswordSheet';
 export { default as BudgetVarianceCard } from '@/components/v2/BudgetVarianceCard';
 export { default as FleetLiveMap } from '@/components/v2/FleetLiveMap';
+export { default as NotificationBell } from '@/components/v2/NotificationBell';
+export { default as ActionCenterCard } from '@/components/v2/ActionCenterCard';
 
 

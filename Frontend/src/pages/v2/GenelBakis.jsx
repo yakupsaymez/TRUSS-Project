@@ -8,6 +8,7 @@ import { canAccessChannel, resolveRole, ROLES } from '@/components/v2/channelAcc
 import { notifyApiError } from '@/utils/apiError';
 import { formatTurkishPlate } from '@/utils/formatters';
 import OverviewKpiStrip from '@/components/v2/OverviewKpiStrip';
+import ActionCenterCard from '@/components/v2/ActionCenterCard';
 import CostTrendChart from '@/components/v2/CostTrendChart';
 import FleetHealthWidget from '@/components/v2/FleetHealthWidget';
 import DocumentComplianceCard from '@/components/v2/DocumentComplianceCard';
@@ -215,6 +216,11 @@ export default function GenelBakis() {
             aracMaliyet={aracMaliyet}
             loadingVehicles={loading && !hasLoaded}
             loadingFinance={loadingFinance}
+          />
+
+          <ActionCenterCard
+            seciliAracId={seciliAracId}
+            canViewAnalytics={canViewAnalytics}
           />
 
           {canViewAnalytics ? (
