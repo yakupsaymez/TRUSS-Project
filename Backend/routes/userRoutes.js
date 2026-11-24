@@ -167,17 +167,63 @@ router.put('/settings/preferences', authMiddleware, async (req, res) => {
 
 // HESAP SILME (DANGER ZONE - Yalnızca SYSTEM_ADMIN)
 router.delete('/settings/account', authMiddleware, authorizeRoles('SYSTEM_ADMIN'), async (req, res) => {
+  let client;
   try {
-    const result = await pool.query('DELETE FROM users WHERE user_id = $1', [req.user.user_id]);
+    client = await pool.connect();
+    await client.query('BEGIN');
 
+    const aracCountRes = await client.query(
+      'SELECT COUNT(*)::int AS cnt FROM araclar WHERE kullanici_id = $1',
+      [req.user.user_id]
+    );
+    const cnt = aracCountRes.rows[0]?.cnt || 0;
+
+    if (cnt > 0) {
+      let yeniSahipId = null;
+      if (req.user.org_id) {
+        const adayRes = await client.query(
+          `SELECT user_id
+           FROM users
+           WHERE org_id = $1 AND user_id <> $2 AND role IN ('SYSTEM_ADMIN', 'FLEET_MANAGER')
+           ORDER BY CASE WHEN role = 'SYSTEM_ADMIN' THEN 0 ELSE 1 END, user_id ASC
+           LIMIT 1`,
+          [req.user.org_id, req.user.user_id]
+        );
+        yeniSahipId = adayRes.rows[0]?.user_id || null;
+      }
+
+      if (!yeniSahipId) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({
+          code: 'OWNED_VEHICLES_EXIST',
+          message: 'Üzerinizde kayıtlı araçlar bulunduğu için hesabınız silinemez. Önce başka bir yönetici atayın veya araçları kaldırın.',
+        });
+      }
+
+      await client.query(
+        'UPDATE araclar SET kullanici_id = $1 WHERE kullanici_id = $2',
+        [yeniSahipId, req.user.user_id]
+      );
+    }
+
+    const result = await client.query('DELETE FROM users WHERE user_id = $1', [req.user.user_id]);
     if (result.rowCount === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ message: 'Kullanici bulunamadi.' });
     }
 
+    await client.query('COMMIT');
     return res.status(200).json({ message: 'Hesabiniz silindi.' });
   } catch (err) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (_) {}
+    }
     console.error('Hesap silme hatası:', err);
     return res.status(500).json({ message: 'Hesap silinemedi' });
+  } finally {
+    if (client) client.release();
   }
 });
 

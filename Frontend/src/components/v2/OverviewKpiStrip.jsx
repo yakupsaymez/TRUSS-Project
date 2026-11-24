@@ -156,12 +156,21 @@ export default function OverviewKpiStrip({
       ? 'Kayıtlı araç bulunmuyor'
       : `${formatLocaleNumber(kmSayisi, 0)} KM · ${formatLocaleNumber(smhSayisi, 0)} SMH`;
 
-  const documentSubtitle =
-    araclar.length === 0
-      ? 'Muayene, sigorta ve kasko takibi'
-      : ozet.evrakSorunu > 0
-        ? `≤ ${formatLocaleNumber(EVRAK_UYARI_GUN, 0)} gün veya süresi dolmuş evrak`
-        : `Tüm belgeler ${formatLocaleNumber(EVRAK_UYARI_GUN, 0)} gün eşiğinin üzerinde`;
+  let documentSubtitle = `Tüm belgeler ${formatLocaleNumber(EVRAK_UYARI_GUN, 0)} gün eşiğinin üzerinde`;
+  let documentIconClass = 'bg-status-success/10 text-status-success';
+
+  if (araclar.length === 0) {
+    documentSubtitle = 'Muayene, sigorta ve kasko takibi';
+  } else if (ozet.evrakSorunu > 0) {
+    documentSubtitle = `≤ ${formatLocaleNumber(EVRAK_UYARI_GUN, 0)} gün veya süresi dolmuş evrak`;
+    documentIconClass = 'bg-status-warning/15 text-status-warning';
+  } else if (ozet.tanimliBelgeSayisi === 0) {
+    documentSubtitle = `Hiç belge tarihi girilmedi (${formatLocaleNumber(ozet.eksikBelgeSayisi, 0)} eksik)`;
+    documentIconClass = 'bg-muted text-muted-foreground';
+  } else if (ozet.eksikBelgeSayisi > 0) {
+    documentSubtitle = `Yaklaşan risk yok · ${formatLocaleNumber(ozet.eksikBelgeSayisi, 0)} belge tarihi eksik`;
+    documentIconClass = 'bg-status-warning/15 text-status-warning';
+  }
 
   return (
     <div className={gridClass}>
@@ -188,11 +197,7 @@ export default function OverviewKpiStrip({
 
       <KpiCard
         icon={<FileWarning className="size-4.5" aria-hidden="true" />}
-        iconClass={
-          ozet.evrakSorunu > 0
-            ? 'bg-status-warning/15 text-status-warning'
-            : 'bg-status-success/10 text-status-success'
-        }
+        iconClass={documentIconClass}
         value={formatLocaleNumber(ozet.evrakSorunu, 0)}
         valueClass={ozet.evrakSorunu > 0 ? 'text-status-warning' : undefined}
         title="Yaklaşan Belge"

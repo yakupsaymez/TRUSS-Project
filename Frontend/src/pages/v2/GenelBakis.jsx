@@ -135,6 +135,25 @@ export default function GenelBakis() {
     [setSeciliAracId, navigate]
   );
 
+  const handleSelectComplianceStatus = useCallback(
+    (segmentKey) => {
+      if (segmentKey === 'yaklasiyor' || segmentKey === 'suresi_dolmus') {
+        navigate('/app/filo?durum=riskli_evrak');
+        return;
+      }
+      if (segmentKey === 'gecerli') {
+        navigate('/app/filo?durum=sorunsuz');
+        return;
+      }
+      if (segmentKey === 'eksik') {
+        navigate('/app/filo?durum=eksik_evrak');
+        return;
+      }
+      navigate('/app/filo');
+    },
+    [navigate]
+  );
+
   const isFleetEmpty = hasLoaded && !loading && araclar.length === 0;
 
   return (
@@ -227,7 +246,7 @@ export default function GenelBakis() {
                 <DocumentComplianceCard
                   araclar={filtreliAraclar}
                   loading={loading && !hasLoaded}
-                  onSelectStatus={() => navigate('/app/filo')}
+                  onSelectStatus={handleSelectComplianceStatus}
                   className="lg:col-span-6"
                 />
               </div>
@@ -242,7 +261,7 @@ export default function GenelBakis() {
               <DocumentComplianceCard
                 araclar={filtreliAraclar}
                 loading={loading && !hasLoaded}
-                onSelectStatus={() => navigate('/app/filo')}
+                onSelectStatus={handleSelectComplianceStatus}
               />
             </div>
           )}

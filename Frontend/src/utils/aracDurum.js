@@ -95,6 +95,10 @@ export const ozetleFilo = (araclar = []) =>
         acc.evrakSorunu += 1;
         acc.evrakIdler.push(arac.arac_id);
       }
+      [arac?.muayene_tarihi, arac?.kasko_tarihi, arac?.sigorta_tarihi].forEach((t) => {
+        if (hesaplaKalanGun(t) === null) acc.eksikBelgeSayisi += 1;
+        else acc.tanimliBelgeSayisi += 1;
+      });
       acc.gelecekAyTahmin += Number(arac?.son_30_gun_yakit_tutari) || 0;
       return acc;
     },
@@ -104,6 +108,8 @@ export const ozetleFilo = (araclar = []) =>
       sorunsuz: 0,
       bilinmiyor: 0,
       evrakSorunu: 0,
+      eksikBelgeSayisi: 0,
+      tanimliBelgeSayisi: 0,
       gelecekAyTahmin: 0,
       tehlikeIdler: [],
       uyariIdler: [],

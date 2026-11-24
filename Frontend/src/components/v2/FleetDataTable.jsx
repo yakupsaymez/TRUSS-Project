@@ -7,6 +7,7 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import { Truck } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import EmptyState from '@/components/v2/EmptyState';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -34,6 +35,8 @@ export default function FleetDataTable({
   hasLoaded = false,
   canManage = false,
   globalVehicleActive = false,
+  initialDurumFilter = 'all',
+  onDurumFilterChange,
   onClearGlobalVehicle,
   onDetail,
   onCreateClick,
@@ -42,10 +45,19 @@ export default function FleetDataTable({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sayacFilter, setSayacFilter] = useState('all');
-  const [durumFilter, setDurumFilter] = useState('all');
+  const [durumFilter, setDurumFilter] = useState(initialDurumFilter || 'all');
   const [kategoriFilter, setKategoriFilter] = useState('all');
   const [sorting, setSorting] = useState([]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
+
+  useEffect(() => {
+    setDurumFilter(initialDurumFilter || 'all');
+  }, [initialDurumFilter]);
+
+  const handleDurumFilterChange = (val) => {
+    setDurumFilter(val);
+    onDurumFilterChange?.(val);
+  };
 
   const kategoriler = useMemo(() => extractCategories(araclar), [araclar]);
 
@@ -86,6 +98,7 @@ export default function FleetDataTable({
     setSayacFilter('all');
     setDurumFilter('all');
     setKategoriFilter('all');
+    onDurumFilterChange?.('all');
     if (globalVehicleActive && onClearGlobalVehicle) {
       onClearGlobalVehicle();
     }
@@ -125,7 +138,7 @@ export default function FleetDataTable({
         sayacFilter={sayacFilter}
         onSayacFilterChange={setSayacFilter}
         durumFilter={durumFilter}
-        onDurumFilterChange={setDurumFilter}
+        onDurumFilterChange={handleDurumFilterChange}
         kategoriFilter={kategoriFilter}
         onKategoriFilterChange={setKategoriFilter}
         kategoriler={kategoriler}
@@ -140,7 +153,12 @@ export default function FleetDataTable({
               {headerGroup.headers.map((header) => (
                 <TableHead
                   key={header.id}
-                  className="bg-background/60 first:pl-4 last:pr-4"
+                  className={cn(
+                    'first:pl-4 last:pr-4',
+                    header.column.id === 'actions'
+                      ? 'sticky right-0 z-10 border-l border-border/70 bg-card pr-4'
+                      : 'bg-background/60'
+                  )}
                 >
                   {header.isPlaceholder
                     ? null
@@ -155,7 +173,14 @@ export default function FleetDataTable({
             Array.from({ length: 5 }).map((_, idx) => (
               <TableRow key={`skeleton-${idx}`}>
                 {columns.map((col, cIdx) => (
-                  <TableCell key={`${idx}-${col.id || cIdx}`} className="first:pl-4 last:pr-4">
+                  <TableCell
+                    key={`${idx}-${col.id || cIdx}`}
+                    className={cn(
+                      'first:pl-4 last:pr-4',
+                      col.id === 'actions' &&
+                        'sticky right-0 z-10 border-l border-border/70 bg-card pr-4'
+                    )}
+                  >
                     <Skeleton className="h-5 w-full max-w-40" />
                   </TableCell>
                 ))}
@@ -165,7 +190,14 @@ export default function FleetDataTable({
             table.getRowModel().rows.map((row) => (
               <TableRow key={row.id}>
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} className="py-3 first:pl-4 last:pr-4">
+                  <TableCell
+                    key={cell.id}
+                    className={cn(
+                      'py-3 first:pl-4 last:pr-4',
+                      cell.column.id === 'actions' &&
+                        'sticky right-0 z-10 border-l border-border/70 bg-card pr-4'
+                    )}
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}

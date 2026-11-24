@@ -221,15 +221,20 @@ const updateParca = async (req, res) => {
     }
 
     const mevcut = mevcutRes.rows[0];
-    const yeniAracId = value.arac_id !== undefined ? value.arac_id : mevcut.arac_id;
+    if (value.arac_id !== undefined && Number(value.arac_id) !== Number(mevcut.arac_id)) {
+      return res.status(400).json({
+        code: 'PARCA_ARAC_DEGISTIRILEMEZ',
+        message: 'Parça kaydının bağlı olduğu araç değiştirilemez.',
+      });
+    }
 
-    // Hedef araç (değişmiş olsa dahi) için yetki + güncel sayaç tek sorguda doğrulanır
-    const arac = await getAracSayacBilgisi(yeniAracId, req.user);
+    // Araç değişmez (ADR-09); mevcut aracın yetki + güncel sayacı tek sorguda doğrulanır
+    const arac = await getAracSayacBilgisi(mevcut.arac_id, req.user);
     if (!arac) {
       return res.status(404).json({ message: 'Arac bulunamadi' });
     }
 
-    // Etkin km kontrolü: km gönderilmediyse mevcut.son_degisim_km hedef araca göre doğrulanır
+    // Etkin km kontrolü: km gönderilmediyse mevcut.son_degisim_km araca göre doğrulanır
     const etkinKm = value.son_degisim_km !== undefined ? value.son_degisim_km : mevcut.son_degisim_km;
     if (etkinKm !== null && etkinKm !== undefined && etkinKm > arac.guncel_sayac) {
       const birim = sayacBirimi(arac.sayac_tipi);
@@ -256,17 +261,15 @@ const updateParca = async (req, res) => {
 
     const result = await pool.query(
       `UPDATE parca_takip
-       SET arac_id = $1,
-           parca_adi = $2,
-           son_degisim_km = COALESCE($3::int, son_degisim_km),
-           degisim_araligi_km = $4,
-           son_degisim_tarihi = COALESCE($5::date, son_degisim_tarihi),
-           maliyet = $6,
-           notlar = $7
-       WHERE parca_id = $8
+       SET parca_adi = $1,
+           son_degisim_km = COALESCE($2::int, son_degisim_km),
+           degisim_araligi_km = $3,
+           son_degisim_tarihi = COALESCE($4::date, son_degisim_tarihi),
+           maliyet = $5,
+           notlar = $6
+       WHERE parca_id = $7
        RETURNING *`,
       [
-        yeniAracId,
         yeniParcaAdi,
         yeniSonDegisimKmParam,
         yeniAralikKm,

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Filter, Plus, X } from 'lucide-react';
 import useAuthStore from '@/store/useAuthStore';
 import useVehicleStore from '@/store/useVehicleStore';
@@ -12,8 +12,16 @@ import VehicleSheet from '@/components/v2/VehicleSheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
+const VALID_DURUM_FILTERS = new Set([
+  'kritik_bakim',
+  'riskli_evrak',
+  'eksik_evrak',
+  'sorunsuz',
+]);
+
 export default function Filo() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const user = useAuthStore((s) => s.user);
 
   const araclar = useVehicleStore((s) => s.araclar);
@@ -96,6 +104,25 @@ export default function Filo() {
     if (!globalVehicleActive) return null;
     return araclar.find((a) => String(a.arac_id) === String(seciliAracId)) || null;
   }, [araclar, globalVehicleActive, seciliAracId]);
+
+  const urlDurumParam = searchParams.get('durum');
+  const initialDurumFilter = VALID_DURUM_FILTERS.has(urlDurumParam) ? urlDurumParam : 'all';
+
+  const handleDurumFilterChange = useCallback(
+    (nextDurum) => {
+      if (!searchParams.has('durum') && (!nextDurum || nextDurum === 'all')) return;
+      const next = new URLSearchParams(searchParams);
+      if (!nextDurum || nextDurum === 'all') {
+        next.delete('durum');
+      } else if (VALID_DURUM_FILTERS.has(nextDurum)) {
+        next.set('durum', nextDurum);
+      } else {
+        next.delete('durum');
+      }
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams]
+  );
 
   const handleClearGlobalVehicle = useCallback(() => {
     setSeciliAracId(null);
@@ -210,6 +237,8 @@ export default function Filo() {
         hasLoaded={hasLoaded}
         canManage={canManage}
         globalVehicleActive={globalVehicleActive}
+        initialDurumFilter={initialDurumFilter}
+        onDurumFilterChange={handleDurumFilterChange}
         onClearGlobalVehicle={handleClearGlobalVehicle}
         onDetail={handleDetail}
         onCreateClick={handleCreateClick}

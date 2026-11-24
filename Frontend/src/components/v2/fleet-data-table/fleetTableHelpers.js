@@ -109,6 +109,16 @@ export function filterFleetRows(
     if (durumFilter === 'kritik_bakim' && row.bakim.durum !== 'tehlike') return false;
     if (durumFilter === 'riskli_evrak' && !row.evrakRiskli) return false;
     if (
+      durumFilter === 'eksik_evrak' &&
+      Boolean(
+        row.arac?.muayene_tarihi &&
+          row.arac?.kasko_tarihi &&
+          row.arac?.sigorta_tarihi
+      )
+    ) {
+      return false;
+    }
+    if (
       durumFilter === 'sorunsuz' &&
       (row.bakim.durum !== 'sorunsuz' || row.evrakRiskli)
     ) {

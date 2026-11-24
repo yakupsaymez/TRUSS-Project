@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken'); // JWT token doğrulamak için kütüphaneyi dahil eder.
 const pool = require('../db'); // Kullanıcıyı her istekte DB'den okumak için havuzu dahil eder.
+const { getJwtSecret } = require('../utils/jwtSecret');
 
 const authMiddleware = async (req, res, next) => { // Korunan rotalar için async kimlik doğrulama ara katmanını tanımlar.
   try { // Async hatalar Express 4'te yakalanmadığı için tüm gövde try/catch içindedir.
@@ -10,7 +11,7 @@ const authMiddleware = async (req, res, next) => { // Korunan rotalar için asyn
     }
 
     const token = authHeader.split(' ')[1]; // Bearer kısmını atıp token değerini ayırır.
-    const secret = process.env.JWT_SECRET || 'gizli_anahtar_gecici'; // JWT secret'ı .env'den alır, yoksa varsayılanı kullanır.
+    const secret = getJwtSecret(); // JWT secret'ı doğrular ve döndürür; yoksa fail-fast hata fırlatır.
 
     let decoded; // Çözülen token payload'ını tutar.
     try {

@@ -226,6 +226,11 @@ export default function Takvim() {
   const handleEventSelect = useCallback(
     (event) => {
       if (!event) return;
+      if (event.type === 'bakim') {
+        setDetailEvent(event);
+        return;
+      }
+
       const matchedVehicle = aracById.get(String(event.aracId)) || null;
 
       if (canManage) {
@@ -253,6 +258,13 @@ export default function Takvim() {
     navigate('/app/filo');
   };
 
+  const handleOpenInLedger = () => {
+    if (!detailEvent?.aracId) return;
+    setSeciliAracId(String(detailEvent.aracId));
+    setDetailEvent(null);
+    navigate('/app/hareketler');
+  };
+
   const todayIso = useMemo(() => getTodayIso(), []);
   const detailUrgency = detailEvent ? getEventUrgencyMeta(detailEvent, todayIso) : null;
 
@@ -272,7 +284,8 @@ export default function Takvim() {
             )}
           </div>
           <p className="text-xs text-muted-foreground">
-            Muayene, sigorta, kasko vadeleri{canViewLedger ? ' ve bakım geçmişi' : ''} (salt-okunur)
+            Muayene, sigorta, kasko vadeleri{canViewLedger ? ' ve bakım geçmişi' : ''}
+            {canManage ? '' : ' (salt-okunur)'}
           </p>
         </div>
 
@@ -335,72 +348,76 @@ export default function Takvim() {
         />
       )}
 
-      {/* DRIVER: Salt-okunur etkinlik detay dialogu (düzenlenebilir Sheet YOK) */}
-      {!canManage && (
-        <Dialog
-          open={detailEvent !== null}
-          onOpenChange={(open) => {
-            if (!open) setDetailEvent(null);
-          }}
-        >
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 font-mono text-base tabular-nums">
-                <span>{detailEvent?.plate}</span>
-                {detailUrgency && (
-                  <span
-                    className={cn(
-                      'inline-flex items-center rounded-full border px-2 py-0.5 font-sans text-[11px] font-medium tabular-nums',
-                      detailUrgency.chipClass
-                    )}
-                  >
-                    {detailUrgency.badgeText}
-                  </span>
-                )}
-              </DialogTitle>
-              <DialogDescription>
-                {detailEvent?.vehicleLabel || 'Salt-okunur takvim etkinliği'}
-              </DialogDescription>
-            </DialogHeader>
+      {/* Etkinlik detay dialogu (bakım kayıtları tüm roller, belgeler DRIVER için) */}
+      <Dialog
+        open={detailEvent !== null}
+        onOpenChange={(open) => {
+          if (!open) setDetailEvent(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-mono text-base tabular-nums">
+              <span>{detailEvent?.plate}</span>
+              {detailUrgency && (
+                <span
+                  className={cn(
+                    'inline-flex items-center rounded-full border px-2 py-0.5 font-sans text-[11px] font-medium tabular-nums',
+                    detailUrgency.chipClass
+                  )}
+                >
+                  {detailUrgency.badgeText}
+                </span>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {detailEvent?.vehicleLabel || 'Takvim etkinliği'}
+            </DialogDescription>
+          </DialogHeader>
 
-            {detailEvent && (
-              <div className="space-y-3 rounded-lg border border-border bg-background/60 p-3.5 text-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs text-muted-foreground">Etkinlik Türü</span>
-                  <span className="font-medium text-foreground">
-                    {detailEvent.typeLabel}
-                    {detailEvent.subtitle ? ` · ${detailEvent.subtitle}` : ''}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs text-muted-foreground">Tarih</span>
-                  <span className="font-mono font-medium text-foreground tabular-nums">
-                    {formatTrDate(detailEvent.date)}
-                  </span>
-                </div>
-                {detailEvent.description ? (
-                  <div className="space-y-1 border-t border-border pt-2.5">
-                    <span className="text-xs text-muted-foreground">Açıklama</span>
-                    <p className="text-xs leading-relaxed text-foreground">
-                      {detailEvent.description}
-                    </p>
-                  </div>
-                ) : null}
+          {detailEvent && (
+            <div className="space-y-3 rounded-lg border border-border bg-background/60 p-3.5 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-muted-foreground">Etkinlik Türü</span>
+                <span className="font-medium text-foreground">
+                  {detailEvent.typeLabel}
+                  {detailEvent.subtitle ? ` · ${detailEvent.subtitle}` : ''}
+                </span>
               </div>
-            )}
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-muted-foreground">Tarih</span>
+                <span className="font-mono font-medium text-foreground tabular-nums">
+                  {formatTrDate(detailEvent.date)}
+                </span>
+              </div>
+              {detailEvent.description ? (
+                <div className="space-y-1 border-t border-border pt-2.5">
+                  <span className="text-xs text-muted-foreground">Açıklama</span>
+                  <p className="text-xs leading-relaxed text-foreground">
+                    {detailEvent.description}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          )}
 
-            <DialogFooter className="gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setDetailEvent(null)}>
-                Kapat
-              </Button>
-              <Button type="button" size="sm" onClick={handleOpenInFleet} className="gap-1.5">
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setDetailEvent(null)}>
+              Kapat
+            </Button>
+            {detailEvent?.type === 'bakim' && (
+              <Button type="button" variant="outline" size="sm" onClick={handleOpenInLedger} className="gap-1.5">
                 <ExternalLink className="size-3.5" aria-hidden="true" />
-                <span>Filoda Görüntüle</span>
+                <span>Hareketlere Git</span>
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+            )}
+            <Button type="button" size="sm" onClick={handleOpenInFleet} className="gap-1.5">
+              <ExternalLink className="size-3.5" aria-hidden="true" />
+              <span>Filoda Görüntüle</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

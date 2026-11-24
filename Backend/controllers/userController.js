@@ -2,6 +2,7 @@ const pool = require('../db');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const Joi = require('joi');
+const { getJwtSecret } = require('../utils/jwtSecret');
 
 // KAYIT METODU (Register - Multi-Tenant & RBAC)
 const register = async (req, res) => {
@@ -97,7 +98,7 @@ const login = async (req, res) => {
       org_id: user.org_id || null,
       role: user.role || 'FLEET_MANAGER',
     };
-    const secret = process.env.JWT_SECRET || 'gizli_anahtar_gecici';
+    const secret = getJwtSecret();
     const token = jwt.sign(payload, secret, { expiresIn: process.env.JWT_EXPIRES_IN || '1h' });
 
     return res.status(200).json({

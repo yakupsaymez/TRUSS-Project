@@ -30,13 +30,13 @@ CREATE TABLE IF NOT EXISTS araclar ( -- Araç bilgilerini tutacak tabloyu oluşt
     marka VARCHAR(100) NOT NULL, -- Aracın marka bilgisini tutar.
     model VARCHAR(100) NOT NULL, -- Aracın model bilgisini tutar.
     yil INT NOT NULL, -- Aracın model yılını tutar.
-    kullanici_id INT NOT NULL, -- Aracın hangi kullanıcıya ait olduğunu tutar.
+    kullanici_id INT, -- Aracın hangi kullanıcıya ait olduğunu tutar.
     muayene_tarihi DATE, -- Muayene bitiş tarihi.
     kasko_tarihi DATE, -- Kasko bitiş tarihi.
     sigorta_tarihi DATE, -- Trafik sigortası bitiş tarihi.
     CONSTRAINT fk_araclar_kullanici -- Dış anahtar kısıtına isim verir.
     FOREIGN KEY (kullanici_id) REFERENCES users(user_id) -- kullanici_id alanını users tablosundaki user_id alanına bağlar.
-    ON DELETE CASCADE -- Kullanıcı silinirse ona bağlı araç kayıtlarını da siler.
+    ON DELETE SET NULL -- Kullanıcı silinirse aracın sahibi NULL olur, araç ve geçmişi korunur.
     );
 
 CREATE TABLE IF NOT EXISTS parca_takip ( -- Araca bagli parca omur takibini tutar.
@@ -265,6 +265,12 @@ ALTER TABLE araclar
     ADD COLUMN IF NOT EXISTS son_boylam NUMERIC(9, 6),
     ADD COLUMN IF NOT EXISTS son_konum_adi VARCHAR(160),
     ADD COLUMN IF NOT EXISTS son_konum_zamani TIMESTAMPTZ;
+
+-- MIGRATION: FIX-1 (fk_araclar_kullanici ON DELETE SET NULL)
+ALTER TABLE araclar ALTER COLUMN kullanici_id DROP NOT NULL;
+ALTER TABLE araclar DROP CONSTRAINT IF EXISTS fk_araclar_kullanici;
+ALTER TABLE araclar ADD CONSTRAINT fk_araclar_kullanici FOREIGN KEY (kullanici_id) REFERENCES users(user_id) ON DELETE SET NULL;
+
 
 
 

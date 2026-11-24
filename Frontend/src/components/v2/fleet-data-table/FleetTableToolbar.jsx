@@ -76,6 +76,7 @@ export default function FleetTableToolbar({
             <SelectItem value="all">Durum: Tümü</SelectItem>
             <SelectItem value="kritik_bakim">Kritik Bakım</SelectItem>
             <SelectItem value="riskli_evrak">Riskli Evrak</SelectItem>
+            <SelectItem value="eksik_evrak">Eksik Evrak</SelectItem>
             <SelectItem value="sorunsuz">Sorunsuz</SelectItem>
           </SelectContent>
         </Select>

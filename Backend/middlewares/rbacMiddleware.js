@@ -61,6 +61,12 @@ const requirePermission = (key) => {
 
 const buildVehicleAccessFilter = (user, paramOffset = 1) => {
   if (user?.role === 'SYSTEM_ADMIN') {
+    if (user.org_id) {
+      return {
+        clause: `EXISTS (SELECT 1 FROM users o WHERE o.user_id = a.kullanici_id AND o.org_id = $${paramOffset})`,
+        params: [user.org_id],
+      };
+    }
     return { clause: '1=1', params: [] };
   }
   if (user?.role === 'FLEET_MANAGER') {

@@ -1,4 +1,4 @@
-import { getGuncelSayac } from '@/utils/aracDurum';
+import { getGuncelSayac, isSmhArac } from '@/utils/aracDurum';
 import { toLocalIsoDate } from '@/utils/dateUtils';
 import { formatTurkishPlate } from '@/utils/formatters';
 
@@ -15,8 +15,7 @@ export const STATUS_FILTER_OPTIONS = [
 
 export function hesaplaParcaOmru(parca, aracMap) {
   const arac = aracMap instanceof Map ? aracMap.get(String(parca.arac_id)) || null : null;
-  const isSmh =
-    (parca.sayac_tipi || arac?.sayac_tipi) === 'SMH' || Number(arac?.calisma_saati_bakim) > 0;
+  const isSmh = parca.sayac_tipi ? parca.sayac_tipi === 'SMH' : isSmhArac(arac);
   const sayacTipi = isSmh ? 'SMH' : 'KM';
   const birim = sayacTipi === 'SMH' ? 'saat' : 'km';
 

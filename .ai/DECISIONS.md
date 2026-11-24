@@ -62,4 +62,14 @@
 - **Kök Neden:** Üst katalog seçimi veya `MANUAL_OPTION` geçişinde in-flight alt dropdown istekleri iptal edilmiyor ve async hidrasyon tüm formu `setForm(resolved)` ile ezip kullanıcı girdisini siliyordu.
 - **Kalıcı Kural:** Kademeli dropdown değişimlerinde alt listeler fetch öncesi temizlenip alt `RequestIdRef` sayaçları artırılır; async hidrasyon/fallback efektleri yalnız ilgili alanları `prev` üzerine kısmi patch'ler.
 
+### ADR-13: `SYSTEM_ADMIN` Organizasyon (`org_id`) Kiracı İzolasyonu
+- **Tarih:** 2026-11-24 (`V2.1-HOTFIX-W1`)
+- **Kök Neden:** `buildVehicleAccessFilter` içinde `SYSTEM_ADMIN` koşulsuz `'1=1'` döndüğü için organizasyona bağlı adminler rakip kiracı araçlarını görebiliyordu.
+- **Kalıcı Kural:** `SYSTEM_ADMIN` için `user.org_id` tanımlıysa `o.org_id = $N` filtresi uygulanır; yalnız `org_id IS NULL` platform yöneticisi `'1=1'` görür.
+
+### ADR-14: `JWT_SECRET` Fail-Fast & Güvenli Araç Sahipliği Devri (`ON DELETE SET NULL`)
+- **Tarih:** 2026-11-24 (`V2.1-HOTFIX-W1`)
+- **Kök Neden:** Hardcoded JWT fallback zayıf imza riski yaratıyor ve `fk_araclar_kullanici ON DELETE CASCADE` hesap silmede tüm organizasyon filosunu siliyordu.
+- **Kalıcı Kural:** `Backend/utils/jwtSecret.js` (`getJwtSecret()`) boot ve auth akışlarında zorunludur; `fk_araclar_kullanici` `ON DELETE SET NULL` olarak tanımlanır ve `DELETE /settings/account` önce araçları aynı org yöneticisine devreder veya `409` döner.
+
 

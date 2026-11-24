@@ -2,6 +2,8 @@ const express = require('express'); // Express framework'unu projeye dahil eder.
 const cors = require('cors'); // Farkli origin'lerden gelen isteklere izin verir.
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') }); // Backend/.env dosyasini sabit yoldan yukler.
+const { getJwtSecret } = require('./utils/jwtSecret');
+getJwtSecret();
 const userRoutes = require('./routes/userRoutes'); // Kullaniciya ait router'i ayri dosyadan dahil eder.
 const aracRoutes = require('./routes/aracRoutes'); // Araclara ait router'i ayri dosyadan dahil eder.
 const bakimRoutes = require('./routes/bakimRoutes'); // Bakimlara ait router'i ayri dosyadan dahil eder.

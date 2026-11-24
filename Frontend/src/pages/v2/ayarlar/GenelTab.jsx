@@ -1,10 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import toast from 'react-hot-toast';
-import { Loader2, Save } from 'lucide-react';
-import api from '@/services/api';
-import useAppStore from '@/store/useAppStore';
-import { notifyApiError } from '@/utils/apiError';
+import React from 'react';
 import { useTheme } from '@/components/theme-provider';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -18,50 +14,15 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { THEME_OPTIONS } from './ayarlarConstants';
 
-export default function GenelTab({
-  dil,
-  setDil,
-  paraBirimi,
-  setParaBirimi,
-  olcuBirimi,
-  setOlcuBirimi,
-}) {
+export default function GenelTab() {
   const { theme, setTheme } = useTheme();
-  const [savingPreferences, setSavingPreferences] = useState(false);
-  const mountedRef = useRef(true);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  const handleSavePreferences = async (e) => {
-    e.preventDefault();
-    if (savingPreferences) return;
-    setSavingPreferences(true);
-    try {
-      await api.put('/users/settings/preferences', {
-        dil,
-        para_birimi: paraBirimi,
-        olcu_birimi: olcuBirimi,
-      });
-      await useAppStore.getState().syncPreferenceSummary(true);
-      toast.success('Tercihler güncellendi.');
-    } catch (err) {
-      notifyApiError(err, 'Tercihler güncellenemedi.');
-    } finally {
-      if (mountedRef.current) setSavingPreferences(false);
-    }
-  };
 
   return (
-    <form onSubmit={handleSavePreferences} className="space-y-6">
+    <div className="space-y-6">
       <div className="space-y-1">
         <h2 className="text-base font-semibold text-foreground">Genel Tercihler</h2>
         <p className="text-xs text-muted-foreground">
-          Dil, para birimi, ölçü birimi ve arayüz temasını yapılandırın.
+          Çoklu dil, para birimi ve mil desteği yakında eklenecektir. Aktif standart: TR / TRY (₺) / KM.
         </p>
       </div>
 
@@ -69,42 +30,46 @@ export default function GenelTab({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="grid gap-2">
-          <Label htmlFor="settings-dil">Dil</Label>
-          <Select value={dil} onValueChange={setDil} disabled={savingPreferences}>
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="settings-dil">Dil</Label>
+            <Badge variant="secondary">Yakında</Badge>
+          </div>
+          <Select value="TR" disabled>
             <SelectTrigger id="settings-dil" className="w-full">
               <SelectValue placeholder="Dil seçin" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="TR">Türkçe (TR)</SelectItem>
-              <SelectItem value="EN">İngilizce (EN)</SelectItem>
-              <SelectItem value="RU">Rusça (RU)</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="settings-para-birimi">Para Birimi</Label>
-          <Select value={paraBirimi} onValueChange={setParaBirimi} disabled={savingPreferences}>
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="settings-para-birimi">Para Birimi</Label>
+            <Badge variant="secondary">Yakında</Badge>
+          </div>
+          <Select value="TRY" disabled>
             <SelectTrigger id="settings-para-birimi" className="w-full">
               <SelectValue placeholder="Para birimi seçin" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="TRY">Türk Lirası (₺)</SelectItem>
-              <SelectItem value="USD">ABD Doları ($)</SelectItem>
-              <SelectItem value="EUR">Euro (€)</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="settings-olcu-birimi">Ölçü Birimi</Label>
-          <Select value={olcuBirimi} onValueChange={setOlcuBirimi} disabled={savingPreferences}>
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="settings-olcu-birimi">Ölçü Birimi</Label>
+            <Badge variant="secondary">Yakında</Badge>
+          </div>
+          <Select value="KM" disabled>
             <SelectTrigger id="settings-olcu-birimi" className="w-full">
               <SelectValue placeholder="Ölçü birimi seçin" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="KM">Kilometre (KM)</SelectItem>
-              <SelectItem value="MI">Mil (MI)</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -145,17 +110,6 @@ export default function GenelTab({
           })}
         </div>
       </div>
-
-      <div className="flex justify-end border-t border-border pt-4">
-        <Button type="submit" size="sm" disabled={savingPreferences} className="gap-2">
-          {savingPreferences ? (
-            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-          ) : (
-            <Save className="size-4" aria-hidden="true" />
-          )}
-          <span>Tercihleri Kaydet</span>
-        </Button>
-      </div>
-    </form>
+    </div>
   );
 }

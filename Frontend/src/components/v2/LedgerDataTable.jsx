@@ -7,6 +7,7 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import { ReceiptText } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import EmptyState from '@/components/v2/EmptyState';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -102,7 +103,15 @@ export default function LedgerDataTable({
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="bg-background/60 first:pl-4 last:pr-4">
+                  <TableHead
+                    key={header.id}
+                    className={cn(
+                      'first:pl-4 last:pr-4',
+                      header.column.id === 'actions'
+                        ? 'sticky right-0 z-10 border-l border-border/70 bg-card pr-4'
+                        : 'bg-background/60'
+                    )}
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(header.column.columnDef.header, header.getContext())}
@@ -118,7 +127,11 @@ export default function LedgerDataTable({
                   {columns.map((col, cIdx) => (
                     <TableCell
                       key={`${idx}-${col.id || cIdx}`}
-                      className="py-3 first:pl-4 last:pr-4"
+                      className={cn(
+                        'py-3 first:pl-4 last:pr-4',
+                        col.id === 'actions' &&
+                          'sticky right-0 z-10 border-l border-border/70 bg-card pr-4'
+                      )}
                     >
                       <Skeleton className="h-5 w-full max-w-36" />
                     </TableCell>
@@ -129,7 +142,14 @@ export default function LedgerDataTable({
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id}>
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="py-3 first:pl-4 last:pr-4">
+                    <TableCell
+                      key={cell.id}
+                      className={cn(
+                        'py-3 first:pl-4 last:pr-4',
+                        cell.column.id === 'actions' &&
+                          'sticky right-0 z-10 border-l border-border/70 bg-card pr-4'
+                      )}
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}

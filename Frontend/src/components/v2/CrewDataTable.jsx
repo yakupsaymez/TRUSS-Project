@@ -6,6 +6,7 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import { Users } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { ROLES } from '@/components/v2/channelAccess';
 import EmptyState from '@/components/v2/EmptyState';
 import { Card } from '@/components/ui/card';
@@ -123,7 +124,7 @@ export default function CrewDataTable({
       />
 
       <div className="overflow-x-auto">
-        <Table className="min-w-[960px]">
+        <Table className="min-w-[840px]">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
@@ -131,7 +132,11 @@ export default function CrewDataTable({
                   <TableHead
                     key={header.id}
                     style={{ width: `${header.getSize()}px` }}
-                    className="h-11 text-xs font-medium text-muted-foreground first:pl-4 last:pr-4"
+                    className={cn(
+                      'h-11 text-xs font-medium text-muted-foreground first:pl-4 last:pr-4',
+                      header.column.id === 'actions' &&
+                        'sticky right-0 z-10 border-l border-border/70 bg-card pr-4'
+                    )}
                   >
                     {header.isPlaceholder
                       ? null
@@ -166,7 +171,7 @@ export default function CrewDataTable({
                       <Skeleton className="h-5 w-40" />
                     </div>
                   </TableCell>
-                  <TableCell className="pr-4">
+                  <TableCell className="sticky right-0 z-10 border-l border-border/70 bg-card pr-4">
                     <div className="flex justify-end gap-1.5">
                       <Skeleton className="h-8 w-20 rounded-md" />
                       <Skeleton className="h-8 w-20 rounded-md" />
@@ -181,7 +186,11 @@ export default function CrewDataTable({
                     <TableCell
                       key={cell.id}
                       style={{ width: `${cell.column.getSize()}px` }}
-                      className="py-3 align-middle first:pl-4 last:pr-4"
+                      className={cn(
+                        'py-3 align-middle first:pl-4 last:pr-4',
+                        cell.column.id === 'actions' &&
+                          'sticky right-0 z-10 border-l border-border/70 bg-card pr-4'
+                      )}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>

@@ -6,6 +6,7 @@ import useVehicleStore from '@/store/useVehicleStore';
 import yakitService from '@/services/yakitService';
 import bakimService from '@/services/bakimService';
 import { resolveRole, ROLES } from '@/components/v2/channelAccess';
+import { isSmhArac } from '@/utils/aracDurum';
 import { notifyApiError } from '@/utils/apiError';
 import { toLocalIsoDate } from '@/utils/dateUtils';
 import { formatCurrency, formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
@@ -145,9 +146,7 @@ export default function Hareketler() {
 
   const aracMap = useMemo(() => {
     const map = new Map();
-    araclar.forEach((a) => {
-      map.set(String(a.arac_id), a);
-    });
+    araclar.forEach((a) => map.set(String(a.arac_id), a));
     return map;
   }, [araclar]);
 
@@ -164,9 +163,7 @@ export default function Hareketler() {
         y.notlar,
         y.fatura_no || y.fatura_bilgisi
       );
-      const isSmh =
-        (y.sayac_tipi || matchedArac?.sayac_tipi) === 'SMH' ||
-        Number(matchedArac?.calisma_saati_bakim) > 0;
+      const isSmh = y.sayac_tipi ? y.sayac_tipi === 'SMH' : isSmhArac(matchedArac);
 
       unified.push({
         id: `yakit-${y.yakit_id}`,
@@ -198,9 +195,7 @@ export default function Hareketler() {
         b.notlar || b.aciklama,
         b.fatura_no || b.fatura_bilgisi
       );
-      const isSmh =
-        (b.sayac_tipi || matchedArac?.sayac_tipi) === 'SMH' ||
-        Number(matchedArac?.calisma_saati_bakim) > 0;
+      const isSmh = b.sayac_tipi ? b.sayac_tipi === 'SMH' : isSmhArac(matchedArac);
 
       unified.push({
         id: `bakim-${b.bakim_id}`,
@@ -232,24 +227,23 @@ export default function Hareketler() {
     return unified;
   }, [yakitlar, bakimlar, aracMap]);
 
+  const isVehicleScoped = Boolean(seciliAracId && seciliAracId !== 'tum');
+  const scopedCount = useMemo(
+    () =>
+      isVehicleScoped
+        ? rows.filter((r) => String(r.arac_id) === String(seciliAracId)).length
+        : rows.length,
+    [rows, isVehicleScoped, seciliAracId]
+  );
+
   const handleCreateYakit = useCallback(() => {
     if (!canAddFuel) return;
-    setSheetState({
-      open: true,
-      mode: 'create',
-      initialTip: 'YAKIT',
-      record: null,
-    });
+    setSheetState({ open: true, mode: 'create', initialTip: 'YAKIT', record: null });
   }, [canAddFuel]);
 
   const handleCreateBakim = useCallback(() => {
     if (!canAddMaintenance) return;
-    setSheetState({
-      open: true,
-      mode: 'create',
-      initialTip: 'BAKIM',
-      record: null,
-    });
+    setSheetState({ open: true, mode: 'create', initialTip: 'BAKIM', record: null });
   }, [canAddMaintenance]);
 
   const handleRepeatRow = useCallback(
@@ -328,7 +322,9 @@ export default function Hareketler() {
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold tracking-tight text-foreground">Hareketler</h1>
             <Badge variant="secondary" className="tabular-nums">
-              {formatLocaleNumber(rows.length, 0)} kayıt
+              {isVehicleScoped
+                ? `${formatLocaleNumber(scopedCount, 0)} / ${formatLocaleNumber(rows.length, 0)} kayıt`
+                : `${formatLocaleNumber(rows.length, 0)} kayıt`}
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground">

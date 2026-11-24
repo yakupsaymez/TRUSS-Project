@@ -10,6 +10,7 @@ export default function CalendarEventChip({ event, todayIso, onSelect, compact =
   return (
     <button
       type="button"
+      title={event.title || event.shortLabel}
       onClick={(e) => {
         e.stopPropagation();
         onSelect?.(event);
