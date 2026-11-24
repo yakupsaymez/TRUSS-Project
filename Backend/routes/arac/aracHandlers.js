@@ -17,22 +17,11 @@ const createArac = async (req, res) => {
   if (error) return res.status(400).json({ message: error.details[0].message });
 
   const {
-    plaka,
-    kategori_id,
-    kategori,
-    marka,
-    model,
-    yil,
-    guncel_km,
-    guncel_calisma_saati,
-    sayac_tipi,
-    varyant_id,
-    onerilen_bakim_km,
-    triger_degisim_km,
-    calisma_saati_bakim,
-    muayene_tarihi,
-    kasko_tarihi,
-    sigorta_tarihi,
+    plaka, kategori_id, kategori, marka, model, yil,
+    guncel_km, guncel_calisma_saati, sayac_tipi, varyant_id,
+    onerilen_bakim_km, triger_degisim_km, calisma_saati_bakim,
+    muayene_tarihi, kasko_tarihi, sigorta_tarihi,
+    depo_kapasitesi_l, hedef_tuketim,
   } = value;
   const kullanici_id = req.user?.user_id;
 
@@ -86,20 +75,23 @@ const createArac = async (req, res) => {
           : 0;
 
     const parcaBaslangicSayaci = sayacTipi === 'SMH' ? baslangicSaat : baslangicKm;
+    const depoKapasitesi =
+      depo_kapasitesi_l !== undefined && depo_kapasitesi_l !== '' && depo_kapasitesi_l !== null
+        ? Number(depo_kapasitesi_l)
+        : null;
+    const hedefTuketim =
+      hedef_tuketim !== undefined && hedef_tuketim !== '' && hedef_tuketim !== null
+        ? Number(hedef_tuketim)
+        : null;
 
     const insertQuery = `
       INSERT INTO araclar (
         plaka, kategori_id, kategori, marka, model, yil, kullanici_id, org_id,
         guncel_km, guncel_calisma_saati, sayac_tipi, varyant_id,
         onerilen_bakim_km, triger_degisim_km, calisma_saati_bakim,
-        muayene_tarihi, kasko_tarihi, sigorta_tarihi
+        muayene_tarihi, kasko_tarihi, sigorta_tarihi, depo_kapasitesi_l, hedef_tuketim
       )
-      VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8,
-        $9, $10, $11, $12,
-        $13, $14, $15,
-        $16, $17, $18
-      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
       RETURNING *
     `;
 
@@ -122,6 +114,8 @@ const createArac = async (req, res) => {
       muayene_tarihi ? tarihStr(muayene_tarihi) : null,
       kasko_tarihi ? tarihStr(kasko_tarihi) : null,
       sigorta_tarihi ? tarihStr(sigorta_tarihi) : null,
+      depoKapasitesi,
+      hedefTuketim,
     ]);
 
     const aracId = result.rows[0].arac_id;

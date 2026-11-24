@@ -342,3 +342,42 @@ CREATE TABLE IF NOT EXISTS bildirim_olaylari (
 CREATE INDEX IF NOT EXISTS idx_bildirim_user_okundu
     ON bildirim_olaylari (user_id, okundu_mu, olusturma_tarihi DESC);
 
+-- MIGRATION: V2.2-ANOMALY (Yakit Suistimal & Tuketim Anomali Motoru)
+ALTER TABLE araclar
+    ADD COLUMN IF NOT EXISTS depo_kapasitesi_l NUMERIC(6,1),
+    ADD COLUMN IF NOT EXISTS hedef_tuketim NUMERIC(6,2);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_araclar_depo_kapasitesi_pozitif') THEN
+        ALTER TABLE araclar ADD CONSTRAINT chk_araclar_depo_kapasitesi_pozitif CHECK (depo_kapasitesi_l IS NULL OR depo_kapasitesi_l > 0);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_araclar_hedef_tuketim_pozitif') THEN
+        ALTER TABLE araclar ADD CONSTRAINT chk_araclar_hedef_tuketim_pozitif CHECK (hedef_tuketim IS NULL OR hedef_tuketim > 0);
+    END IF;
+END$$;
+
+CREATE TABLE IF NOT EXISTS yakit_anomalileri (
+    anomali_id SERIAL PRIMARY KEY,
+    org_id INTEGER REFERENCES organizations(org_id) ON DELETE CASCADE,
+    arac_id INTEGER NOT NULL REFERENCES araclar(arac_id) ON DELETE CASCADE,
+    yakit_id INTEGER NOT NULL REFERENCES yakitlar(yakit_id) ON DELETE CASCADE,
+    tip VARCHAR(40) NOT NULL CHECK (tip IN ('depo_asimi','ardisik_dolum','birim_fiyat_sapma','yuksek_tuketim')),
+    seviye VARCHAR(20) NOT NULL CHECK (seviye IN ('kritik','uyari')),
+    olculen_deger NUMERIC(12,2),
+    beklenen_esik NUMERIC(12,2),
+    aciklama TEXT NOT NULL,
+    durum VARCHAR(20) NOT NULL DEFAULT 'acik' CHECK (durum IN ('acik','incelendi','yoksayildi')),
+    inceleyen_user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
+    inceleme_notu VARCHAR(500),
+    olusturma_tarihi TIMESTAMPTZ DEFAULT NOW(),
+    inceleme_tarihi TIMESTAMPTZ,
+    CONSTRAINT uq_yakit_anomali_kayit_tip UNIQUE (yakit_id, tip)
+);
+
+CREATE INDEX IF NOT EXISTS idx_yakit_anomalileri_org_durum
+    ON yakit_anomalileri (org_id, durum, olusturma_tarihi DESC);
+
+CREATE INDEX IF NOT EXISTS idx_yakit_anomalileri_arac
+    ON yakit_anomalileri (arac_id);
+

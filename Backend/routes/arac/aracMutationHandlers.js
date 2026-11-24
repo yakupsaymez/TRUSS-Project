@@ -31,6 +31,8 @@ const updateArac = async (req, res) => {
     muayene_tarihi,
     kasko_tarihi,
     sigorta_tarihi,
+    depo_kapasitesi_l,
+    hedef_tuketim,
   } = value;
 
   let client = null;
@@ -149,6 +151,19 @@ const updateArac = async (req, res) => {
       });
     }
 
+    const nextDepoKapasitesi =
+      depo_kapasitesi_l !== undefined
+        ? depo_kapasitesi_l !== '' && depo_kapasitesi_l !== null
+          ? Number(depo_kapasitesi_l)
+          : null
+        : mevcut.depo_kapasitesi_l;
+    const nextHedefTuketim =
+      hedef_tuketim !== undefined
+        ? hedef_tuketim !== '' && hedef_tuketim !== null
+          ? Number(hedef_tuketim)
+          : null
+        : mevcut.hedef_tuketim;
+
     const updateQuery = `
       UPDATE araclar
       SET plaka = $1,
@@ -166,8 +181,10 @@ const updateArac = async (req, res) => {
           calisma_saati_bakim = $13,
           muayene_tarihi = $14,
           kasko_tarihi = $15,
-          sigorta_tarihi = $16
-      WHERE arac_id = $17
+          sigorta_tarihi = $16,
+          depo_kapasitesi_l = $17,
+          hedef_tuketim = $18
+      WHERE arac_id = $19
       RETURNING *
     `;
 
@@ -188,6 +205,8 @@ const updateArac = async (req, res) => {
       muayene_tarihi !== undefined ? (muayene_tarihi ? tarihStr(muayene_tarihi) : null) : mevcut.muayene_tarihi,
       kasko_tarihi !== undefined ? (kasko_tarihi ? tarihStr(kasko_tarihi) : null) : mevcut.kasko_tarihi,
       sigorta_tarihi !== undefined ? (sigorta_tarihi ? tarihStr(sigorta_tarihi) : null) : mevcut.sigorta_tarihi,
+      nextDepoKapasitesi,
+      nextHedefTuketim,
       aracId,
     ]);
 

@@ -92,3 +92,8 @@
 - **Kök Neden:** Eski cron yalnız ham e-posta/SMS atıyor, tekrarlı uyarıları tekilleştirmiyor, `UNION ALL` içinde `kayit_id DESC` ile yanlış son 2 hareketi seçip yerel `Date` kayması yaşıyor ve `bildirim_tercihleri` ile `maliyet_ozeti` finans yetkisi denetimi yapmıyordu.
 - **Kalıcı Kural:** `bildirim_olaylari` üzerinde `UNIQUE (user_id, kategori, referans_anahtar)` + `ON CONFLICT DO NOTHING` dedup kilidi uygulanır; `predictiveService` `ORDER BY tarih DESC, km DESC` ve `dateUtils` TR takvimiyle sıfır-bölünme korumalı çalışır; tüm bildirim/aksiyon uçlarında `users.bildirim_tercihleri` matrisi ve `maliyet_ozeti`/bütçe uyarıları için `hasFinanceAccess` RBAC filtresi zorunludur.
 
+### ADR-19: Yakıt Anomali Motoru İdempotensi, Tuple Sıralı Öncül & Kiracı İzolasyonu
+- **Tarih:** 2026-11-25 (`V2.2-ANOMALY-BE`)
+- **Kök Neden:** Tekrarlı taramalar veya yakıt güncellemeleri aynı kayıt için mükerrer anomali üretebilir, incelenmiş kararları silebilir, `km <= 0`/eksik kayıtlarda yanlış ardışık dolum seçebilir veya `PATCH` ucunda kiracı sınırını aşabilirdi.
+- **Kalıcı Kural:** `yakit_anomalileri` üzerinde `uq_yakit_anomali_kayit_tip` + `ON CONFLICT DO NOTHING` idempotensi uygulanır; önceki kayıt yalnız `curKm > 0` iken `(tarih, km, yakit_id) < (...)` tuple sırasıyla seçilir; `update` yalnız `durum = 'acik'` kayıtları yenileyip `incelendi`/`yoksayildi` kararlarını korur ve `PATCH /anomaliler/:id` `FROM araclar a` + `buildVehicleAccessFilter` ile kiracı izolasyonu sağlar.
+

@@ -3,6 +3,7 @@ const Joi = require('joi');
 const { buildVehicleAccessFilter } = require('../middlewares/rbacMiddleware');
 const { ileriTarihMi, tarihStr } = require('../utils/dateUtils');
 const { araclariKilitle, aracSayaciniSenkronizeEt, sayacSinirlari, sayacIhlaliMi, sayac422Govdesi, sayacBirimi } = require('../utils/odometerGuard');
+const { evaluateFuelRecordAnomalies } = require('../services/fuelAnomalyService');
 
 const extractFaturaFromNotlar = (rawNotlar) => {
   if (!rawNotlar) return null;
@@ -193,7 +194,14 @@ const createYakit = async (req, res) => {
 
     await client.query('COMMIT');
 
-    return res.status(201).json({ message: 'Yakit kaydi eklendi', yakit: result.rows[0] });
+    let anomaliler = [];
+    try {
+      anomaliler = await evaluateFuelRecordAnomalies(result.rows[0].yakit_id, { mode: 'create' });
+    } catch (anomErr) {
+      console.error('Yakıt anomali değerlendirme hatası (create):', anomErr);
+    }
+
+    return res.status(201).json({ message: 'Yakit kaydi eklendi', yakit: result.rows[0], anomaliler });
   } catch (err) {
     if (client) await client.query('ROLLBACK').catch(() => null);
     console.error('Yakıt ekleme hatası:', err);
@@ -349,7 +357,14 @@ const updateYakit = async (req, res) => {
 
     await client.query('COMMIT');
 
-    return res.status(200).json({ message: 'Yakit kaydi guncellendi', yakit: result.rows[0] });
+    let anomaliler = [];
+    try {
+      anomaliler = await evaluateFuelRecordAnomalies(yakitId, { mode: 'update' });
+    } catch (anomErr) {
+      console.error('Yakıt anomali değerlendirme hatası (update):', anomErr);
+    }
+
+    return res.status(200).json({ message: 'Yakit kaydi guncellendi', yakit: result.rows[0], anomaliler });
   } catch (err) {
     if (client) await client.query('ROLLBACK').catch(() => null);
     console.error('Yakıt güncelleme hatası:', err);
