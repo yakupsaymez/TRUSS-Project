@@ -1,15 +1,6 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import {
-  ChevronDown,
-  ChevronsUpDown,
-  LaptopMinimal,
-  LogOut,
-  Moon,
-  Search,
-  Settings,
-  Sun,
-} from 'lucide-react';
+import { ChevronDown, ChevronsUpDown, LaptopMinimal, LogOut, Moon, Search, Settings, Sun } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
 import useAuthStore from '@/store/useAuthStore';
 import useAppStore from '@/store/useAppStore';
@@ -27,6 +18,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
 import { Kbd } from '@/components/ui/kbd';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/motion-toggle-group';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -38,24 +30,15 @@ const VehicleSheet = lazy(() => import('@/components/v2/VehicleSheet'));
 
 const REFRESH_THROTTLE_MS = 60 * 1000;
 const ALL_VEHICLES_VALUE = '__ALL__';
-
 const ROUTE_LABELS = {
-  '/app': 'Genel Bakış',
-  '/app/filo': 'Filo',
-  '/app/harita': 'Harita',
-  '/app/hareketler': 'Hareketler',
-  '/app/parcalar': 'Parçalar',
-  '/app/takvim': 'Takvim',
-  '/app/ekip': 'Ekip',
-  '/app/ayarlar': 'Ayarlar',
+  '/app': 'Genel Bakış', '/app/filo': 'Filo', '/app/harita': 'Harita', '/app/hareketler': 'Hareketler',
+  '/app/parcalar': 'Parçalar', '/app/takvim': 'Takvim', '/app/ekip': 'Ekip', '/app/ayarlar': 'Ayarlar',
 };
 
 function getInitials(name, email) {
   const source = (name || email || 'TR').trim();
   const parts = source.split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) {
-    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toLocaleUpperCase('tr-TR');
-  }
+  if (parts.length >= 2) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toLocaleUpperCase('tr-TR');
   return source.slice(0, 2).toLocaleUpperCase('tr-TR');
 }
 
@@ -64,16 +47,22 @@ function RoleBadge({ role, className }) {
   return (
     <span
       title="Oturum rolü"
-      className={cn(
-        'inline-flex h-7 items-center rounded-md border bg-card px-2 font-mono text-[10px] font-semibold uppercase tracking-wider',
-        isDriver
-          ? 'border-border text-muted-foreground'
-          : 'border-primary text-primary',
-        className
-      )}
+      className={cn('inline-flex h-7 items-center rounded-md border bg-card px-2 font-mono text-[10px] font-semibold uppercase tracking-wider', isDriver ? 'border-border text-muted-foreground' : 'border-primary text-primary', className)}
     >
       {role}
     </span>
+  );
+}
+
+function ContentFallback() {
+  return (
+    <div role="status" aria-label="İçerik yükleniyor" className="space-y-4 bg-background">
+      <div className="flex items-center justify-between"><Skeleton className="h-7 w-44" /><Skeleton className="h-8 w-28" /></div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => <div key={i} className="rounded-xl border border-border bg-card p-4"><Skeleton className="h-16 w-full" /></div>)}
+      </div>
+      <div className="rounded-xl border border-border bg-card p-4"><Skeleton className="h-64 w-full" /></div>
+    </div>
   );
 }
 
@@ -572,7 +561,9 @@ export default function AppShell() {
 
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               <main className="flex-1 p-4 sm:p-6">
-                <Outlet />
+                <Suspense fallback={<ContentFallback />}>
+                  <Outlet />
+                </Suspense>
               </main>
             </div>
           </SidebarInset>
