@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   ChevronDown,
@@ -18,57 +18,23 @@ import { canAccessChannel, resolveRole, ROLES } from '@/components/v2/channelAcc
 import { evrakRiskliMi, hesaplaBakimDurumu } from '@/utils/aracDurum';
 import { formatTurkishPlate } from '@/utils/formatters';
 import { navConfig } from '@/components/v2/navConfig';
-import CommandPalette from '@/components/v2/CommandPalette';
-import MovementSheet from '@/components/v2/MovementSheet';
-import ComponentSheet from '@/components/v2/ComponentSheet';
-import VehicleSheet from '@/components/v2/VehicleSheet';
 import SidebarEdgeToggle from '@/components/shadcn-studio/blocks/sidebar-edge-toggle';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Kbd } from '@/components/ui/kbd';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarTrigger,
-} from '@/components/ui/sidebar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/motion-toggle-group';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+
+const CommandPalette = lazy(() => import('@/components/v2/CommandPalette'));
+const MovementSheet = lazy(() => import('@/components/v2/MovementSheet'));
+const ComponentSheet = lazy(() => import('@/components/v2/ComponentSheet'));
+const VehicleSheet = lazy(() => import('@/components/v2/VehicleSheet'));
 
 const REFRESH_THROTTLE_MS = 60 * 1000;
 const ALL_VEHICLES_VALUE = '__ALL__';
@@ -613,65 +579,68 @@ export default function AppShell() {
         </SidebarProvider>
       </div>
 
-      <CommandPalette
-        open={paletteOpen}
-        onOpenChange={setPaletteOpen}
-        canManage={canManage}
-        canAddFuel={canAddFuel}
-        canAddMaintenance={canAddMaintenance}
-        visibleNavItems={visibleNavItems}
-        araclar={araclar}
-        seciliAracId={seciliAracId}
-        onNavigate={(path) => navigate(path)}
-        onSelectVehicle={handlePaletteSelectVehicle}
-        onOpenMovementSheet={handleOpenMovementSheet}
-        onOpenComponentSheet={handleOpenComponentSheet}
-        onOpenVehicleSheet={handleOpenVehicleSheet}
-      />
-
-      <MovementSheet
-        open={movementSheetState.open}
-        onOpenChange={(nextOpen) =>
-          setMovementSheetState((prev) =>
-            nextOpen ? { ...prev, open: true } : { open: false, initialTip: 'YAKIT', prefill: null }
-          )
-        }
-        mode="create"
-        initialTip={movementSheetState.initialTip}
-        record={null}
-        prefill={movementSheetState.prefill}
-        araclar={araclar}
-        defaultAracId={seciliAracId}
-        canAddFuel={canAddFuel}
-        canAddMaintenance={canAddMaintenance}
-        onSuccess={() => notifyDataChanged('movement')}
-      />
-
-      {canManage && (
-        <VehicleSheet
-          open={vehicleSheetOpen}
-          onOpenChange={setVehicleSheetOpen}
-          arac={null}
-          onSuccess={() => notifyDataChanged('vehicle')}
-        />
-      )}
-
-      {canManage && (
-        <ComponentSheet
-          open={componentSheetState.open}
-          onOpenChange={(nextOpen) =>
-            setComponentSheetState((prev) =>
-              nextOpen ? { ...prev, open: true } : { open: false, prefill: null }
-            )
-          }
-          mode="create"
-          parca={null}
-          prefill={componentSheetState.prefill}
-          araclar={araclar}
-          defaultAracId={seciliAracId}
-          onSuccess={() => notifyDataChanged('component')}
-        />
-      )}
+      <Suspense fallback={null}>
+        {paletteOpen && (
+          <CommandPalette
+            open={paletteOpen}
+            onOpenChange={setPaletteOpen}
+            canManage={canManage}
+            canAddFuel={canAddFuel}
+            canAddMaintenance={canAddMaintenance}
+            visibleNavItems={visibleNavItems}
+            araclar={araclar}
+            seciliAracId={seciliAracId}
+            onNavigate={(path) => navigate(path)}
+            onSelectVehicle={handlePaletteSelectVehicle}
+            onOpenMovementSheet={handleOpenMovementSheet}
+            onOpenComponentSheet={handleOpenComponentSheet}
+            onOpenVehicleSheet={handleOpenVehicleSheet}
+          />
+        )}
+        {movementSheetState.open && (
+          <MovementSheet
+            open={movementSheetState.open}
+            onOpenChange={(nextOpen) =>
+              setMovementSheetState((prev) =>
+                nextOpen ? { ...prev, open: true } : { open: false, initialTip: 'YAKIT', prefill: null }
+              )
+            }
+            mode="create"
+            initialTip={movementSheetState.initialTip}
+            record={null}
+            prefill={movementSheetState.prefill}
+            araclar={araclar}
+            defaultAracId={seciliAracId}
+            canAddFuel={canAddFuel}
+            canAddMaintenance={canAddMaintenance}
+            onSuccess={() => notifyDataChanged('movement')}
+          />
+        )}
+        {canManage && vehicleSheetOpen && (
+          <VehicleSheet
+            open={vehicleSheetOpen}
+            onOpenChange={setVehicleSheetOpen}
+            arac={null}
+            onSuccess={() => notifyDataChanged('vehicle')}
+          />
+        )}
+        {canManage && componentSheetState.open && (
+          <ComponentSheet
+            open={componentSheetState.open}
+            onOpenChange={(nextOpen) =>
+              setComponentSheetState((prev) =>
+                nextOpen ? { ...prev, open: true } : { open: false, prefill: null }
+              )
+            }
+            mode="create"
+            parca={null}
+            prefill={componentSheetState.prefill}
+            araclar={araclar}
+            defaultAracId={seciliAracId}
+            onSuccess={() => notifyDataChanged('component')}
+          />
+        )}
+      </Suspense>
     </TooltipProvider>
   );
 }

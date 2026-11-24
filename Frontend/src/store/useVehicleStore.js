@@ -47,6 +47,7 @@ const evrakRiskliMi = (arac) => {
 };
 
 let modalKapanmaTimer = null;
+let fetchInFlight = null;
 
 const useVehicleStore = create((set, get) => ({
   // Liste
@@ -69,52 +70,57 @@ const useVehicleStore = create((set, get) => ({
   isSubmitting: false,
 
   fetchAraclar: async () => {
-    set({ loading: true, error: null });
-    try {
-      const data = await aracService.getAraclar();
-      const liste = Array.isArray(data) ? data : data?.araclar || [];
+    if (fetchInFlight) return fetchInFlight;
+    fetchInFlight = (async () => {
+      set({ loading: true, error: null });
+      try {
+        const data = await aracService.getAraclar();
+        const liste = Array.isArray(data) ? data : data?.araclar || [];
 
-      const tehlike = [];
-      const evrak = [];
-      liste.forEach((arac) => {
-        if (evrakRiskliMi(arac)) evrak.push(arac.arac_id);
-        const isSmh = arac.sayac_tipi === 'SMH' || Number(arac.calisma_saati_bakim) > 0;
-        const sayac = Number(
-          arac.guncel_sayac ?? (isSmh ? arac.guncel_calisma_saati : arac.guncel_km) ?? 0
-        );
-        const periyot = Number(
-          (isSmh ? arac.calisma_saati_bakim : arac.onerilen_bakim_km) ||
-          arac.bakim_periyodu ||
-          (isSmh ? 250 : 15000)
-        );
-        const sonBakim =
-          arac.son_bakim_km !== null && arac.son_bakim_km !== undefined
-            ? Number(arac.son_bakim_km)
-            : null;
-        if (sonBakim !== null && Number.isFinite(sonBakim) && Number.isFinite(periyot) && sayac >= sonBakim + periyot) {
-          tehlike.push(arac.arac_id);
-        }
-      });
+        const tehlike = [];
+        const evrak = [];
+        liste.forEach((arac) => {
+          if (evrakRiskliMi(arac)) evrak.push(arac.arac_id);
+          const isSmh = arac.sayac_tipi === 'SMH' || Number(arac.calisma_saati_bakim) > 0;
+          const sayac = Number(
+            arac.guncel_sayac ?? (isSmh ? arac.guncel_calisma_saati : arac.guncel_km) ?? 0
+          );
+          const periyot = Number(
+            (isSmh ? arac.calisma_saati_bakim : arac.onerilen_bakim_km) ||
+            arac.bakim_periyodu ||
+            (isSmh ? 250 : 15000)
+          );
+          const sonBakim =
+            arac.son_bakim_km !== null && arac.son_bakim_km !== undefined
+              ? Number(arac.son_bakim_km)
+              : null;
+          if (sonBakim !== null && Number.isFinite(sonBakim) && Number.isFinite(periyot) && sayac >= sonBakim + periyot) {
+            tehlike.push(arac.arac_id);
+          }
+        });
 
-      set((state) => {
-        const secimGecerli =
-          state.seciliAracId === 'tum' ||
-          liste.some((a) => String(a.arac_id) === String(state.seciliAracId));
-        return {
-          araclar: liste,
-          vehicles: liste,
-          riskliAracIdler: { tehlike, evrak },
-          hasLoaded: true,
-          seciliAracId: secimGecerli ? state.seciliAracId : 'tum',
-        };
-      });
-    } catch (err) {
-      const message = err?.response?.data?.message || 'Araçlar yüklenemedi.';
-      set({ error: message });
-      toast.error(message);
-    } finally {
-      set({ loading: false });
-    }
+        set((state) => {
+          const secimGecerli =
+            state.seciliAracId === 'tum' ||
+            liste.some((a) => String(a.arac_id) === String(state.seciliAracId));
+          return {
+            araclar: liste,
+            vehicles: liste,
+            riskliAracIdler: { tehlike, evrak },
+            hasLoaded: true,
+            seciliAracId: secimGecerli ? state.seciliAracId : 'tum',
+          };
+        });
+      } catch (err) {
+        const message = err?.response?.data?.message || 'Araçlar yüklenemedi.';
+        set({ error: message });
+        toast.error(message);
+      } finally {
+        set({ loading: false });
+        fetchInFlight = null;
+      }
+    })();
+    return fetchInFlight;
   },
 
   openModal: () => {
@@ -227,6 +233,7 @@ const useVehicleStore = create((set, get) => ({
   reset: () => {
     if (modalKapanmaTimer) clearTimeout(modalKapanmaTimer);
     modalKapanmaTimer = null;
+    fetchInFlight = null;
     set({
       araclar: [],
       vehicles: [],
