@@ -375,18 +375,15 @@ function runCli() {
   // Gate 2: Semantic Theme & Brand Hygiene
   {
     const t0 = Date.now();
-    const targets = [
-      ...walkFiles(
-        path.join(ROOT_DIR, 'Frontend', 'src', 'pages', 'v2'),
-        (p) => p.endsWith('.js') || p.endsWith('.jsx')
-      ),
-      ...walkFiles(
-        path.join(ROOT_DIR, 'Frontend', 'src', 'components', 'v2'),
-        (p) => p.endsWith('.js') || p.endsWith('.jsx')
-      ),
-    ];
+    const isJsOrJsx = (p) => p.endsWith('.js') || p.endsWith('.jsx');
+    const targetSet = new Set([
+      ...walkFiles(path.join(ROOT_DIR, 'Frontend', 'src', 'pages', 'v2'), isJsOrJsx),
+      ...walkFiles(path.join(ROOT_DIR, 'Frontend', 'src', 'pages', 'home'), isJsOrJsx),
+      ...walkFiles(path.join(ROOT_DIR, 'Frontend', 'src', 'components', 'v2'), isJsOrJsx),
+    ]);
     const homePage = path.join(ROOT_DIR, 'Frontend', 'src', 'pages', 'HomePage.jsx');
-    if (fs.existsSync(homePage)) targets.push(homePage);
+    if (fs.existsSync(homePage)) targetSet.add(homePage);
+    const targets = Array.from(targetSet);
 
     const violations = [];
     for (const fullPath of targets) {
@@ -400,7 +397,7 @@ function runCli() {
       id: '2. Semantic Theme Hygiene',
       status: violations.length > 0 ? 'FAIL' : 'PASS',
       ms: Date.now() - t0,
-      summary: `${targets.length} v2 files scanned, ${violations.length} violations`,
+      summary: `${targets.length} v2/home files scanned, ${violations.length} violations`,
       details: violations,
     });
   }
