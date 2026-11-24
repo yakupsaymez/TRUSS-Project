@@ -143,31 +143,37 @@ const createBakim = async (req, res) => {
       notlar || aciklama || null,
     ]);
 
-    // Periyodik Bakım / Yağ / Filtre bakımında ilgili parça sayaçlarını otomatik sıfırla
-    const aramaMetni = `${bakim_tipi || ''} ${notlar || ''} ${aciklama || ''}`.toLocaleLowerCase('tr-TR');
-    const isPeriyodikBakim =
-      bakim_tipi === 'Periyodik Bakım' ||
-      aramaMetni.includes('periyodik') ||
-      aramaMetni.includes('yağ') ||
-      aramaMetni.includes('yag') ||
-      aramaMetni.includes('filtre');
+    // Periyodik Bakım / Yağ & Filtre Bakımı için deterministik parça sıfırlama
+    const PERIYODIK_SIFIRLAMA_HARITASI = {
+      'Periyodik Bakım': [
+        'Motor Yağı',
+        'Yağ Filtresi',
+        'Hava Filtresi',
+        'Hava Filtresi (İç/Dış)',
+        'Polen Filtresi',
+        'Polen / Kabin Filtresi',
+      ],
+      'Yağ & Filtre Bakımı': [
+        'Motor Yağı',
+        'Yağ Filtresi',
+        'Hava Filtresi',
+        'Hava Filtresi (İç/Dış)',
+        'Polen Filtresi',
+        'Polen / Kabin Filtresi',
+        'Yakıt / Su Ayırıcı Filtre',
+      ],
+    };
 
-    if (isPeriyodikBakim) {
+    const sifirlanacakParcalar = PERIYODIK_SIFIRLAMA_HARITASI[bakim_tipi] || null;
+    if (req.body.sifirla_parcalar !== false && sifirlanacakParcalar) {
       await client.query(
         `UPDATE parca_takip
          SET son_degisim_km = $1,
              son_degisim_tarihi = $2
          WHERE arac_id = $3
            AND COALESCE(son_degisim_km, 0) <= $1
-           AND parca_adi IN (
-             'Motor Yağı',
-             'Yağ Filtresi',
-             'Hava Filtresi',
-             'Hava Filtresi (İç/Dış)',
-             'Polen Filtresi',
-             'Polen / Kabin Filtresi'
-           )`,
-        [sayisalKm, gun, aracId]
+           AND parca_adi = ANY($4::text[])`,
+        [sayisalKm, gun, aracId, sifirlanacakParcalar]
       );
     }
 

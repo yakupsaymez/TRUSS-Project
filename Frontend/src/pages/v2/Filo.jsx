@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Filter, Plus, X } from 'lucide-react';
 import useAuthStore from '@/store/useAuthStore';
 import useVehicleStore from '@/store/useVehicleStore';
-import adminService from '@/services/adminService';
 import { resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import FleetDataTable from '@/components/v2/FleetDataTable';
@@ -32,7 +31,6 @@ export default function Filo() {
   const setSeciliAracId = useVehicleStore((s) => s.setSeciliAracId);
   const deleteVehicle = useVehicleStore((s) => s.deleteVehicle);
 
-  const [driverByAracId, setDriverByAracId] = useState({});
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -48,50 +46,6 @@ export default function Filo() {
       fetchAraclar();
     }
   }, [hasLoaded, loading, fetchAraclar]);
-
-  // Zimmetli şoför eşlemesi: yalnızca yönetici rollerinde (canManage) çağrılır; DRIVER + yetkiler.ekip için 403 üretmez.
-  useEffect(() => {
-    if (!canManage) {
-      setDriverByAracId({});
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const users = await adminService.getUsers();
-        if (cancelled || !Array.isArray(users)) return;
-
-        const map = {};
-        const rolePriority = {};
-
-        users.forEach((u) => {
-          const zimmetler = Array.isArray(u.zimmetli_araclar) ? u.zimmetli_araclar : [];
-          const displayName = u.ad_soyad || u.email || '';
-          if (!displayName) return;
-          const isDriver = (u.role || ROLES.DRIVER) === ROLES.DRIVER;
-
-          zimmetler.forEach((z) => {
-            const aid = z?.arac_id ?? z?.id;
-            if (aid === undefined || aid === null) return;
-            const key = String(aid);
-            if (!map[key] || (isDriver && !rolePriority[key])) {
-              map[key] = displayName;
-              rolePriority[key] = isDriver;
-            }
-          });
-        });
-
-        setDriverByAracId(map);
-      } catch {
-        // 403/ağ hatası: sessizce geç (403 toast'u api.js yönetir)
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [canManage]);
 
   const globalVehicleActive = Boolean(seciliAracId && seciliAracId !== 'tum');
 
@@ -232,7 +186,6 @@ export default function Filo() {
 
       <FleetDataTable
         araclar={visibleAraclar}
-        driverByAracId={driverByAracId}
         loading={loading}
         hasLoaded={hasLoaded}
         canManage={canManage}

@@ -72,4 +72,9 @@
 - **Kök Neden:** Hardcoded JWT fallback zayıf imza riski yaratıyor ve `fk_araclar_kullanici ON DELETE CASCADE` hesap silmede tüm organizasyon filosunu siliyordu.
 - **Kalıcı Kural:** `Backend/utils/jwtSecret.js` (`getJwtSecret()`) boot ve auth akışlarında zorunludur; `fk_araclar_kullanici` `ON DELETE SET NULL` olarak tanımlanır ve `DELETE /settings/account` önce araçları aynı org yöneticisine devreder veya `409` döner.
 
+### ADR-15: Sayaç Tipi Kilidi, Başlangıç Sayacı Tabanı, 3-Anahtarlı RBAC & Finans Gizliliği
+- **Tarih:** 2026-11-25 (`V2.1-HOTFIX-W2`)
+- **Kök Neden:** Boş hareketli araçta başlangıç KM ezilebiliyor, kayıtlı araçta `KM/SMH` değiştirilebiliyor, UI'da etkisiz 6'lı yetki anahtarları sahte `1/6 Yakıt AÇIK` üretiyor ve `analytics` yetkisi olmayan sürücülere tablo/özet tutarları sızıyordu.
+- **Kalıcı Kural:** Hareket/parça kaydı olan araçta `sayac_tipi` değişimi `422` ile engellenir ve boş hareketlerde `araclar.guncel_km` tabanı korunur; ekip yetki matrisi yalnız sunucudaki 3 aktif anahtarı (`yakit`, `bakim`, `finans`) esas alır ve finans sütun/özetleri `canAccessChannel(user, 'analytics')` ile gizlenir.
+
 

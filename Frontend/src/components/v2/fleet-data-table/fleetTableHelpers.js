@@ -64,7 +64,7 @@ export function extractCategories(araclar) {
   return Array.from(set).sort((a, b) => a.localeCompare(b, 'tr-TR'));
 }
 
-export function enrichFleetRows(araclar, driverByAracId) {
+export function enrichFleetRows(araclar, driverByAracId = {}) {
   return araclar.map((arac) => {
     const sayac = getGuncelSayac(arac);
     const smh = isSmhArac(arac);
@@ -73,7 +73,7 @@ export function enrichFleetRows(araclar, driverByAracId) {
     const periyot = getBakimPeriyodu(arac);
     const evrakRiskli = evrakRiskliMi(arac);
     const docSummary = computeDocumentSummary(arac);
-    const driverName = driverByAracId[String(arac.arac_id)] || '';
+    const driverName = arac.zimmetli_sofor_ad || driverByAracId?.[String(arac.arac_id)] || '';
     const formattedPlaka = formatTurkishPlate(arac.plaka);
     const kategori = arac.kategori || 'Otomobil';
 

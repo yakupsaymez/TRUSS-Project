@@ -16,10 +16,11 @@
   - `V2.1-FE4` (`c6bcfa4`): `HomePage v2` kurumsal vitrin (`pages/home/*`), etkileşimli önizleme & mikro-etkileşim cilası — **QA PASS**.
   - `CLEANUP-1`: Sıfır referanslı `Frontend/src/components/v2/home/*` (`6` dosya) ve kök `skills/system/run-workflow/SKILL.md` temizlendi (`Drift Alerts: 0`) — **QA PASS**.
   - `V2.1-HOTFIX-W1` (Wave 1: `FIX-1` + `FIX-3B`): `SYSTEM_ADMIN` `org_id` izolasyonu, `ADR-09` parca `arac_id` kilidi, `JWT_SECRET` fail-fast, `fk_araclar_kullanici ON DELETE SET NULL`, `GenelTab` salt-okunur kilit, dark mod kontrast, sticky tablo aksiyonları ve Takvim/KPI/Filo UX yamaları — **QA PASS**.
+  - `V2.1-HOTFIX-W2` (Wave 2: `FIX-2` + `FIX-3A`): `H-05` başlangıç sayacı/tek kayıt silme/KM-SMH kilidi & deterministik bakım parça sıfırlaması, `H-06` `ADR-11` tarih/varyant & `400` katalog doğrulaması, `H-08` TX+`FOR UPDATE` bütçe/TR zaman dilimi, `H-12` `zimmetli_sofor_id`/`ad` JOIN, `H-04` 3 aktif yetki anahtarı senkronu ve `H-10` `analytics` finans gizliliği + tek-toast yamaları — **QA PASS**.
 
 ## 2. Sıradaki Kuyruk (Öncelik Sırasıyla)
-- **Mühürlenenler:** `PERF-1/1b`, `REFACTOR-1` (`14/14 -> 0` monolit), `OPS-1..5`, `QA-SWEEP` (`BE+FE`), `V2.1-FE4`, `CLEANUP-1` ve `V2.1-HOTFIX-W1` mühürlendi.
-- **Sırada / Beklemede:** Wave 2 (`FIX-2` + `FIX-3A` + `FIX-4`) -> `V2.2-DBPERF` + `V2.2-NOTIFY` + `V2.2-INBOX` -> `V2.2-TCO` + `V2.2-ANOMALY`.
+- **Mühürlenenler:** `PERF-1/1b`, `REFACTOR-1` (`14/14 -> 0` monolit), `OPS-1..5`, `QA-SWEEP` (`BE+FE`), `V2.1-FE4`, `CLEANUP-1`, `V2.1-HOTFIX-W1` ve `V2.1-HOTFIX-W2` mühürlendi.
+- **Sırada / Beklemede:** `FIX-4` -> `V2.2-DBPERF` + `V2.2-NOTIFY` + `V2.2-INBOX` -> `V2.2-TCO` + `V2.2-ANOMALY`.
 
 ## 3. Açık Teknik Riskler
 - **Bundle Bütçesi (`PASS` / Kilitlendi):** Ana giriş chunk'ı `1416.5 KB → 89.6 KB`, en büyük vendor chunk `351.3 KB` (`maxChunkKb: 352 KB` ratchet tavanına kilitlendi).
@@ -29,8 +30,8 @@
 ## 4. 📌 Durum Panosu (Her Yanıt Sonunda Zorunlu Şablon)
 | Ajan | Model / Güç | Şu An Ne Yapıyor | Hemen Şimdi Ne Yapmalı | İleride Ne Yapacak |
 | :--- | :--- | :--- | :--- | :--- |
-| **S5 (Baş Mimar)** | `pro` (`Neon High` / Opus) | `V2.1-HOTFIX-W1` mühürlendi (`QA PASS`) | Temiz oturumda Wave 2 (`FIX-2` + `FIX-3A`) planlamasına geçmeli | `FIX-4` ve `V2.2` paket orkestrasyonu |
-| **S1 (Frontend)** | `inherit` (`Neon` Normal) | `FIX-3B` UI kontrast/sticky/UX mühürlendi (`QA PASS`) | Wave 2 (`FIX-3A`) için temiz oturumda beklemeli | `FIX-3A`, `FIX-4` ve `V2.2` FE paketleri |
-| **S2 (Backend / Ops)** | `inherit` (`Argon` / `Neon`) | `FIX-1` güvenlik/`ADR-09`/JWT/FK mühürlendi (`QA PASS`) | Wave 2 (`FIX-2`) için temiz oturumda beklemeli | `FIX-2`, `FIX-4` ve `V2.2` BE paketleri |
-| **S3 (QA / Denetçi)** | `pro` (`Hidrojen` / `Argon`) | `V2.1-HOTFIX-W1` 7-kapı + API + E2E PASS onaylandı | Wave 2 QA için temiz oturumda beklemeli | Wave 2 ve `V2.2` paketlerinde 7 kapılı QA |
-| **S4 (Bug Hunter)** | `flash` (`2.8 Flash`) | `QA-SWEEP` tamamlandı (`0` açık hata) | Beklemede kalmalı | Wave 2 / `V2.2` sonrası cerrahi hata avı |
+| **S5 (Baş Mimar)** | `pro` (`Neon High` / Opus) | `V2.1-HOTFIX-W2` mühürlendi (`QA PASS`) | Temiz oturumda `FIX-4` planlamasına geçmeli | `FIX-4` ve `V2.2` paket orkestrasyonu |
+| **S1 (Frontend)** | `inherit` (`Neon` Normal) | `FIX-3A` 3-anahtarlı RBAC & `analytics` gizliliği mühürlendi (`QA PASS`) | `FIX-4` için temiz oturumda beklemeli | `FIX-4` ve `V2.2` FE paketleri |
+| **S2 (Backend / Ops)** | `inherit` (`Argon` / `Neon`) | `FIX-2` `H-05/06/08/12` & Wave 2 mühürlendi (`QA PASS`) | `FIX-4` için temiz oturumda beklemeli | `FIX-4` ve `V2.2` BE paketleri |
+| **S3 (QA / Denetçi)** | `pro` (`Hidrojen` / `Argon`) | `V2.1-HOTFIX-W2` 7-kapı + API + E2E PASS onaylandı | `FIX-4` QA için temiz oturumda beklemeli | `FIX-4` ve `V2.2` paketlerinde 7 kapılı QA |
+| **S4 (Bug Hunter)** | `flash` (`2.8 Flash`) | `QA-SWEEP` tamamlandı (`0` açık hata) | Beklemede kalmalı | `FIX-4` / `V2.2` sonrası cerrahi hata avı |

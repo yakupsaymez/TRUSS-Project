@@ -4,7 +4,7 @@ import { Plus } from 'lucide-react';
 import useAuthStore from '@/store/useAuthStore';
 import useVehicleStore from '@/store/useVehicleStore';
 import parcaService from '@/services/parcaService';
-import { resolveRole, ROLES } from '@/components/v2/channelAccess';
+import { canAccessChannel, resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { notifyApiError } from '@/utils/apiError';
 import { formatCurrency, formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import ComponentDataTable, { hesaplaParcaOmru } from '@/components/v2/ComponentDataTable';
@@ -41,6 +41,7 @@ export default function Parcalar() {
 
   const role = resolveRole(user);
   const canManage = [ROLES.SYSTEM_ADMIN, ROLES.FLEET_MANAGER].includes(role);
+  const canViewFinance = canAccessChannel(user, 'analytics');
 
   useEffect(() => {
     mountedRef.current = true;
@@ -254,7 +255,11 @@ export default function Parcalar() {
             : 'Filo genelinde takipli bileşenlerin ömür dağılımı — tabloyu filtrelemek için segmente tıklayın'
         }
         totalValue={formatLocaleNumber(scopedTotal, 0)}
-        totalLabel={`parça · Toplam Maliyet: ${formatCurrency(scopedTotalCost, { maximumFractionDigits: 2 })}`}
+        totalLabel={
+          canViewFinance
+            ? `parça · Toplam Maliyet: ${formatCurrency(scopedTotalCost, { maximumFractionDigits: 2 })}`
+            : 'parça'
+        }
         segments={distributionSegments}
         activeKey={statusFilter === 'all' ? null : statusFilter}
         onSelectSegment={handleSegmentSelect}
@@ -273,6 +278,7 @@ export default function Parcalar() {
         loading={loading}
         hasLoaded={hasLoaded}
         canManage={canManage}
+        canViewFinance={canViewFinance}
         onCreateClick={canManage ? handleCreateClick : undefined}
         onReplaceClick={canManage ? handleReplaceClick : undefined}
         onEditClick={canManage ? handleEditClick : undefined}

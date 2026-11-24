@@ -9,29 +9,47 @@ const PERMISSION_KEYS = ['yakit', 'bakim', 'finans', 'zimmet', 'envanter', 'ekip
 
 // Yöneticinin org_id bilgisini getirir (eski kayıtlar için otomatik organizasyon oluşturur)
 const ensureManagerOrgId = async (userId) => {
-  const userRes = await pool.query(
-    'SELECT user_id, ad_soyad, org_id, role FROM users WHERE user_id = $1 LIMIT 1',
-    [userId]
-  );
-  if (userRes.rowCount === 0) return null;
+  let client = null;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
 
-  const user = userRes.rows[0];
-  if (user.org_id) return user.org_id;
+    const userRes = await client.query(
+      'SELECT user_id, ad_soyad, org_id, role FROM users WHERE user_id = $1 FOR UPDATE',
+      [userId]
+    );
+    if (userRes.rowCount === 0) {
+      await client.query('COMMIT');
+      return null;
+    }
 
-  const orgRes = await pool.query(
-    `INSERT INTO organizations (unvan, plan_tipi, aktif)
-     VALUES ($1, 'ENTERPRISE', TRUE)
-     RETURNING org_id`,
-    [`${(user.ad_soyad || 'TRUSS').trim()} Filosu`]
-  );
-  const newOrgId = orgRes.rows[0].org_id;
+    const user = userRes.rows[0];
+    if (user.org_id) {
+      await client.query('COMMIT');
+      return user.org_id;
+    }
 
-  await pool.query(
-    'UPDATE users SET org_id = $1 WHERE user_id = $2',
-    [newOrgId, userId]
-  );
+    const orgRes = await client.query(
+      `INSERT INTO organizations (unvan, plan_tipi, aktif)
+       VALUES ($1, 'ENTERPRISE', TRUE)
+       RETURNING org_id`,
+      [`${(user.ad_soyad || 'TRUSS').trim()} Filosu`]
+    );
+    const newOrgId = orgRes.rows[0].org_id;
 
-  return newOrgId;
+    await client.query(
+      'UPDATE users SET org_id = $1 WHERE user_id = $2',
+      [newOrgId, userId]
+    );
+
+    await client.query('COMMIT');
+    return newOrgId;
+  } catch (err) {
+    if (client) await client.query('ROLLBACK').catch(() => null);
+    throw err;
+  } finally {
+    if (client) client.release();
+  }
 };
 
 // Hedef kullanıcıyı aynı organizasyon içinde bulur ve yetki hiyerarşisini doğrular

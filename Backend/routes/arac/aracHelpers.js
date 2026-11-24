@@ -120,7 +120,13 @@ const cozumleVaryantBilgileri = async (client, {
        LIMIT 1`,
       [Number(varyant_id)]
     );
-    varyantRow = vRes.rows[0] || null;
+    if (vRes.rowCount === 0) {
+      const err = new Error('Geçersiz varyant kimliği.');
+      err.status = 400;
+      err.code = 'INVALID_VARYANT_ID';
+      throw err;
+    }
+    varyantRow = vRes.rows[0];
   }
 
   const cozulmusBakimKm =
@@ -150,6 +156,20 @@ const cozumleVaryantBilgileri = async (client, {
   };
 };
 
+const dogrulaKategoriId = async (client, kategoriId) => {
+  if (!kategoriId) return;
+  const katRes = await client.query(
+    'SELECT kategori_id FROM ref_kategoriler WHERE kategori_id = $1 LIMIT 1',
+    [Number(kategoriId)]
+  );
+  if (katRes.rowCount === 0) {
+    const err = new Error('Geçersiz kategori kimliği.');
+    err.status = 400;
+    err.code = 'INVALID_KATEGORI_ID';
+    throw err;
+  }
+};
+
 let locationColsEnsured = false;
 const ensureLocationColumns = async () => {
   if (locationColsEnsured) return;
@@ -167,5 +187,6 @@ module.exports = {
   olusturDinamikParcaSablonu,
   aracSchema,
   cozumleVaryantBilgileri,
+  dogrulaKategoriId,
   ensureLocationColumns,
 };

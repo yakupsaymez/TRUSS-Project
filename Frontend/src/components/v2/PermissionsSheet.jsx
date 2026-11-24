@@ -2,12 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Lock } from 'lucide-react';
 import adminService from '@/services/adminService';
-import { ROLES } from '@/components/v2/channelAccess';
 import { getErrorStatus, notifyApiError } from '@/utils/apiError';
 import { formatLocaleNumber } from '@/utils/formatters';
 import AppSheet from '@/components/v2/AppSheet';
 import {
-  INITIAL_PERMS,
   PERMISSION_DEFINITIONS,
   resolveMemberPerms,
 } from '@/components/v2/CrewDataTable';
@@ -17,36 +15,36 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
-const PERMISSION_KEYS = ['yakit', 'bakim', 'finans', 'zimmet', 'envanter', 'ekip'];
+const PERMISSION_KEYS = ['yakit', 'bakim', 'finans'];
 
 const PERMISSION_GROUPS = [
   {
     id: 'operasyon',
     title: 'Operasyon',
-    keys: ['yakit', 'bakim', 'envanter'],
+    keys: ['yakit', 'bakim'],
   },
   {
-    id: 'yonetim',
-    title: 'Yönetim & Erişim',
-    keys: ['finans', 'zimmet', 'ekip'],
+    id: 'finans',
+    title: 'Finans & Analitik',
+    keys: ['finans'],
   },
 ];
 
 const ROLE_TEMPLATES = [
   {
-    role: ROLES.SYSTEM_ADMIN,
-    label: 'Sistem Admini',
-    perms: INITIAL_PERMS[ROLES.SYSTEM_ADMIN],
+    id: 'readonly',
+    label: 'Salt Okunur',
+    perms: { yakit: false, bakim: false, finans: false },
   },
   {
-    role: ROLES.FLEET_MANAGER,
-    label: 'Filo Yöneticisi',
-    perms: INITIAL_PERMS[ROLES.FLEET_MANAGER],
+    id: 'fuel_maintenance',
+    label: 'Yakıt & Bakım',
+    perms: { yakit: true, bakim: true, finans: false },
   },
   {
-    role: ROLES.DRIVER,
-    label: 'Şoför',
-    perms: INITIAL_PERMS[ROLES.DRIVER],
+    id: 'all',
+    label: 'Tüm Yetkiler',
+    perms: { yakit: true, bakim: true, finans: true },
   },
 ];
 
@@ -60,9 +58,6 @@ function toWhitelistedPerms(raw) {
     yakit: Boolean(raw?.yakit),
     bakim: Boolean(raw?.bakim),
     finans: Boolean(raw?.finans),
-    zimmet: Boolean(raw?.zimmet),
-    envanter: Boolean(raw?.envanter),
-    ekip: Boolean(raw?.ekip),
   };
 }
 
@@ -181,7 +176,7 @@ export default function PermissionsSheet({
             const isMatched = arePermsEqual(perms, tpl.perms);
             return (
               <button
-                key={tpl.role}
+                key={tpl.id}
                 type="button"
                 disabled={readOnly || isSubmitting}
                 aria-pressed={isMatched}

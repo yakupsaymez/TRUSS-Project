@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import toast from 'react-hot-toast';
 import api from '@/services/api';
 import aracService from '@/services/aracService';
+import { notifyApiError } from '@/utils/apiError';
 import { formatTurkishPlate } from '@/utils/formatters';
 import { toLocalIsoDate } from '@/utils/dateUtils';
 
@@ -114,7 +115,7 @@ const useVehicleStore = create((set, get) => ({
       } catch (err) {
         const message = err?.response?.data?.message || 'Araçlar yüklenemedi.';
         set({ error: message });
-        toast.error(message);
+        notifyApiError(err, 'Araçlar yüklenemedi.');
       } finally {
         set({ loading: false });
         fetchInFlight = null;
@@ -198,7 +199,7 @@ const useVehicleStore = create((set, get) => ({
       await fetchAraclar();
       return true;
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'İşlem başarısız.');
+      notifyApiError(err, 'İşlem başarısız.');
       return false;
     } finally {
       set({ isSubmitting: false });
@@ -220,7 +221,7 @@ const useVehicleStore = create((set, get) => ({
       toast.success('Araç silindi.');
       return true;
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Araç silinemedi.');
+      notifyApiError(err, 'Araç silinemedi.');
       return false;
     }
   },

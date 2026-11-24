@@ -5,7 +5,7 @@ import useAuthStore from '@/store/useAuthStore';
 import useVehicleStore from '@/store/useVehicleStore';
 import yakitService from '@/services/yakitService';
 import bakimService from '@/services/bakimService';
-import { resolveRole, ROLES } from '@/components/v2/channelAccess';
+import { canAccessChannel, resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { isSmhArac } from '@/utils/aracDurum';
 import { notifyApiError } from '@/utils/apiError';
 import { toLocalIsoDate } from '@/utils/dateUtils';
@@ -94,6 +94,7 @@ export default function Hareketler() {
   const canManage = [ROLES.SYSTEM_ADMIN, ROLES.FLEET_MANAGER].includes(role);
   const canAddFuel = canManage || user?.yetkiler?.yakit === true;
   const canAddMaintenance = canManage || user?.yetkiler?.bakim === true;
+  const canViewFinance = canAccessChannel(user, 'analytics');
 
   useEffect(() => {
     mountedRef.current = true;
@@ -373,6 +374,7 @@ export default function Hareketler() {
         canManage={canManage}
         canAddFuel={canAddFuel}
         canAddMaintenance={canAddMaintenance}
+        canViewFinance={canViewFinance}
         onCreateYakit={canAddFuel ? handleCreateYakit : undefined}
         onCreateBakim={canAddMaintenance ? handleCreateBakim : undefined}
         onRepeatRow={canAddFuel || canAddMaintenance ? handleRepeatRow : undefined}

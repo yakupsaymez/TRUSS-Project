@@ -44,6 +44,7 @@ export default function ComponentDataTable({
   loading = false,
   hasLoaded = false,
   canManage = false,
+  canViewFinance = true,
   onCreateClick,
   onReplaceClick,
   onEditClick,
@@ -118,11 +119,12 @@ export default function ComponentDataTable({
     () =>
       createComponentColumns({
         canManage,
+        canViewFinance,
         onReplaceClick,
         onEditClick,
         onDeleteRequest,
       }),
-    [canManage, onReplaceClick, onEditClick, onDeleteRequest]
+    [canManage, canViewFinance, onReplaceClick, onEditClick, onDeleteRequest]
   );
 
   const table = useReactTable({
@@ -144,7 +146,7 @@ export default function ComponentDataTable({
 
   return (
     <div className="space-y-4">
-      {showSummary && <ComponentTableSummary summary={summary} />}
+      {showSummary && <ComponentTableSummary summary={summary} canViewFinance={canViewFinance} />}
 
       <Card className="gap-0 overflow-hidden border border-border bg-card py-0 shadow-none">
         <ComponentTableToolbar

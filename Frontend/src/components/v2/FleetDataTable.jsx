@@ -30,7 +30,6 @@ import FleetTablePagination from './fleet-data-table/FleetTablePagination';
 
 export default function FleetDataTable({
   araclar = [],
-  driverByAracId = {},
   loading = false,
   hasLoaded = false,
   canManage = false,
@@ -67,10 +66,7 @@ export default function FleetDataTable({
     }
   }, [kategoriFilter, kategoriler]);
 
-  const enrichedRows = useMemo(
-    () => enrichFleetRows(araclar, driverByAracId),
-    [araclar, driverByAracId]
-  );
+  const enrichedRows = useMemo(() => enrichFleetRows(araclar), [araclar]);
 
   const filteredData = useMemo(
     () =>

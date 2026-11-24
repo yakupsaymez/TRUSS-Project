@@ -3,9 +3,9 @@ import { AlertTriangle } from 'lucide-react';
 import { formatCurrency, formatLocaleNumber } from '@/utils/formatters';
 import { cn } from '@/lib/utils';
 
-export default function ComponentTableSummary({ summary }) {
+export default function ComponentTableSummary({ summary, canViewFinance = true }) {
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className={cn('grid grid-cols-2 gap-3', canViewFinance ? 'lg:grid-cols-4' : 'lg:grid-cols-3')}>
       <div className="rounded-xl border border-border bg-card px-4 py-3">
         <p className="text-[11px] font-medium text-muted-foreground">Toplam Parça</p>
         <p className="mt-1 font-mono text-lg font-bold tracking-tight tabular-nums text-foreground">
@@ -40,12 +40,14 @@ export default function ComponentTableSummary({ summary }) {
         </p>
       </div>
 
-      <div className="rounded-xl border border-border bg-card px-4 py-3">
-        <p className="text-[11px] font-medium text-muted-foreground">Toplam Maliyet</p>
-        <p className="mt-1 font-mono text-lg font-bold tracking-tight tabular-nums text-foreground">
-          {formatCurrency(summary.totalCost, { maximumFractionDigits: 2 })}
-        </p>
-      </div>
+      {canViewFinance && (
+        <div className="rounded-xl border border-border bg-card px-4 py-3">
+          <p className="text-[11px] font-medium text-muted-foreground">Toplam Maliyet</p>
+          <p className="mt-1 font-mono text-lg font-bold tracking-tight tabular-nums text-foreground">
+            {formatCurrency(summary.totalCost, { maximumFractionDigits: 2 })}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

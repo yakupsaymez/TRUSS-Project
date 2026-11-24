@@ -50,9 +50,6 @@ function toWhitelistedPerms(raw) {
     yakit: Boolean(raw?.yakit),
     bakim: Boolean(raw?.bakim),
     finans: Boolean(raw?.finans),
-    zimmet: Boolean(raw?.zimmet),
-    envanter: Boolean(raw?.envanter),
-    ekip: Boolean(raw?.ekip),
   };
 }
 

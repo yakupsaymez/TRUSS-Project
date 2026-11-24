@@ -1,4 +1,5 @@
 // Sayaç kronoloji koruması: yalnızca çağıranın transaction client'ı ile çalışır (pool import edilmez)
+const { bugunTR } = require('./dateUtils');
 
 // Tablo ve kolon adları YALNIZCA bu whitelist'ten gelir, request'ten asla
 const SAYAC_KAYNAKLARI = { bakimlar: 'bakim_id', yakitlar: 'yakit_id' };
@@ -43,14 +44,34 @@ const sayacSinirlari = async (client, { aracId, tarih, haricTablo = null, haricI
      )
      SELECT
        COALESCE(MAX(km) FILTER (WHERE tarih <= $2::date), 0) AS alt_sinir,
-       MIN(km) FILTER (WHERE tarih > $2::date) AS ust_sinir
+       MIN(km) FILTER (WHERE tarih > $2::date) AS ust_sinir,
+       COUNT(*)::int AS kayit_sayisi
      FROM kayitlar`,
     [aracId, tarih, haricTablo, haricId]
   );
 
   const row = result.rows[0] || {};
+  let altSinir = Number(row.alt_sinir || 0);
+  const kayitSayisi = Number(row.kayit_sayisi || 0);
+
+  if (haricTablo === null && tarih === bugunTR() && kayitSayisi === 0) {
+    const aracRes = await client.query(
+      `SELECT sayac_tipi,
+              COALESCE(guncel_km, 0)::int AS guncel_km,
+              COALESCE(guncel_calisma_saati, 0)::int AS guncel_calisma_saati
+       FROM araclar
+       WHERE arac_id = $1`,
+      [aracId]
+    );
+    if (aracRes.rowCount > 0) {
+      const aracRow = aracRes.rows[0];
+      const aracSayaci = aracRow.sayac_tipi === 'SMH' ? aracRow.guncel_calisma_saati : aracRow.guncel_km;
+      altSinir = Math.max(altSinir, Number(aracSayaci || 0));
+    }
+  }
+
   return {
-    alt_sinir: Number(row.alt_sinir || 0),
+    alt_sinir: altSinir,
     ust_sinir: row.ust_sinir === null || row.ust_sinir === undefined ? null : Number(row.ust_sinir),
   };
 };
@@ -118,7 +139,8 @@ const aracSayaciniSenkronizeEt = async (client, { aracId, eskiKm = null }) => {
          WHERE arac_id = $1 AND son_degisim_km IS NOT NULL`,
         [aracId]
       );
-      yeniSayac = Number(parcaRes.rows[0]?.max_parca || 0);
+      const maxParca = Number(parcaRes.rows[0]?.max_parca || 0);
+      yeniSayac = maxParca > 0 ? maxParca : mevcutSayac;
     }
   } else {
     yeniSayac = Math.max(mevcutSayac, maxKayit);

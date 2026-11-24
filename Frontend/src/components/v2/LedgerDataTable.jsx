@@ -35,6 +35,7 @@ export default function LedgerDataTable({
   canManage = false,
   canAddFuel = true,
   canAddMaintenance = true,
+  canViewFinance = true,
   onCreateYakit,
   onCreateBakim,
   onRepeatRow,
@@ -49,11 +50,12 @@ export default function LedgerDataTable({
         canManage,
         canAddFuel,
         canAddMaintenance,
+        canViewFinance,
         onRepeatRow,
         onEditRow,
         onDeleteRequest,
       }),
-    [canManage, canAddFuel, canAddMaintenance, onRepeatRow, onEditRow, onDeleteRequest]
+    [canManage, canAddFuel, canAddMaintenance, canViewFinance, onRepeatRow, onEditRow, onDeleteRequest]
   );
 
   const table = useReactTable({
@@ -75,6 +77,7 @@ export default function LedgerDataTable({
         onTabChange={state.handleTabChange}
         tabCounts={state.tabCounts}
         summary={state.summary}
+        canViewFinance={canViewFinance}
       />
 
       <Card className="gap-0 overflow-hidden border border-border bg-card py-0 shadow-none">

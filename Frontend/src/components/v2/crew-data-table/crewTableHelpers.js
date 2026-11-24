@@ -39,9 +39,6 @@ export const PERMISSION_DEFINITIONS = [
   { key: 'yakit', label: 'Yakıt', fullLabel: 'Yakıt Girişi', desc: 'Yakıt ikmali ve litre kaydı' },
   { key: 'bakim', label: 'Bakım', fullLabel: 'Servis Onayı', desc: 'Bakım ve onarım emri kaydı' },
   { key: 'finans', label: 'Finans', fullLabel: 'Finansal Rapor', desc: 'Bütçe ve maliyet telemetrisi' },
-  { key: 'zimmet', label: 'Zimmet', fullLabel: 'Filo Atama', desc: 'Operatör ve araç zimmetleme' },
-  { key: 'envanter', label: 'Parça', fullLabel: 'Parça & Envanter', desc: 'Yedek parça ömür takibi' },
-  { key: 'ekip', label: 'Ekip', fullLabel: 'Ekip Yönetimi', desc: 'Rol ve davet yetkilendirmesi' },
 ];
 
 export const INITIAL_PERMS = {
@@ -49,34 +46,27 @@ export const INITIAL_PERMS = {
     yakit: true,
     bakim: true,
     finans: true,
-    zimmet: true,
-    envanter: true,
-    ekip: true,
   },
   [ROLES.FLEET_MANAGER]: {
     yakit: true,
     bakim: true,
     finans: true,
-    zimmet: true,
-    envanter: true,
-    ekip: true,
   },
   [ROLES.DRIVER]: {
-    yakit: true,
+    yakit: false,
     bakim: false,
     finans: false,
-    zimmet: false,
-    envanter: false,
-    ekip: false,
   },
 };
 
 export function resolveMemberPerms(member) {
-  const roleKey = member?.role || ROLES.DRIVER;
-  const base = INITIAL_PERMS[roleKey] || INITIAL_PERMS[ROLES.DRIVER];
   const serverPerms =
     member?.yetkiler && typeof member.yetkiler === 'object' ? member.yetkiler : {};
-  return { ...base, ...serverPerms };
+  return {
+    yakit: serverPerms.yakit === true,
+    bakim: serverPerms.bakim === true,
+    finans: serverPerms.finans === true,
+  };
 }
 
 export function getInitials(name) {

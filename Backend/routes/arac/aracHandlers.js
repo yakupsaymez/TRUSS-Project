@@ -6,6 +6,7 @@ const {
   olusturDinamikParcaSablonu,
   aracSchema,
   cozumleVaryantBilgileri,
+  dogrulaKategoriId,
   ensureLocationColumns,
 } = require('./aracHelpers');
 const { updateArac, deleteArac } = require('./aracMutationHandlers');
@@ -39,6 +40,10 @@ const createArac = async (req, res) => {
   try {
     client = await pool.connect();
     await client.query('BEGIN');
+
+    if (kategori_id) {
+      await dogrulaKategoriId(client, Number(kategori_id));
+    }
 
     const varyantBilgi = await cozumleVaryantBilgileri(client, {
       varyant_id,
@@ -140,6 +145,8 @@ const createArac = async (req, res) => {
   } catch (err) {
     if (client) await client.query('ROLLBACK').catch(() => null);
     console.error('Araç Ekleme Hatası:', err);
+    if (err.status === 400) return res.status(400).json({ code: err.code, message: err.message });
+    if (err.code === '23503') return res.status(400).json({ message: 'Geçersiz kategori veya varyant kimliği.' });
     if (err.code === '23505') return res.status(409).json({ message: 'Bu plaka zaten kayıtlı.' });
     res.status(500).json({ message: 'Sunucu hatası' });
   } finally {
@@ -172,7 +179,9 @@ const listAraclar = async (req, res) => {
            WHEN a.sayac_tipi = 'SMH' THEN COALESCE(NULLIF(a.calisma_saati_bakim, 0), 250)
            ELSE COALESCE(NULLIF(a.onerilen_bakim_km, 0), 15000)
          END::int AS bakim_periyodu,
-         COALESCE(ym.son_30_gun_yakit_tutari, 0)::numeric AS son_30_gun_yakit_tutari
+         COALESCE(ym.son_30_gun_yakit_tutari, 0)::numeric AS son_30_gun_yakit_tutari,
+         z.zimmetli_sofor_id,
+         z.zimmetli_sofor_ad
        FROM araclar a
        INNER JOIN users u ON u.user_id = a.kullanici_id
        LEFT JOIN ref_kategoriler k ON k.kategori_id = a.kategori_id
@@ -191,10 +200,20 @@ const listAraclar = async (req, res) => {
        LEFT JOIN LATERAL (
          SELECT
            MAX(y.km) AS max_km,
-           SUM(y.tutar) FILTER (WHERE y.tarih >= CURRENT_DATE - INTERVAL '30 days') AS son_30_gun_yakit_tutari
+           SUM(y.tutar) FILTER (WHERE y.tarih >= (NOW() AT TIME ZONE 'Europe/Istanbul')::date - INTERVAL '30 days') AS son_30_gun_yakit_tutari
          FROM yakitlar y
          WHERE y.arac_id = a.arac_id
        ) ym ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT
+           asa.sofor_user_id AS zimmetli_sofor_id,
+           COALESCE(NULLIF(TRIM(zs.ad_soyad), ''), zs.email) AS zimmetli_sofor_ad
+         FROM arac_sofor_atamalari asa
+         INNER JOIN users zs ON zs.user_id = asa.sofor_user_id
+         WHERE asa.arac_id = a.arac_id AND asa.aktif = TRUE
+         ORDER BY asa.atanma_tarihi DESC, asa.atama_id DESC
+         LIMIT 1
+       ) z ON TRUE
        WHERE ${clause}
        ORDER BY a.arac_id DESC`,
       params

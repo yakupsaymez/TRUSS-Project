@@ -1,6 +1,8 @@
 const pool = require('../db');
 const Joi = require('joi');
 const { buildVehicleAccessFilter } = require('../middlewares/rbacMiddleware');
+const { ensureManagerOrgId } = require('./admin/adminHelpers');
+const { bugunTR } = require('../utils/dateUtils');
 
 let budgetColsEnsured = false;
 const ensureBudgetColumns = async () => {
@@ -74,7 +76,7 @@ const getAylikHarcamaTrendi = async (req, res) => {
     const { clause, params } = buildVehicleAccessFilter(req.user);
     const query = `
       WITH months AS (
-        SELECT TO_CHAR(date_trunc('month', CURRENT_DATE - (n || ' months')::interval), 'YYYY-MM') AS ay
+        SELECT TO_CHAR(date_trunc('month', (NOW() AT TIME ZONE 'Europe/Istanbul')::date - (n || ' months')::interval), 'YYYY-MM') AS ay
         FROM generate_series(0, 5) AS n
       ),
       yakit_aylik AS (
@@ -83,7 +85,7 @@ const getAylikHarcamaTrendi = async (req, res) => {
         FROM yakitlar y
         JOIN araclar a ON a.arac_id = y.arac_id
         WHERE (${clause})
-          AND y.tarih >= date_trunc('month', CURRENT_DATE - INTERVAL '5 months')
+          AND y.tarih >= date_trunc('month', (NOW() AT TIME ZONE 'Europe/Istanbul')::date - INTERVAL '5 months')
         GROUP BY 1
       ),
       bakim_aylik AS (
@@ -92,7 +94,7 @@ const getAylikHarcamaTrendi = async (req, res) => {
         FROM bakimlar b
         JOIN araclar a ON a.arac_id = b.arac_id
         WHERE (${clause})
-          AND b.tarih >= date_trunc('month', CURRENT_DATE - INTERVAL '5 months')
+          AND b.tarih >= date_trunc('month', (NOW() AT TIME ZONE 'Europe/Istanbul')::date - INTERVAL '5 months')
         GROUP BY 1
       )
       SELECT m.ay,
@@ -183,7 +185,7 @@ const getButceAnalizi = async (req, res) => {
     const { clause, params } = buildVehicleAccessFilter(req.user);
     const trendRes = await pool.query(
       `WITH months AS (
-         SELECT TO_CHAR(date_trunc('month', CURRENT_DATE - (n || ' months')::interval), 'YYYY-MM') AS ay
+         SELECT TO_CHAR(date_trunc('month', (NOW() AT TIME ZONE 'Europe/Istanbul')::date - (n || ' months')::interval), 'YYYY-MM') AS ay
          FROM generate_series(0, 5) AS n
        ),
        yakit_aylik AS (
@@ -192,7 +194,7 @@ const getButceAnalizi = async (req, res) => {
          FROM yakitlar y
          JOIN araclar a ON a.arac_id = y.arac_id
          WHERE (${clause})
-           AND y.tarih >= date_trunc('month', CURRENT_DATE - INTERVAL '5 months')
+           AND y.tarih >= date_trunc('month', (NOW() AT TIME ZONE 'Europe/Istanbul')::date - INTERVAL '5 months')
          GROUP BY 1
        ),
        bakim_aylik AS (
@@ -201,7 +203,7 @@ const getButceAnalizi = async (req, res) => {
          FROM bakimlar b
          JOIN araclar a ON a.arac_id = b.arac_id
          WHERE (${clause})
-           AND b.tarih >= date_trunc('month', CURRENT_DATE - INTERVAL '5 months')
+           AND b.tarih >= date_trunc('month', (NOW() AT TIME ZONE 'Europe/Istanbul')::date - INTERVAL '5 months')
          GROUP BY 1
        )
        SELECT m.ay,
@@ -215,14 +217,12 @@ const getButceAnalizi = async (req, res) => {
       params
     );
 
-    const hesaplaKullanim = (gerceklesen, butce) => {
-      if (butce > 0) return Math.round((gerceklesen / butce) * 100);
-      return gerceklesen > 0 ? 101 : 0;
-    };
+    const hesaplaKullanim = (gerceklesen, butce) =>
+      butce > 0 ? Math.round((gerceklesen / butce) * 100) : gerceklesen > 0 ? 101 : 0;
 
-    const hesaplaDurum = (gerceklesen, butce, yuzde) => {
-      if ((butce <= 0 && gerceklesen > 0) || yuzde > 100) return 'ASIM';
-      if (yuzde >= 80) return 'RISK';
+    const hesaplaDurum = (gerceklesen, butce) => {
+      if (gerceklesen > butce) return 'ASIM';
+      if (butce > 0 && gerceklesen / butce >= 0.8) return 'RISK';
       return 'NORMAL';
     };
 
@@ -231,7 +231,7 @@ const getButceAnalizi = async (req, res) => {
       const bakimGerceklesen = Number(r.toplam_bakim || 0);
       const toplamGerceklesen = Number(r.toplam_harcama || 0);
       const kullanimYuzdesi = hesaplaKullanim(toplamGerceklesen, toplamButce);
-      const durum = hesaplaDurum(toplamGerceklesen, toplamButce, kullanimYuzdesi);
+      const durum = hesaplaDurum(toplamGerceklesen, toplamButce);
       return {
         ay: r.ay,
         yakit_butce: aylikYakitButcesi,
@@ -247,7 +247,7 @@ const getButceAnalizi = async (req, res) => {
     });
 
     const sonEleman = aylikSerisi[aylikSerisi.length - 1] || {
-      ay: new Date().toISOString().slice(0, 7),
+      ay: bugunTR().slice(0, 7),
       yakit_butce: aylikYakitButcesi,
       bakim_butce: aylikBakimButcesi,
       toplam_butce: toplamButce,
@@ -300,11 +300,7 @@ const updateButceHedefi = async (req, res) => {
   try {
     await ensureBudgetColumns();
 
-    const userRes = await pool.query(
-      'SELECT org_id FROM users WHERE user_id = $1 LIMIT 1',
-      [req.user.user_id]
-    );
-    const orgId = userRes.rows[0]?.org_id || null;
+    const orgId = await ensureManagerOrgId(req.user.user_id);
 
     if (!orgId) {
       return res.status(404).json({ message: 'Organizasyon bulunamadı.' });

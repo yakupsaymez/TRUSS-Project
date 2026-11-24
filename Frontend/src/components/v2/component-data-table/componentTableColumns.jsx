@@ -42,6 +42,7 @@ function SortableHeader({ column, label, align = 'left' }) {
 
 export default function createComponentColumns({
   canManage,
+  canViewFinance = true,
   onReplaceClick,
   onEditClick,
   onDeleteRequest,
@@ -210,17 +211,21 @@ export default function createComponentColumns({
         );
       },
     },
-    {
-      id: 'maliyet',
-      accessorKey: 'maliyet',
-      meta: { label: 'Maliyet' },
-      header: ({ column }) => <SortableHeader column={column} label="Maliyet" align="right" />,
-      cell: ({ row }) => (
-        <div className="text-right font-mono text-sm font-semibold tabular-nums text-foreground whitespace-nowrap">
-          {formatCurrency(row.original.maliyet, { maximumFractionDigits: 2 })}
-        </div>
-      ),
-    },
+    ...(canViewFinance
+      ? [
+          {
+            id: 'maliyet',
+            accessorKey: 'maliyet',
+            meta: { label: 'Maliyet' },
+            header: ({ column }) => <SortableHeader column={column} label="Maliyet" align="right" />,
+            cell: ({ row }) => (
+              <div className="text-right font-mono text-sm font-semibold tabular-nums text-foreground whitespace-nowrap">
+                {formatCurrency(row.original.maliyet, { maximumFractionDigits: 2 })}
+              </div>
+            ),
+          },
+        ]
+      : []),
     {
       id: 'notlar',
       accessorKey: 'notlar',

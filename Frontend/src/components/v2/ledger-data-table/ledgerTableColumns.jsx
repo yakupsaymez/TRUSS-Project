@@ -45,11 +45,12 @@ export default function createLedgerColumns({
   canManage,
   canAddFuel,
   canAddMaintenance,
+  canViewFinance = true,
   onRepeatRow,
   onEditRow,
   onDeleteRequest,
 }) {
-  return [
+  const cols = [
     {
       id: 'tarih',
       accessorKey: 'timestamp',
@@ -158,7 +159,7 @@ export default function createLedgerColumns({
               <span className="font-mono text-sm font-medium text-foreground">
                 {formatLocaleNumber(litre, 2)} L
               </span>
-              {birimFiyat !== null && (
+              {canViewFinance && birimFiyat !== null && (
                 <span className="text-[11px] text-muted-foreground">
                   {formatLocaleNumber(birimFiyat, 2)} ₺/L
                 </span>
@@ -173,16 +174,20 @@ export default function createLedgerColumns({
         );
       },
     },
-    {
-      id: 'tutar',
-      accessorKey: 'tutar',
-      header: ({ column }) => <SortableHeader column={column} label="Tutar" align="right" />,
-      cell: ({ row }) => (
-        <div className="text-right font-mono text-sm font-semibold tabular-nums text-foreground whitespace-nowrap">
-          {formatCurrency(row.original.tutar, { maximumFractionDigits: 2 })}
-        </div>
-      ),
-    },
+    ...(canViewFinance
+      ? [
+          {
+            id: 'tutar',
+            accessorKey: 'tutar',
+            header: ({ column }) => <SortableHeader column={column} label="Tutar" align="right" />,
+            cell: ({ row }) => (
+              <div className="text-right font-mono text-sm font-semibold tabular-nums text-foreground whitespace-nowrap">
+                {formatCurrency(row.original.tutar, { maximumFractionDigits: 2 })}
+              </div>
+            ),
+          },
+        ]
+      : []),
     {
       id: 'notlar',
       accessorFn: (row) => `${row.fatura_bilgisi || ''} ${row.notlar || ''}`,
@@ -280,4 +285,6 @@ export default function createLedgerColumns({
       },
     },
   ];
+
+  return cols;
 }

@@ -214,9 +214,40 @@ export function buildCrewColumns({
       header: 'Yetki Özeti',
       size: 250,
       cell: ({ row }) => {
-        const perms = resolveMemberPerms(row.original);
-        const activeDefs = PERMISSION_DEFINITIONS.filter((def) => Boolean(perms[def.key]));
+        const member = row.original;
+        const memberRole = member.role || ROLES.DRIVER;
+        const isManagerRole = [ROLES.SYSTEM_ADMIN, ROLES.FLEET_MANAGER].includes(memberRole);
         const totalCount = PERMISSION_DEFINITIONS.length;
+
+        if (isManagerRole) {
+          return (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-1.5">
+                <Badge
+                  variant="secondary"
+                  className="h-5 px-1.5 font-mono text-[11px] font-semibold tabular-nums"
+                >
+                  {formatLocaleNumber(totalCount, 0)}/{formatLocaleNumber(totalCount, 0)}
+                </Badge>
+                <span className="text-xs font-medium text-muted-foreground">Tam Yetki (Rol)</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1">
+                {PERMISSION_DEFINITIONS.map((def) => (
+                  <span
+                    key={def.key}
+                    title={`${def.fullLabel}: ${def.desc}`}
+                    className="inline-flex items-center rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+                  >
+                    {def.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+        }
+
+        const perms = resolveMemberPerms(member);
+        const activeDefs = PERMISSION_DEFINITIONS.filter((def) => Boolean(perms[def.key]));
 
         return (
           <div className="flex flex-col gap-1.5">
