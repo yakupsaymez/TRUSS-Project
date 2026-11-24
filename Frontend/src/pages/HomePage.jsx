@@ -3,11 +3,11 @@ import toast from 'react-hot-toast';
 import useAuthStore from '@/store/useAuthStore';
 import useVehicleStore from '@/store/useVehicleStore';
 import { useTheme } from '@/components/theme-provider';
-import HomeNavbar from '@/components/v2/home/HomeNavbar';
-import HomeHero from '@/components/v2/home/HomeHero';
-import HomeModulesSection from '@/components/v2/home/HomeModulesSection';
-import HomeArchitectureSection from '@/components/v2/home/HomeArchitectureSection';
-import HomeFooterCta from '@/components/v2/home/HomeFooterCta';
+import HomeNavbar from '@/pages/home/HomeNavbar';
+import HomeHero from '@/pages/home/HomeHero';
+import HomeModulesSection from '@/pages/home/HomeModulesSection';
+import HomeArchitectureSection from '@/pages/home/HomeArchitectureSection';
+import HomeFooterCta from '@/pages/home/HomeFooterCta';
 
 export default function HomePage() {
   const { theme, setTheme } = useTheme();
