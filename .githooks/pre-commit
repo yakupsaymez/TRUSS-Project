@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+set -e
+echo "[TRUSS pre-commit] Running AI Quality Gate (OPS-2)..."
+node scripts/ai-gate.mjs

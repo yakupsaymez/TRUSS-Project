@@ -12,10 +12,23 @@
 | `/app/parcalar` | `pages/v2/Parcalar.jsx` | `components` | Parça ömrü ve değişim takibi (`ComponentDataTable`, `ComponentSheet`) |
 | `/app/takvim` | `pages/v2/Takvim.jsx` | `horizon` | Belge vadesi ve periyodik bakım takvimi (`FleetCalendar`) |
 | `/app/ekip` | `pages/v2/Ekip.jsx` | `crew` | Üye/sürücü yönetimi (`CrewDataTable`, `PermissionsSheet`, `ResetPasswordSheet`) |
-| `/app/ayarlar` | `pages/v2/Ayarlar.jsx` | Korumalı (`ProtectedRoute`) | Profil, şifre, bildirim matrisi ve organizasyon ayarları |
+| `/app/ayarlar` | `pages/v2/Ayarlar.jsx` (`pages/v2/ayarlar/*`) | Korumalı (`ProtectedRoute`) | Profil, şifre, bildirim matrisi ve organizasyon ayarları |
 
 ## 2. Frontend Modül Yapısı (`Frontend/src/`)
-- **`components/v2/`:** `AppShell.jsx`, `AppSheet.jsx`, `AuthFrame.jsx`, `ChannelGuard.jsx`, `CommandPalette.jsx`, `ConfirmDialog.jsx`, `EmptyState.jsx`, `SayacFieldError.jsx`, `channelAccess.js`, `navConfig.js`, veri tabloları (`FleetDataTable`, `LedgerDataTable`, `ComponentDataTable`, `CrewDataTable`), sheet formları (`VehicleSheet`, `AssignVehicleSheet`, `MovementSheet`, `ComponentSheet`, `CreateMemberSheet`, `PermissionsSheet`, `ResetPasswordSheet`) ve analitik kartlar (`OverviewKpiStrip`, `CostTrendChart`, `BudgetVarianceCard`, `FleetHealthWidget`, `DocumentComplianceCard`, `SegmentedDistributionCard`, `CrewRoleSummaryStrip`, `FleetCalendar`, `FleetLiveMap`).
+- **Çekirdek & Kabuk (`components/v2/`):** `AppShell.jsx`, `AppSheet.jsx`, `AuthFrame.jsx`, `ChannelGuard.jsx`, `CommandPalette.jsx`, `ConfirmDialog.jsx`, `EmptyState.jsx`, `SayacFieldError.jsx`, `channelAccess.js`, `navConfig.js`, `AssignVehicleSheet.jsx`, `CreateMemberSheet.jsx`, `PermissionsSheet.jsx`, `ResetPasswordSheet.jsx`, analitik kartlar (`OverviewKpiStrip`, `CostTrendChart`, `BudgetVarianceCard`, `FleetHealthWidget`, `DocumentComplianceCard`, `SegmentedDistributionCard`, `CrewRoleSummaryStrip`) ve vitrin (`components/v2/home/*`).
+- **`REFACTOR-1` Feature-Module Klasör Ağacı (`<= 300` satır Unix modüler mimari):**
+  - `pages/v2/ayarlar/`: `GenelTab.jsx`, `ProfilTab.jsx`, `OrganizasyonTab.jsx`, `BildirimlerTab.jsx`, `GuvenlikTab.jsx`, `PasswordChangeForm.jsx`, `useAyarlarData.js`, `ayarlarConstants.js`
+  - `components/v2/app-shell/`: `AppShellSidebar.jsx`, `AppShellHeader.jsx`, `useAppShellState.js`, `appShellHelpers.jsx`
+  - `components/v2/command-palette/`: `CommandPaletteResults.jsx`, `useCommandPaletteState.js`, `commandPaletteGroups.js`, `commandPaletteParsers.js`
+  - `components/v2/vehicle-sheet/`: `VehicleCatalogSection.jsx`, `VehicleCalibrationSection.jsx`, `VehicleDocumentsSection.jsx`, `useVehicleSheetForm.js`, `useVehicleKatalog.js`, `hydrateVehicleKatalog.js`, `vehicleSheetHelpers.js`
+  - `components/v2/movement-sheet/`: `MovementIdentitySection.jsx`, `MovementCostSection.jsx`, `MovementNotesSection.jsx`, `useMovementSheetForm.js`, `movementSheetHelpers.js`
+  - `components/v2/component-sheet/`: `ComponentIdentitySection.jsx`, `ComponentLifecycleSection.jsx`, `useComponentSheetForm.js`, `componentSheetHelpers.js`
+  - `components/v2/fleet-data-table/`: `FleetTableToolbar.jsx`, `FleetTableCells.jsx`, `FleetTablePagination.jsx`, `fleetTableColumns.jsx`, `fleetTableHelpers.js`
+  - `components/v2/ledger-data-table/`: `LedgerTableHeader.jsx`, `LedgerTableToolbar.jsx`, `LedgerTablePagination.jsx`, `ledgerTableColumns.jsx`, `useLedgerTableState.js`, `ledgerTableHelpers.js`
+  - `components/v2/component-data-table/`: `ComponentTableSummary.jsx`, `ComponentTableToolbar.jsx`, `ComponentTablePagination.jsx`, `componentTableColumns.jsx`, `componentTableHelpers.js`
+  - `components/v2/crew-data-table/`: `CrewTableToolbar.jsx`, `CrewRowActions.jsx`, `CrewTablePagination.jsx`, `crewTableColumns.jsx`, `crewTableHelpers.js`
+  - `components/v2/fleet-live-map/`: `FleetMapSidebar.jsx`, `FleetMapCanvas.jsx`, `FleetMapDetailBar.jsx`, `useFleetMapState.js`, `mapHelpers.js`
+  - `components/v2/fleet-calendar/`: `CalendarToolbar.jsx`, `CalendarMonthView.jsx`, `CalendarWeekDayView.jsx`, `CalendarEventChip.jsx`, `useFleetCalendarState.js`, `calendarHelpers.js`
 - **`components/ui/`:** `truss-date-picker.jsx` ve Radix/Shadcn temel UI atomları.
 - **`store/`:** `useAuthStore.js` (JWT, kullanıcı, rol, kanal izinleri), `useVehicleStore.js` (aktif araç seçimi ve filo önbelleği), `useAppStore.js` (kabuk/UI durumu).
 - **`services/`:** `api.js` (Axios + JWT interceptor), `authService.js`, `aracService.js`, `yakitService.js`, `bakimService.js`, `parcaService.js`, `raporService.js`, `katalogService.js`, `adminService.js`.
@@ -24,8 +37,8 @@
 | Katman | Dosyalar | Sorumluluk |
 | :--- | :--- | :--- |
 | **Giriş & DB** | `index.js`, `db.js`, `database.sql` | Express sunucusu, `pg` bağlantı havuzu (`OID 1082` saf `YYYY-MM-DD` parser), şema |
-| **Routes** | `routes/userRoutes.js`, `adminRoutes.js`, `aracRoutes.js`, `yakitRoutes.js`, `bakimRoutes.js`, `parcaRoutes.js`, `raporRoutes.js`, `katalogRoutes.js` | `/api/*` REST uçları, Joi şema doğrulaması ve middleware zinciri |
-| **Controllers** | `controllers/userController.js`, `adminController.js`, `yakitController.js`, `bakimController.js`, `parcaController.js`, `raporController.js`, `katalogController.js` | İş mantığı, PostgreSQL transaction (`BEGIN`/`COMMIT`/`ROLLBACK`) yönetimi |
+| **Routes** | `routes/userRoutes.js`, `adminRoutes.js`, `aracRoutes.js` + `routes/arac/{aracHelpers.js,aracHandlers.js,aracMutationHandlers.js}`, `yakitRoutes.js`, `bakimRoutes.js`, `parcaRoutes.js`, `raporRoutes.js`, `katalogRoutes.js` | `/api/*` REST uçları, Joi şema doğrulaması, `arac/*` alt handler modülleri ve middleware zinciri |
+| **Controllers** | `controllers/userController.js`, `adminController.js` + `controllers/admin/{adminHelpers.js,adminUserController.js,adminOrgAssignmentController.js}`, `yakitController.js`, `bakimController.js`, `parcaController.js`, `raporController.js`, `katalogController.js` | İş mantığı, `admin/*` Feature-Module ayrımı, PostgreSQL transaction (`BEGIN`/`COMMIT`/`ROLLBACK`) yönetimi |
 | **Middlewares** | `middlewares/authMiddleware.js`, `rbacMiddleware.js` | JWT doğrulama, `FLEET_MANAGER`/`DRIVER` rol ve `org_id` erişim filtreleri |
 | **Utils** | `utils/odometerGuard.js`, `utils/dateUtils.js` | `FOR UPDATE` araç kilidi, komşu sayaç sınırları (`422`), `aracSayaciniSenkronizeEt`, TR tarih yardımcıları |
 | **Services** | `services/notificationScheduler.js`, `notificationService.js`, `emailService.js`, `smsService.js` | Günlük cron, `bildirim_tercihleri` JSONB filtreli e-posta/SMS uyarıları |

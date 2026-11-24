@@ -1,6 +1,7 @@
 {
   "name": "truss",
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks",
     "context:pack": "node scripts/context-pack.mjs",
     "gate": "node scripts/ai-gate.mjs",
     "gate:fast": "node scripts/ai-gate.mjs --fast"
