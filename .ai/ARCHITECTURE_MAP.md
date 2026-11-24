@@ -53,3 +53,9 @@
 6. **`bakimlar`:** Bakım/servis hareketleri (`bakim_id`, `arac_id`, `tarih`, `aciklama`, `tutar`, `km`).
 7. **`parca_takip`:** Araç bileşen/parça ömür takibi (`parca_id`, `arac_id`, `parca_adi`, `takilma_tarihi`, `takilma_km`, `beklenen_omur_km`, `son_bakim_tarihi`).
 8. **`ref_kategoriler`, `ref_markalar`, `ref_kategori_marka`, `ref_modeller`, `ref_arac_varyantlari`:** 5'li normalize araç katalog referans tabloları.
+
+## 5. AI-OS & Antigravity v2.34.0 Katmanı (`.ai/` & `.agent/` — `OPS-1..4`)
+- **Kanonik Hafıza (`.ai/`):** `PROGRESS.md`, `SWARM_PLAYBOOK.md`, `ENGINEERING_GUARDRAILS.md`, `ARCHITECTURE_MAP.md`, `DECISIONS.md` (`ADR-01..12`), `gate-baseline.json`, `skills/caveman.md` + `scripts/ai-gate.mjs` & `.githooks/pre-commit`.
+- **Native Rules (`.agent/rules/`):** `00-truss-core.md` (`always_on`), `10-frontend-luma.md` (`**/Frontend/**`), `20-backend-sql.md` (`**/Backend/**`), `30-ops-gate.md` (`**/.ai/**, **/scripts/**, **/.githooks/**, **/.agent/**`).
+- **Modern Skills (`.agent/skills/*/SKILL.md`):** `s5-plan`, `s1-fe`, `s2-be`, `s2-seal`, `s3-qa`, `s4-sweep`, `truss-qa-browser`.
+- **Custom Agents (`.agent/agents/`):** `s5-architect.md` (`READ-ONLY`), `s1-frontend.md`, `s2-backend-ops.md`, `s3-qa.md` (`READ-ONLY` + Browser Subagent), `s4-bughunter.md`.
