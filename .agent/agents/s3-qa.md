@@ -1,6 +1,7 @@
 ---
 name: s3-qa
 description: TRUSS S3 QA Baş Denetçi (READ-ONLY 7 kapılı kalite kapısı, build, guardrail ve Browser Subagent canlı UI denetimi).
+model: pro
 subagent: true
 mainAgent: false
 tools: [read_file, run_command, manage_task, invoke_subagent, send_message, manage_subagents]

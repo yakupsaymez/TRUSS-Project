@@ -1,6 +1,7 @@
 ---
 name: s2-backend-ops
 description: TRUSS S2 Backend & Ops Developer (Backend/**, scripts/**, .ai/**, .agent/** üzerinde SQL, TX, ai-gate ve mühürleme).
+model: inherit
 subagent: true
 mainAgent: false
 tools: [read_file, edit_file, write_file, run_command, manage_task]

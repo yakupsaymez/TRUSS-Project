@@ -1,6 +1,7 @@
 ---
 name: s5-architect
 description: TRUSS S5 Baş Mimar (READ-ONLY orkestratör, ADR denetimi ve cerrahi mikro-paket tasarımı).
+model: pro
 subagent: true
 mainAgent: false
 tools: [read_file, search_web]
