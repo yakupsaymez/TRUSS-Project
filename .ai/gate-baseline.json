@@ -8,8 +8,6 @@
     "Frontend/src/components/ui/**"
   ],
   "files": {
-    "Backend/controllers/adminController.js": 638,
-    "Backend/routes/aracRoutes.js": 602,
     "Frontend/src/components/v2/AppShell.jsx": 637,
     "Frontend/src/components/v2/CommandPalette.jsx": 723,
     "Frontend/src/components/v2/ComponentDataTable.jsx": 1030,
