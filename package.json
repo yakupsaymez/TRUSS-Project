@@ -1,7 +1,9 @@
 {
   "name": "truss",
   "scripts": {
-    "context:pack": "node scripts/context-pack.mjs"
+    "context:pack": "node scripts/context-pack.mjs",
+    "gate": "node scripts/ai-gate.mjs",
+    "gate:fast": "node scripts/ai-gate.mjs --fast"
   },
   "dependencies": {
     "clsx": "^2.1.1",

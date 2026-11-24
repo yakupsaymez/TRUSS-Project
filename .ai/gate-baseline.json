@@ -1,0 +1,26 @@
+{
+  "maxNewFileLines": 600,
+  "warnFileLines": 300,
+  "targetChunkKb": 450,
+  "maxChunkKb": 1442,
+  "exemptPaths": [
+    "Backend/scripts/seedKatalog.js",
+    "Frontend/src/components/ui/**"
+  ],
+  "files": {
+    "Backend/controllers/adminController.js": 638,
+    "Backend/routes/aracRoutes.js": 602,
+    "Frontend/src/components/v2/AppShell.jsx": 677,
+    "Frontend/src/components/v2/CommandPalette.jsx": 723,
+    "Frontend/src/components/v2/ComponentDataTable.jsx": 1030,
+    "Frontend/src/components/v2/ComponentSheet.jsx": 620,
+    "Frontend/src/components/v2/CrewDataTable.jsx": 835,
+    "Frontend/src/components/v2/FleetCalendar.jsx": 725,
+    "Frontend/src/components/v2/FleetDataTable.jsx": 824,
+    "Frontend/src/components/v2/FleetLiveMap.jsx": 813,
+    "Frontend/src/components/v2/LedgerDataTable.jsx": 920,
+    "Frontend/src/components/v2/MovementSheet.jsx": 804,
+    "Frontend/src/components/v2/VehicleSheet.jsx": 1133,
+    "Frontend/src/pages/v2/Ayarlar.jsx": 1559
+  }
+}
