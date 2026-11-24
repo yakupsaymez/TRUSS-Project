@@ -7,8 +7,5 @@
     "Backend/scripts/seedKatalog.js",
     "Frontend/src/components/ui/**"
   ],
-  "files": {
-    "Frontend/src/components/v2/AppShell.jsx": 637,
-    "Frontend/src/components/v2/CommandPalette.jsx": 723
-  }
+  "files": {}
 }
