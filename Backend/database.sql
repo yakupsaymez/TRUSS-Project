@@ -319,3 +319,26 @@ CREATE INDEX IF NOT EXISTS idx_bakimlar_arac_tarih_km ON bakimlar (arac_id, tari
 CREATE INDEX IF NOT EXISTS idx_parca_takip_arac_id ON parca_takip (arac_id);
 CREATE INDEX IF NOT EXISTS idx_atamalar_aktif_arac ON arac_sofor_atamalari (arac_id) WHERE aktif = TRUE;
 
+-- MIGRATION: V2.2-NOTIFY (Bildirim & Uyari Motoru, Dedup & Aksiyon Merkezi)
+CREATE TABLE IF NOT EXISTS bildirim_olaylari (
+    bildirim_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    org_id INT REFERENCES organizations(org_id) ON DELETE SET NULL,
+    user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    arac_id INT REFERENCES araclar(arac_id) ON DELETE CASCADE,
+    kategori VARCHAR(30) NOT NULL CHECK (kategori IN ('belge', 'bakim', 'parca', 'maliyet_ozeti', 'sistem')),
+    seviye VARCHAR(20) NOT NULL CHECK (seviye IN ('kritik', 'uyari', 'bilgi')),
+    referans_anahtar VARCHAR(120) NOT NULL,
+    baslik VARCHAR(200) NOT NULL,
+    mesaj TEXT NOT NULL,
+    link_url VARCHAR(255),
+    meta_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    okundu_mu BOOLEAN NOT NULL DEFAULT FALSE,
+    eposta_gonderildi BOOLEAN NOT NULL DEFAULT FALSE,
+    olusturma_tarihi TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    okunma_tarihi TIMESTAMPTZ,
+    CONSTRAINT uq_bildirim_user_kat_ref UNIQUE (user_id, kategori, referans_anahtar)
+);
+
+CREATE INDEX IF NOT EXISTS idx_bildirim_user_okundu
+    ON bildirim_olaylari (user_id, okundu_mu, olusturma_tarihi DESC);
+

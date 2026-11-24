@@ -5,8 +5,12 @@ const Joi = require('joi');
 const authMiddleware = require('../middlewares/authMiddleware');
 const { authorizeRoles } = require('../middlewares/rbacMiddleware');
 const userController = require('../controllers/userController');
-const { sendNotificationEmail } = require('../services/emailService');
+const { sendNotificationEmail, escapeHtml } = require('../services/emailService');
 const { sendSMS } = require('../services/smsService');
+const {
+  DEFAULT_NOTIFICATION_MATRIX,
+  normalizeNotificationMatrix,
+} = require('../services/notificationService');
 
 const router = express.Router();
 
@@ -48,27 +52,7 @@ router.get('/me', authMiddleware, async (req, res) => {
   }
 });
 
-const DEFAULT_NOTIFICATION_MATRIX = {
-  belge_vadesi: { email: true, sms: true },
-  periyodik_bakim: { email: true, sms: true },
-  parca_omru: { email: true, sms: false },
-  maliyet_ozeti: { email: true, sms: false },
-};
-
-const normalizeNotificationMatrix = (raw) => {
-  const src = raw && typeof raw === 'object' ? raw : {};
-  return Object.keys(DEFAULT_NOTIFICATION_MATRIX).reduce((acc, key) => {
-    const def = DEFAULT_NOTIFICATION_MATRIX[key];
-    const item = src[key] && typeof src[key] === 'object' ? src[key] : {};
-    acc[key] = {
-      email: typeof item.email === 'boolean' ? item.email : def.email,
-      sms: typeof item.sms === 'boolean' ? item.sms : def.sms,
-    };
-    return acc;
-  }, {});
-};
-
-// BILDIRIM AYARLARI GUNCELLEME
+// BILDIRIM AYARLARI OKUMA
 router.get('/settings/notifications', authMiddleware, async (req, res) => {
   try {
 
@@ -221,6 +205,8 @@ router.put('/settings/notifications', authMiddleware, async (req, res) => {
   const categoryToggleSchema = Joi.object({
     email: Joi.boolean().required(),
     sms: Joi.boolean().required(),
+    uygulama: Joi.boolean().optional(),
+    eposta: Joi.boolean().optional(),
   });
   const schema = Joi.object({
     telefon: Joi.string().max(20).allow('', null),
@@ -280,7 +266,7 @@ router.put('/settings/notifications', authMiddleware, async (req, res) => {
             <div style="background:rgba(15,23,42,0.94);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:28px;box-shadow:0 24px 80px rgba(0,0,0,0.45);">
               <div style="font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:#94a3b8;margin-bottom:10px;">TRUSS</div>
               <h2 style="margin:0 0 16px 0;color:#f8fafc;font-size:24px;">Bildirim Tercihleriniz Güncellendi</h2>
-              <p style="margin:0 0 12px 0;line-height:1.7;color:#cbd5e1;">Merhaba ${updatedUser.ad_soyad || ''},</p>
+              <p style="margin:0 0 12px 0;line-height:1.7;color:#cbd5e1;">Merhaba ${escapeHtml(updatedUser.ad_soyad || '')},</p>
               <p style="margin:0 0 12px 0;line-height:1.7;color:#cbd5e1;">TRUSS bildirim ayarlarını başarıyla güncelledik. Bu e-posta, sistemimizin test iletisi olarak gönderilmiştir.</p>
               <div style="margin-top:20px;padding:16px;border-radius:14px;border:1px solid rgba(255,255,255,0.08);background:rgba(30,41,59,0.85);">
                 <p style="margin:0;color:#94a3b8;font-size:12px;text-transform:uppercase;letter-spacing:0.18em;">Aktif Kanallar</p>

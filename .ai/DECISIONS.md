@@ -87,3 +87,8 @@
 - **Kök Neden:** Dolaylı `users` alt sorgusu (`EXISTS`) ve eksik kompozit indeksler sorguları yavaşlatıyor, `kullanici_id IS NULL` araçlar org izolasyonundan düşebiliyor, runtime `ALTER TABLE` çağrıları istek yolunu kirletiyor ve fatura/belge/oluşturan bilgisi metin içinde kayboluyordu.
 - **Kalıcı Kural:** `buildVehicleAccessFilter` ve atama sorguları doğrudan indeksli `a.org_id = $N` kullanır (`ensureManagerOrgId` TX backfill ile); controller/route içi `ALTER TABLE` yasaktır (tüm şema değişiklikleri idempotent `database.sql` + migration scripti ile yürür) ve `yakitlar`/`bakimlar` `fatura_no`, `belge_url`, `olusturan_user_id` kolonlarını kalıcı olarak tutar.
 
+### ADR-18: Bildirim Dedup Kilidi, `predictiveService` TR Takvimi & Finansal Bildirim RBAC Gizliliği
+- **Tarih:** 2026-11-25 (`V2.2-NOTIFY`)
+- **Kök Neden:** Eski cron yalnız ham e-posta/SMS atıyor, tekrarlı uyarıları tekilleştirmiyor, `UNION ALL` içinde `kayit_id DESC` ile yanlış son 2 hareketi seçip yerel `Date` kayması yaşıyor ve `bildirim_tercihleri` ile `maliyet_ozeti` finans yetkisi denetimi yapmıyordu.
+- **Kalıcı Kural:** `bildirim_olaylari` üzerinde `UNIQUE (user_id, kategori, referans_anahtar)` + `ON CONFLICT DO NOTHING` dedup kilidi uygulanır; `predictiveService` `ORDER BY tarih DESC, km DESC` ve `dateUtils` TR takvimiyle sıfır-bölünme korumalı çalışır; tüm bildirim/aksiyon uçlarında `users.bildirim_tercihleri` matrisi ve `maliyet_ozeti`/bütçe uyarıları için `hasFinanceAccess` RBAC filtresi zorunludur.
+
