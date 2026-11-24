@@ -17,7 +17,6 @@
     "Frontend/src/components/v2/FleetDataTable.jsx": 824,
     "Frontend/src/components/v2/FleetLiveMap.jsx": 813,
     "Frontend/src/components/v2/LedgerDataTable.jsx": 920,
-    "Frontend/src/components/v2/MovementSheet.jsx": 804,
-    "Frontend/src/components/v2/VehicleSheet.jsx": 1133
+    "Frontend/src/components/v2/MovementSheet.jsx": 804
   }
 }
