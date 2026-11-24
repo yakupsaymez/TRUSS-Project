@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import aracService from '@/services/aracService';
 import useVehicleStore from '@/store/useVehicleStore';
 import { getErrorStatus, notifyApiError } from '@/utils/apiError';
+import { isSmhArac } from '@/utils/aracDurum';
 import useVehicleKatalog from './useVehicleKatalog';
 import {
   buildInitialForm,
@@ -73,7 +74,7 @@ export default function useVehicleSheetForm({ open, arac, onOpenChange, onSucces
     [form, initialSnapshot]
   );
 
-  const isSmh = form.sayac_tipi === 'SMH';
+  const isSmh = isSmhArac(form);
 
   const updateField = (name, value) => {
     setForm((prev) => ({ ...prev, [name]: value }));

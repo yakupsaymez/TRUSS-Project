@@ -1,6 +1,13 @@
+import { isSmhArac } from '@/utils/aracDurum';
 import { toLocalIsoDate } from '@/utils/dateUtils';
 import { formatLocaleNumber, formatTurkishPlate, parseLocaleNumber } from '@/utils/formatters';
 import { parseSayacHatasi } from '@/utils/sayacHatasi';
+
+const formatNumericInput = (val) => {
+  if (val === null || val === undefined || val === '') return '';
+  const n = Number(val);
+  return Number.isFinite(n) ? String(n) : '';
+};
 
 export const MANUAL_OPTION = '__MANUAL__';
 export const CURRENT_DEFAULT_YEAR = String(Math.min(2027, Math.max(1950, new Date().getFullYear())));
@@ -37,13 +44,15 @@ export function buildInitialForm(arac) {
       guncel_sayac: '0',
       bakim_periyodu: '15000',
       triger_degisim_km: '',
+      depo_kapasitesi_l: '',
+      hedef_tuketim: '',
       muayene_tarihi: '',
       sigorta_tarihi: '',
       kasko_tarihi: '',
     };
   }
 
-  const isSmh = arac.sayac_tipi === 'SMH' || Number(arac.calisma_saati_bakim) > 0;
+  const isSmh = isSmhArac(arac) || Number(arac.calisma_saati_bakim) > 0;
   const mevcutSayac =
     arac.guncel_sayac ?? (isSmh ? arac.guncel_calisma_saati : arac.guncel_km) ?? 0;
   const mevcutPeriyot =
@@ -67,6 +76,8 @@ export function buildInitialForm(arac) {
     triger_degisim_km: arac.triger_degisim_km
       ? formatLocaleNumber(arac.triger_degisim_km, 0)
       : '',
+    depo_kapasitesi_l: formatNumericInput(arac.depo_kapasitesi_l),
+    hedef_tuketim: formatNumericInput(arac.hedef_tuketim),
     muayene_tarihi: normalizeLocalIsoDate(arac.muayene_tarihi),
     sigorta_tarihi: normalizeLocalIsoDate(arac.sigorta_tarihi),
     kasko_tarihi: normalizeLocalIsoDate(arac.kasko_tarihi),
@@ -86,10 +97,28 @@ export function serializeFormForDirtyCheck(f) {
     guncel_sayac: f.guncel_sayac,
     bakim_periyodu: f.bakim_periyodu,
     triger_degisim_km: f.triger_degisim_km,
+    depo_kapasitesi_l: f.depo_kapasitesi_l,
+    hedef_tuketim: f.hedef_tuketim,
     muayene_tarihi: f.muayene_tarihi,
     sigorta_tarihi: f.sigorta_tarihi,
     kasko_tarihi: f.kasko_tarihi,
   });
+}
+
+export function parsePositiveDecimal(raw, { max }) {
+  const trimmed = String(raw ?? '').trim();
+  if (trimmed === '') {
+    return { valid: true, value: null };
+  }
+  const normalized = trimmed.replace(/\s+/g, '').replace(',', '.');
+  if (!/^\d+(\.\d+)?$/.test(normalized)) {
+    return { valid: false, value: null };
+  }
+  const n = Number(normalized);
+  if (!Number.isFinite(n) || n <= 0 || n > max) {
+    return { valid: false, value: null };
+  }
+  return { valid: true, value: n };
 }
 
 export function parseNonNegativeInteger(raw, { required = false } = {}) {
@@ -155,6 +184,16 @@ export function validateAndBuildVehiclePayload({ form, arac, isSmh, manualFlags 
     errors.triger_degisim_km = 'Geçerli bir tam sayı (≥ 0) girin.';
   }
 
+  const depoRes = parsePositiveDecimal(form.depo_kapasitesi_l, { max: 99999.9 });
+  if (!depoRes.valid) {
+    errors.depo_kapasitesi_l = 'Pozitif bir sayı (en fazla 99.999,9 L) girin.';
+  }
+
+  const hedefRes = parsePositiveDecimal(form.hedef_tuketim, { max: 9999.99 });
+  if (!hedefRes.valid) {
+    errors.hedef_tuketim = 'Pozitif bir sayı (en fazla 9.999,99) girin.';
+  }
+
   if (Object.keys(errors).length > 0) {
     return { errors, payload: null };
   }
@@ -190,6 +229,8 @@ export function validateAndBuildVehiclePayload({ form, arac, isSmh, manualFlags 
       onerilen_bakim_km: isSmh ? null : Number(periyotRes.value),
       calisma_saati_bakim: isSmh ? Number(periyotRes.value) : null,
       triger_degisim_km: !isSmh && trigerRes.value !== null ? Number(trigerRes.value) : null,
+      depo_kapasitesi_l: depoRes.value,
+      hedef_tuketim: hedefRes.value,
       muayene_tarihi: form.muayene_tarihi || null,
       sigorta_tarihi: form.sigorta_tarihi || null,
       kasko_tarihi: form.kasko_tarihi || null,

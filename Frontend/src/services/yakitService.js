@@ -24,6 +24,29 @@ const yakitService = {
     yakitSil: async (yakitId) => {
         const response = await api.delete(`/yakitlar/${yakitId}`);
         return response.data;
+    },
+
+    getYakitAnomalileri: async ({ durum, arac_id, tip, limit } = {}) => {
+        const params = {};
+        if (durum !== undefined && durum !== null && durum !== '') params.durum = durum;
+        if (arac_id !== undefined && arac_id !== null && arac_id !== '') params.arac_id = arac_id;
+        if (tip !== undefined && tip !== null && tip !== '') params.tip = tip;
+        if (limit !== undefined && limit !== null && limit !== '') params.limit = limit;
+        const response = await api.get('/yakitlar/anomaliler', { params });
+        return response.data;
+    },
+
+    updateYakitAnomali: async (id, { durum, inceleme_notu }) => {
+        const response = await api.patch(`/yakitlar/anomaliler/${id}`, {
+            durum,
+            inceleme_notu,
+        });
+        return response.data;
+    },
+
+    taraYakitAnomalileri: async () => {
+        const response = await api.post('/yakitlar/anomaliler/tara');
+        return response.data;
     }
 };
 

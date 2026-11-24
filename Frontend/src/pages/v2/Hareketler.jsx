@@ -13,6 +13,7 @@ import { formatCurrency, formatLocaleNumber, formatTurkishPlate } from '@/utils/
 import LedgerDataTable from '@/components/v2/LedgerDataTable';
 import ConfirmDialog from '@/components/v2/ConfirmDialog';
 import MovementSheet from '@/components/v2/MovementSheet';
+import FuelAnomalyPanel from '@/components/v2/FuelAnomalyPanel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -285,6 +286,7 @@ export default function Hareketler() {
 
   const handleSheetSuccess = useCallback(async () => {
     await Promise.all([verileriYukle(), fetchAraclar()]);
+    window.dispatchEvent(new CustomEvent('truss:data-changed', { detail: { scope: 'fuel-anomaly' } }));
   }, [verileriYukle, fetchAraclar]);
 
   const handleDeleteRequest = useCallback(
@@ -309,6 +311,7 @@ export default function Hareketler() {
       );
       setDeleteTarget(null);
       await Promise.all([verileriYukle(), fetchAraclar()]);
+      window.dispatchEvent(new CustomEvent('truss:data-changed', { detail: { scope: 'fuel-anomaly' } }));
     } catch (err) {
       notifyApiError(err, 'Kayıt silinemedi.');
     } finally {
@@ -363,6 +366,8 @@ export default function Hareketler() {
           </div>
         )}
       </div>
+
+      {canViewFinance && <FuelAnomalyPanel seciliAracId={seciliAracId} canManage={canManage} />}
 
       <LedgerDataTable
         rows={rows}

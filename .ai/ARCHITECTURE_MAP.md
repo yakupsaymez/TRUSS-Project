@@ -8,14 +8,14 @@
 | `/app` | `pages/v2/GenelBakis.jsx` | `horizon` | KPI şeridi, maliyet trendi, bütçe/gerçekleşen, filo sağlığı |
 | `/app/filo` | `pages/v2/Filo.jsx` | `horizon` | Araç envanter tablosu (`FleetDataTable`), `VehicleSheet`, `AssignVehicleSheet` |
 | `/app/harita` | `pages/v2/Harita.jsx` | `horizon` | Canlı araç konum haritası (`FleetLiveMap`) ve sürücü check-in |
-| `/app/hareketler` | `pages/v2/Hareketler.jsx` | `ledger` | Birleşik yakıt & bakım defteri (`LedgerDataTable`, `MovementSheet`) |
+| `/app/hareketler` | `pages/v2/Hareketler.jsx` | `ledger` | Birleşik yakıt & bakım defteri (`LedgerDataTable`, `MovementSheet`, `FuelAnomalyPanel`) |
 | `/app/parcalar` | `pages/v2/Parcalar.jsx` | `components` | Parça ömrü ve değişim takibi (`ComponentDataTable`, `ComponentSheet`) |
 | `/app/takvim` | `pages/v2/Takvim.jsx` | `horizon` | Belge vadesi ve periyodik bakım takvimi (`FleetCalendar`) |
 | `/app/ekip` | `pages/v2/Ekip.jsx` | `crew` | Üye/sürücü yönetimi (`CrewDataTable`, `PermissionsSheet`, `ResetPasswordSheet`) |
 | `/app/ayarlar` | `pages/v2/Ayarlar.jsx` (`pages/v2/ayarlar/*`) | Korumalı (`ProtectedRoute`) | Profil, şifre, bildirim matrisi ve organizasyon ayarları |
 
 ## 2. Frontend Modül Yapısı (`Frontend/src/`)
-- **Çekirdek & Kabuk (`components/v2/`):** `AppShell.jsx`, `AppSheet.jsx`, `AuthFrame.jsx`, `ChannelGuard.jsx`, `CommandPalette.jsx`, `ConfirmDialog.jsx`, `EmptyState.jsx`, `SayacFieldError.jsx`, `channelAccess.js`, `navConfig.js`, `AssignVehicleSheet.jsx`, `CreateMemberSheet.jsx`, `PermissionsSheet.jsx`, `ResetPasswordSheet.jsx`, `NotificationBell.jsx`, `ActionCenterCard.jsx`, `FleetEfficiencyCard.jsx`, analitik kartlar (`OverviewKpiStrip`, `CostTrendChart`, `BudgetVarianceCard`, `FleetHealthWidget`, `DocumentComplianceCard`, `SegmentedDistributionCard`, `CrewRoleSummaryStrip`).
+- **Çekirdek & Kabuk (`components/v2/`):** `AppShell.jsx`, `AppSheet.jsx`, `AuthFrame.jsx`, `ChannelGuard.jsx`, `CommandPalette.jsx`, `ConfirmDialog.jsx`, `EmptyState.jsx`, `SayacFieldError.jsx`, `channelAccess.js`, `navConfig.js`, `AssignVehicleSheet.jsx`, `CreateMemberSheet.jsx`, `PermissionsSheet.jsx`, `ResetPasswordSheet.jsx`, `NotificationBell.jsx`, `ActionCenterCard.jsx`, `FleetEfficiencyCard.jsx`, `FuelAnomalyPanel.jsx`, analitik kartlar (`OverviewKpiStrip`, `CostTrendChart`, `BudgetVarianceCard`, `FleetHealthWidget`, `DocumentComplianceCard`, `SegmentedDistributionCard`, `CrewRoleSummaryStrip`).
 - **`REFACTOR-1` & `V2.1-FE4` Feature-Module Klasör Ağacı (`<= 300` satır Unix modüler mimari):**
   - `pages/home/`: `HomeNavbar.jsx`, `HomeHero.jsx`, `HomePreviewShowcase.jsx`, `HomeModulesSection.jsx`, `HomeArchitectureSection.jsx`, `HomeFooterCta.jsx`, `homeContent.js`
   - `pages/v2/ayarlar/`: `GenelTab.jsx`, `ProfilTab.jsx`, `OrganizasyonTab.jsx`, `BildirimlerTab.jsx`, `GuvenlikTab.jsx`, `PasswordChangeForm.jsx`, `useAyarlarData.js`, `ayarlarConstants.js`
@@ -30,9 +30,10 @@
   - `components/v2/crew-data-table/`: `CrewTableToolbar.jsx`, `CrewRowActions.jsx`, `CrewTablePagination.jsx`, `crewTableColumns.jsx`, `crewTableHelpers.js`
   - `components/v2/fleet-live-map/`: `FleetMapSidebar.jsx`, `FleetMapCanvas.jsx`, `FleetMapDetailBar.jsx`, `useFleetMapState.js`, `mapHelpers.js`
   - `components/v2/fleet-calendar/`: `CalendarToolbar.jsx`, `CalendarMonthView.jsx`, `CalendarWeekDayView.jsx`, `CalendarEventChip.jsx`, `useFleetCalendarState.js`, `calendarHelpers.js`
+  - `components/v2/fuel-anomaly/`: `FuelAnomalyRow.jsx`
 - **`components/ui/`:** `truss-date-picker.jsx` ve Radix/Shadcn temel UI atomları.
 - **`store/`:** `useAuthStore.js` (JWT, kullanıcı, rol, kanal izinleri), `useVehicleStore.js` (aktif araç seçimi ve filo önbelleği), `useAppStore.js` (kabuk/UI durumu).
-- **`services/`:** `api.js` (Axios + JWT interceptor), `authService.js`, `aracService.js`, `yakitService.js`, `bakimService.js`, `parcaService.js`, `raporService.js`, `katalogService.js`, `adminService.js`, `bildirimService.js`.
+- **`services/`:** `api.js` (Axios + JWT interceptor), `authService.js`, `aracService.js`, `yakitService.js` (+ anomali uçları), `bakimService.js`, `parcaService.js`, `raporService.js`, `katalogService.js`, `adminService.js`, `bildirimService.js`.
 
 ## 3. Backend Mimari Haritası (`Backend/`)
 | Katman | Dosyalar | Sorumluluk |

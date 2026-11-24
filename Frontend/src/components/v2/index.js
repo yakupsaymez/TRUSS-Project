@@ -34,5 +34,6 @@ export { default as BudgetVarianceCard } from '@/components/v2/BudgetVarianceCar
 export { default as FleetLiveMap } from '@/components/v2/FleetLiveMap';
 export { default as NotificationBell } from '@/components/v2/NotificationBell';
 export { default as ActionCenterCard } from '@/components/v2/ActionCenterCard';
+export { default as FuelAnomalyPanel } from '@/components/v2/FuelAnomalyPanel';
 
 

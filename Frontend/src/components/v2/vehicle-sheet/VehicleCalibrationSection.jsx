@@ -108,6 +108,52 @@ export default function VehicleCalibrationSection({
             )}
           />
         </SheetField>
+
+        <SheetField
+          label="Depo Kapasitesi (L)"
+          htmlFor="vehicle-depo-kapasitesi"
+          error={fieldErrors.depo_kapasitesi_l}
+        >
+          <Input
+            id="vehicle-depo-kapasitesi"
+            type="number"
+            inputMode="decimal"
+            step="0.1"
+            min="0.1"
+            max="99999.9"
+            value={form.depo_kapasitesi_l}
+            onChange={(e) => updateField('depo_kapasitesi_l', e.target.value)}
+            placeholder="Örn: 60"
+            aria-invalid={Boolean(fieldErrors.depo_kapasitesi_l) || undefined}
+            className={cn(
+              'font-mono tabular-nums',
+              fieldErrors.depo_kapasitesi_l && 'border-destructive focus-visible:border-destructive'
+            )}
+          />
+        </SheetField>
+
+        <SheetField
+          label={isSmh ? 'Hedef Tüketim (L/saat)' : 'Hedef Tüketim (L/100km)'}
+          htmlFor="vehicle-hedef-tuketim"
+          error={fieldErrors.hedef_tuketim}
+        >
+          <Input
+            id="vehicle-hedef-tuketim"
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            min="0.01"
+            max="9999.99"
+            value={form.hedef_tuketim}
+            onChange={(e) => updateField('hedef_tuketim', e.target.value)}
+            placeholder={isSmh ? 'Örn: 12.5' : 'Örn: 7.5'}
+            aria-invalid={Boolean(fieldErrors.hedef_tuketim) || undefined}
+            className={cn(
+              'font-mono tabular-nums',
+              fieldErrors.hedef_tuketim && 'border-destructive focus-visible:border-destructive'
+            )}
+          />
+        </SheetField>
       </SheetFormGrid>
     </SheetFormSection>
   );
