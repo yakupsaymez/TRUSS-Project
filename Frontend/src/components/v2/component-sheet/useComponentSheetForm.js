@@ -59,8 +59,32 @@ export default function useComponentSheetForm({
       araclar,
       prefill,
     });
-    setForm((prev) => (prev.arac_id ? prev : next));
-    setInitialSnapshot((prev) => (prev.arac_id ? prev : next));
+    setForm((prev) =>
+      prev.arac_id
+        ? prev
+        : {
+            ...prev,
+            arac_id: next.arac_id,
+            son_degisim_km:
+              prev.son_degisim_km && prev.son_degisim_km !== '0'
+                ? prev.son_degisim_km
+                : next.son_degisim_km,
+            degisim_araligi_km:
+              prev.degisim_araligi_km && prev.degisim_araligi_km !== '0'
+                ? prev.degisim_araligi_km
+                : next.degisim_araligi_km,
+          }
+    );
+    setInitialSnapshot((prev) =>
+      prev.arac_id
+        ? prev
+        : {
+            ...prev,
+            arac_id: next.arac_id,
+            son_degisim_km: next.son_degisim_km,
+            degisim_araligi_km: next.degisim_araligi_km,
+          }
+    );
   }, [open, mode, form.arac_id, araclar, defaultAracId, prefill]);
 
   const isDirty = useMemo(
@@ -140,6 +164,7 @@ export default function useComponentSheetForm({
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
+    if (!isCreateMode && !parca?.parca_id) return;
 
     const { errors, payload } = validateAndBuildComponentPayload({ form, isCreateMode, parca });
     if (errors) {

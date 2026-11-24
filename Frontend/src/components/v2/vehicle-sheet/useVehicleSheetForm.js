@@ -53,8 +53,17 @@ export default function useVehicleSheetForm({ open, arac, onOpenChange, onSucces
       arac,
       nextForm,
       onResolvedForm: (resolved) => {
-        setForm(resolved);
-        setInitialSnapshot(resolved);
+        const katalogPatch = {
+          kategori_id: resolved.kategori_id,
+          kategori: resolved.kategori,
+          marka_id: resolved.marka_id,
+          marka: resolved.marka,
+          model_id: resolved.model_id,
+          model: resolved.model,
+          varyant_id: resolved.varyant_id,
+        };
+        setForm((prev) => ({ ...prev, ...katalogPatch }));
+        setInitialSnapshot((prev) => ({ ...prev, ...katalogPatch }));
       },
     });
   }, [open, arac, hydrateForOpen]);

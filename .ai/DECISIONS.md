@@ -57,3 +57,9 @@
 - **Kök Neden:** `aracMutationHandlers.js` içinde `kategori_id ? Number(kategori_id) : mevcut.kategori_id` kontrolü, manuel kategoriye geçişte gönderilen açık `null` değerini eski katalog ID'siyle eziyordu.
 - **Kalıcı Kural:** Güncelleme uçlarında temizlenebilir FK/katalog alanları falsy kontrolle değil `field !== undefined ? (field ? Number(field) : null) : mevcut.field` kalıbıyla işlenir.
 
+### ADR-12: Kademeli Async Dropdown İstek İptali & Kısmi Form Hidrasyonu
+- **Tarih:** 2026-11-24 (`QA-SWEEP-FE`)
+- **Kök Neden:** Üst katalog seçimi veya `MANUAL_OPTION` geçişinde in-flight alt dropdown istekleri iptal edilmiyor ve async hidrasyon tüm formu `setForm(resolved)` ile ezip kullanıcı girdisini siliyordu.
+- **Kalıcı Kural:** Kademeli dropdown değişimlerinde alt listeler fetch öncesi temizlenip alt `RequestIdRef` sayaçları artırılır; async hidrasyon/fallback efektleri yalnız ilgili alanları `prev` üzerine kısmi patch'ler.
+
+

@@ -1,4 +1,38 @@
 import katalogService from '@/services/katalogService';
+import { formatLocaleNumber } from '@/utils/formatters';
+
+export const INITIAL_MANUAL = {
+  manualKategori: false,
+  manualMarka: false,
+  manualModel: false,
+  manualVaryant: false,
+};
+
+export const ALL_MANUAL = {
+  manualKategori: true,
+  manualMarka: true,
+  manualModel: true,
+  manualVaryant: true,
+};
+
+export function buildVaryantCalibrationPatch(selectedVaryant) {
+  const hasSmhInterval = Number(selectedVaryant.calisma_saati_bakim) > 0;
+  const nextSayacTipi = hasSmhInterval ? 'SMH' : 'KM';
+  const rawPeriyot = hasSmhInterval
+    ? Number(selectedVaryant.calisma_saati_bakim)
+    : Number(selectedVaryant.onerilen_bakim_km) || 15000;
+  const rawTriger =
+    !hasSmhInterval && Number(selectedVaryant.triger_degisim_km) > 0
+      ? formatLocaleNumber(Number(selectedVaryant.triger_degisim_km), 0)
+      : '';
+
+  return {
+    varyant_id: Number(selectedVaryant.varyant_id),
+    sayac_tipi: nextSayacTipi,
+    bakim_periyodu: formatLocaleNumber(rawPeriyot, 0),
+    triger_degisim_km: rawTriger,
+  };
+}
 
 function sameTrText(a, b) {
   return String(a || '').toLocaleLowerCase('tr-TR') === String(b || '').toLocaleLowerCase('tr-TR');
@@ -18,12 +52,7 @@ export default async function hydrateVehicleKatalog({ arac, nextForm, isStale })
         markalar: [],
         modeller: [],
         varyantlar: [],
-        manualFlags: {
-          manualKategori: true,
-          manualMarka: true,
-          manualModel: true,
-          manualVaryant: true,
-        },
+        manualFlags: ALL_MANUAL,
         resolvedForm: null,
       };
     }
@@ -43,12 +72,7 @@ export default async function hydrateVehicleKatalog({ arac, nextForm, isStale })
       markalar: markaList,
       modeller: [],
       varyantlar: [],
-      manualFlags: {
-        manualKategori: false,
-        manualMarka: false,
-        manualModel: false,
-        manualVaryant: false,
-      },
+      manualFlags: INITIAL_MANUAL,
       resolvedForm,
     };
   }
@@ -67,12 +91,7 @@ export default async function hydrateVehicleKatalog({ arac, nextForm, isStale })
       markalar: [],
       modeller: [],
       varyantlar: [],
-      manualFlags: {
-        manualKategori: true,
-        manualMarka: true,
-        manualModel: true,
-        manualVaryant: true,
-      },
+      manualFlags: ALL_MANUAL,
       resolvedForm: null,
     };
   }

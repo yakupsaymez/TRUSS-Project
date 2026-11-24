@@ -108,7 +108,11 @@ export default function VehicleCatalogSection({ form, fieldErrors, katalog, upda
         >
           <div className="space-y-2">
             {!manualKategori && markalar.length > 0 && (
-              <Select value={markaSelectValue} onValueChange={handleMarkaSelect}>
+              <Select
+                value={markaSelectValue}
+                onValueChange={handleMarkaSelect}
+                disabled={loadingKatalog}
+              >
                 <SelectTrigger id="vehicle-marka-select" className="w-full">
                   <SelectValue placeholder="Marka seçin" />
                 </SelectTrigger>
@@ -154,7 +158,11 @@ export default function VehicleCatalogSection({ form, fieldErrors, katalog, upda
         >
           <div className="space-y-2">
             {!manualKategori && !manualMarka && modeller.length > 0 && (
-              <Select value={modelSelectValue} onValueChange={handleModelSelect}>
+              <Select
+                value={modelSelectValue}
+                onValueChange={handleModelSelect}
+                disabled={loadingKatalog}
+              >
                 <SelectTrigger id="vehicle-model-select" className="w-full">
                   <SelectValue placeholder="Model seçin" />
                 </SelectTrigger>
@@ -196,7 +204,9 @@ export default function VehicleCatalogSection({ form, fieldErrors, katalog, upda
           <Select
             value={varyantSelectValue}
             onValueChange={handleVaryantSelect}
-            disabled={manualKategori || manualMarka || manualModel || varyantlar.length === 0}
+            disabled={
+              loadingKatalog || manualKategori || manualMarka || manualModel || varyantlar.length === 0
+            }
           >
             <SelectTrigger id="vehicle-varyant" className="w-full">
               <SelectValue

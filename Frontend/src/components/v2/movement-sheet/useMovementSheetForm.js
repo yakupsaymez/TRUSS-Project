@@ -178,6 +178,7 @@ export default function useMovementSheetForm({
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
+    if (isEditMode && !record?.rawId) return;
     if (isYakit && !canAddFuel) {
       toast.error('Yakıt kaydı ekleme yetkiniz bulunmuyor.');
       return;

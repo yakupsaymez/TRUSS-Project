@@ -1,22 +1,11 @@
 import { useCallback, useRef, useState } from 'react';
 import katalogService from '@/services/katalogService';
-import { formatLocaleNumber } from '@/utils/formatters';
-import hydrateVehicleKatalog from './hydrateVehicleKatalog';
+import hydrateVehicleKatalog, {
+  ALL_MANUAL,
+  INITIAL_MANUAL,
+  buildVaryantCalibrationPatch,
+} from './hydrateVehicleKatalog';
 import { MANUAL_OPTION, isHeavyEquipmentName } from './vehicleSheetHelpers';
-
-const INITIAL_MANUAL = {
-  manualKategori: false,
-  manualMarka: false,
-  manualModel: false,
-  manualVaryant: false,
-};
-
-const ALL_MANUAL = {
-  manualKategori: true,
-  manualMarka: true,
-  manualModel: true,
-  manualVaryant: true,
-};
 
 export default function useVehicleKatalog({
   form,
@@ -42,33 +31,49 @@ export default function useVehicleKatalog({
     setManualFlags((prev) => ({ ...prev, ...patch }));
   }, []);
 
-  const hydrateForOpen = useCallback(async ({ arac, nextForm, onResolvedForm }) => {
-    const currentInitId = ++initRequestIdRef.current;
-    const isStale = () => initRequestIdRef.current !== currentInitId;
-    setLoadingKatalog(true);
+  const invalidateDropdownRequests = useCallback(
+    ({ marka = false, model = false, varyant = false }) => {
+      if (marka) markaRequestIdRef.current += 1;
+      if (model) modelRequestIdRef.current += 1;
+      if (varyant) varyantRequestIdRef.current += 1;
+    },
+    []
+  );
 
-    try {
-      const result = await hydrateVehicleKatalog({ arac, nextForm, isStale });
-      if (!result || isStale()) return;
+  const hydrateForOpen = useCallback(
+    async ({ arac, nextForm, onResolvedForm }) => {
+      const currentInitId = ++initRequestIdRef.current;
+      const isStale = () => initRequestIdRef.current !== currentInitId;
+      invalidateDropdownRequests({ marka: true, model: true, varyant: true });
+      setMarkalar([]);
+      setModeller([]);
+      setVaryantlar([]);
+      setLoadingKatalog(true);
 
-      setKategoriler(result.kategoriler);
-      setMarkalar(result.markalar);
-      setModeller(result.modeller);
-      setVaryantlar(result.varyantlar);
-      setManualFlags(result.manualFlags);
+      try {
+        const result = await hydrateVehicleKatalog({ arac, nextForm, isStale });
+        if (!result || isStale()) return;
 
-      if (result.resolvedForm) {
-        onResolvedForm(result.resolvedForm);
+        setKategoriler(result.kategoriler);
+        setMarkalar(result.markalar);
+        setModeller(result.modeller);
+        setVaryantlar(result.varyantlar);
+        setManualFlags(result.manualFlags);
+
+        if (result.resolvedForm) {
+          onResolvedForm(result.resolvedForm);
+        }
+      } catch (_err) {
+        if (isStale()) return;
+        setManualFlags(ALL_MANUAL);
+      } finally {
+        if (!isStale()) {
+          setLoadingKatalog(false);
+        }
       }
-    } catch (_err) {
-      if (isStale()) return;
-      setManualFlags(ALL_MANUAL);
-    } finally {
-      if (!isStale()) {
-        setLoadingKatalog(false);
-      }
-    }
-  }, []);
+    },
+    [invalidateDropdownRequests]
+  );
 
   // 1. Kademe: Kategori Seçimi
   const handleKategoriSelect = async (val) => {
@@ -77,6 +82,7 @@ export default function useVehicleKatalog({
     clearFieldError('model');
 
     if (val === MANUAL_OPTION) {
+      invalidateDropdownRequests({ marka: true, model: true, varyant: true });
       setManualFlags(ALL_MANUAL);
       setMarkalar([]);
       setModeller([]);
@@ -97,7 +103,9 @@ export default function useVehicleKatalog({
     const katAd = selectedKat?.ad || 'Otomobil';
     const nextIsSmh = !isEditMode && isHeavyEquipmentName(katAd);
 
+    invalidateDropdownRequests({ model: true, varyant: true });
     setManualFlags(INITIAL_MANUAL);
+    setMarkalar([]);
     setModeller([]);
     setVaryantlar([]);
 
@@ -137,6 +145,7 @@ export default function useVehicleKatalog({
     clearFieldError('model');
 
     if (val === MANUAL_OPTION) {
+      invalidateDropdownRequests({ model: true, varyant: true });
       patchManual({ manualMarka: true, manualModel: true, manualVaryant: true });
       setModeller([]);
       setVaryantlar([]);
@@ -155,7 +164,9 @@ export default function useVehicleKatalog({
     const selectedMarka = markalar.find((m) => Number(m.marka_id) === markaId);
     const markaAd = selectedMarka?.ad || '';
 
+    invalidateDropdownRequests({ varyant: true });
     patchManual({ manualMarka: false, manualModel: false, manualVaryant: false });
+    setModeller([]);
     setVaryantlar([]);
 
     setForm((prev) => ({
@@ -186,6 +197,7 @@ export default function useVehicleKatalog({
     clearFieldError('model');
 
     if (val === MANUAL_OPTION) {
+      invalidateDropdownRequests({ varyant: true });
       patchManual({ manualModel: true, manualVaryant: true });
       setVaryantlar([]);
       setForm((prev) => ({
@@ -202,6 +214,7 @@ export default function useVehicleKatalog({
     const modelAd = selectedModel?.ad || '';
 
     patchManual({ manualModel: false, manualVaryant: false });
+    setVaryantlar([]);
 
     setForm((prev) => ({
       ...prev,
@@ -237,23 +250,11 @@ export default function useVehicleKatalog({
     if (!selectedVaryant) return;
 
     patchManual({ manualVaryant: false });
-
-    const hasSmhInterval = Number(selectedVaryant.calisma_saati_bakim) > 0;
-    const nextSayacTipi = hasSmhInterval ? 'SMH' : 'KM';
-    const rawPeriyot = hasSmhInterval
-      ? Number(selectedVaryant.calisma_saati_bakim)
-      : Number(selectedVaryant.onerilen_bakim_km) || 15000;
-    const rawTriger =
-      !hasSmhInterval && Number(selectedVaryant.triger_degisim_km) > 0
-        ? formatLocaleNumber(Number(selectedVaryant.triger_degisim_km), 0)
-        : '';
+    const calibrationPatch = buildVaryantCalibrationPatch(selectedVaryant);
 
     setForm((prev) => ({
       ...prev,
-      varyant_id: varyantId,
-      sayac_tipi: nextSayacTipi,
-      bakim_periyodu: formatLocaleNumber(rawPeriyot, 0),
-      triger_degisim_km: rawTriger,
+      ...calibrationPatch,
     }));
 
     setSayacHatasi(null);
