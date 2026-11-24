@@ -9,8 +9,6 @@
   ],
   "files": {
     "Frontend/src/components/v2/AppShell.jsx": 637,
-    "Frontend/src/components/v2/CommandPalette.jsx": 723,
-    "Frontend/src/components/v2/FleetCalendar.jsx": 725,
-    "Frontend/src/components/v2/FleetLiveMap.jsx": 813
+    "Frontend/src/components/v2/CommandPalette.jsx": 723
   }
 }
