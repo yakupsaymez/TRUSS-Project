@@ -57,5 +57,5 @@
 ## 5. AI-OS & Antigravity v2.34.0 Katmanı (`.ai/` & `.agent/` — `OPS-1..5`)
 - **Kanonik Hafıza & Otomasyon (`.ai/` & `scripts/`):** `PROGRESS.md`, `SWARM_PLAYBOOK.md`, `ENGINEERING_GUARDRAILS.md`, `ARCHITECTURE_MAP.md`, `DECISIONS.md` (`ADR-01..12`), `gate-baseline.json`, `skills/caveman.md` + `scripts/ai-gate.mjs` (`gate`/`gate:fast`), `scripts/context-pack.mjs` (`context:pack`), `scripts/context-audit.mjs` (`context:audit`) & `.githooks/pre-commit`.
 - **Native Rules (`.agent/rules/`):** `00-truss-core.md` (`always_on`), `10-frontend-luma.md` (`**/Frontend/**`), `20-backend-sql.md` (`**/Backend/**`), `30-ops-gate.md` (`**/.ai/**, **/scripts/**, **/.githooks/**, **/.agent/**`).
-- **Modern Skills (`.agent/skills/*/SKILL.md` — 8 Skill):** `s5-plan`, `s1-fe`, `s2-be`, `s2-seal`, `s3-qa`, `s4-sweep`, `truss-audit` (`references/postgres-mcp-readonly.md`), `truss-qa-browser`.
+- **Modern Skills (`.agent/skills/*/SKILL.md` — 9 Skill):** `truss`, `s5-plan`, `s1-fe`, `s2-be`, `s2-seal`, `s3-qa`, `s4-sweep`, `truss-audit` (`references/postgres-mcp-readonly.md`), `truss-qa-browser`.
 - **Custom Agents (`.agent/agents/`):** `s5-architect.md` (`READ-ONLY`), `s1-frontend.md`, `s2-backend-ops.md`, `s3-qa.md` (`READ-ONLY` + Browser Subagent), `s4-bughunter.md`.
