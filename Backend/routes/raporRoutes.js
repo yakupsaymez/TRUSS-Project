@@ -1,6 +1,7 @@
 const express = require('express');
 const authMiddleware = require('../middlewares/authMiddleware');
-const { authorizeRoles } = require('../middlewares/rbacMiddleware');
+const { authorizeRoles, requirePermission } = require('../middlewares/rbacMiddleware');
+const { getTcoAnalizi } = require('../controllers/tcoController');
 const {
   getGenelOzet,
   getAylikHarcamaTrendi,
@@ -33,6 +34,7 @@ router.get('/aylik-trend', authMiddleware, requireFinanceAccess, getAylikHarcama
 router.get('/arac-maliyet', authMiddleware, requireFinanceAccess, getAracMaliyetDagilimi);
 router.get('/butce', authMiddleware, requireFinanceAccess, getButceAnalizi);
 router.put('/butce', authMiddleware, authorizeRoles('SYSTEM_ADMIN', 'FLEET_MANAGER'), updateButceHedefi);
+router.get('/tco-analizi', authMiddleware, requirePermission('finans'), getTcoAnalizi);
 
 // Geriye donuk uyumluluk (Dashboard.js icin)
 router.get('/aylik-ozet', authMiddleware, requireFinanceAccess, getAylikHarcamaTrendi);

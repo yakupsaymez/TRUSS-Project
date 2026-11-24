@@ -18,6 +18,8 @@ const raporService = {
 
     getButceAnalizi: async () => (await api.get('/raporlar/butce')).data,
 
+    getTcoAnalizi: async (donemGun = 90) => (await api.get('/raporlar/tco-analizi', { params: { donem_gun: donemGun } })).data,
+
     updateButceHedefi: async (payload) => (await api.put('/raporlar/butce', payload)).data,
 };
 

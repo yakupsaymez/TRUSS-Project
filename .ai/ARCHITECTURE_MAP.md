@@ -15,7 +15,7 @@
 | `/app/ayarlar` | `pages/v2/Ayarlar.jsx` (`pages/v2/ayarlar/*`) | Korumalı (`ProtectedRoute`) | Profil, şifre, bildirim matrisi ve organizasyon ayarları |
 
 ## 2. Frontend Modül Yapısı (`Frontend/src/`)
-- **Çekirdek & Kabuk (`components/v2/`):** `AppShell.jsx`, `AppSheet.jsx`, `AuthFrame.jsx`, `ChannelGuard.jsx`, `CommandPalette.jsx`, `ConfirmDialog.jsx`, `EmptyState.jsx`, `SayacFieldError.jsx`, `channelAccess.js`, `navConfig.js`, `AssignVehicleSheet.jsx`, `CreateMemberSheet.jsx`, `PermissionsSheet.jsx`, `ResetPasswordSheet.jsx`, `NotificationBell.jsx`, `ActionCenterCard.jsx`, analitik kartlar (`OverviewKpiStrip`, `CostTrendChart`, `BudgetVarianceCard`, `FleetHealthWidget`, `DocumentComplianceCard`, `SegmentedDistributionCard`, `CrewRoleSummaryStrip`).
+- **Çekirdek & Kabuk (`components/v2/`):** `AppShell.jsx`, `AppSheet.jsx`, `AuthFrame.jsx`, `ChannelGuard.jsx`, `CommandPalette.jsx`, `ConfirmDialog.jsx`, `EmptyState.jsx`, `SayacFieldError.jsx`, `channelAccess.js`, `navConfig.js`, `AssignVehicleSheet.jsx`, `CreateMemberSheet.jsx`, `PermissionsSheet.jsx`, `ResetPasswordSheet.jsx`, `NotificationBell.jsx`, `ActionCenterCard.jsx`, `FleetEfficiencyCard.jsx`, analitik kartlar (`OverviewKpiStrip`, `CostTrendChart`, `BudgetVarianceCard`, `FleetHealthWidget`, `DocumentComplianceCard`, `SegmentedDistributionCard`, `CrewRoleSummaryStrip`).
 - **`REFACTOR-1` & `V2.1-FE4` Feature-Module Klasör Ağacı (`<= 300` satır Unix modüler mimari):**
   - `pages/home/`: `HomeNavbar.jsx`, `HomeHero.jsx`, `HomePreviewShowcase.jsx`, `HomeModulesSection.jsx`, `HomeArchitectureSection.jsx`, `HomeFooterCta.jsx`, `homeContent.js`
   - `pages/v2/ayarlar/`: `GenelTab.jsx`, `ProfilTab.jsx`, `OrganizasyonTab.jsx`, `BildirimlerTab.jsx`, `GuvenlikTab.jsx`, `PasswordChangeForm.jsx`, `useAyarlarData.js`, `ayarlarConstants.js`
@@ -24,7 +24,7 @@
   - `components/v2/vehicle-sheet/`: `VehicleCatalogSection.jsx`, `VehicleCalibrationSection.jsx`, `VehicleDocumentsSection.jsx`, `useVehicleSheetForm.js`, `useVehicleKatalog.js`, `hydrateVehicleKatalog.js`, `vehicleSheetHelpers.js`
   - `components/v2/movement-sheet/`: `MovementIdentitySection.jsx`, `MovementCostSection.jsx`, `MovementNotesSection.jsx`, `useMovementSheetForm.js`, `movementSheetHelpers.js`
   - `components/v2/component-sheet/`: `ComponentIdentitySection.jsx`, `ComponentLifecycleSection.jsx`, `useComponentSheetForm.js`, `componentSheetHelpers.js`
-  - `components/v2/fleet-data-table/`: `FleetTableToolbar.jsx`, `FleetTableCells.jsx`, `FleetTablePagination.jsx`, `fleetTableColumns.jsx`, `fleetTableHelpers.js`
+  - `components/v2/fleet-data-table/`: `FleetTableToolbar.jsx`, `FleetTableCells.jsx`, `FleetEfficiencyCell.jsx`, `FleetTablePagination.jsx`, `fleetTableColumns.jsx`, `fleetTableHelpers.js`
   - `components/v2/ledger-data-table/`: `LedgerTableHeader.jsx`, `LedgerTableToolbar.jsx`, `LedgerTablePagination.jsx`, `ledgerTableColumns.jsx`, `useLedgerTableState.js`, `ledgerTableHelpers.js`
   - `components/v2/component-data-table/`: `ComponentTableSummary.jsx`, `ComponentTableToolbar.jsx`, `ComponentTablePagination.jsx`, `componentTableColumns.jsx`, `componentTableHelpers.js`
   - `components/v2/crew-data-table/`: `CrewTableToolbar.jsx`, `CrewRowActions.jsx`, `CrewTablePagination.jsx`, `crewTableColumns.jsx`, `crewTableHelpers.js`
@@ -39,10 +39,10 @@
 | :--- | :--- | :--- |
 | **Giriş & DB** | `index.js`, `db.js`, `database.sql`, `scripts/migrateV22DbPerf.js`, `scripts/migrateV22Notify.js` | Express sunucusu, `pg` bağlantı havuzu (`OID 1082` saf `YYYY-MM-DD` parser), şema ve idempotent V2.2-DBPERF/V2.2-NOTIFY migrasyonları |
 | **Routes** | `routes/userRoutes.js`, `adminRoutes.js`, `aracRoutes.js` + `routes/arac/{aracHelpers.js,aracHandlers.js,aracMutationHandlers.js}`, `yakitRoutes.js`, `bakimRoutes.js`, `parcaRoutes.js`, `raporRoutes.js`, `katalogRoutes.js`, `bildirimRoutes.js` | `/api/*` REST uçları, Joi şema doğrulaması, `arac/*` alt handler modülleri, `/api/bildirimler` ve middleware zinciri |
-| **Controllers** | `controllers/userController.js`, `adminController.js` + `controllers/admin/{adminHelpers.js,adminUserController.js,adminOrgAssignmentController.js}`, `yakitController.js`, `bakimController.js`, `parcaController.js`, `raporController.js`, `katalogController.js`, `bildirimController.js` | İş mantığı, `admin/*` Feature-Module ayrımı, bildirim kutusu/aksiyon merkezi ve PostgreSQL transaction (`BEGIN`/`COMMIT`/`ROLLBACK`) yönetimi |
+| **Controllers** | `controllers/userController.js`, `adminController.js` + `controllers/admin/{adminHelpers.js,adminUserController.js,adminOrgAssignmentController.js}`, `yakitController.js`, `bakimController.js`, `parcaController.js`, `raporController.js`, `tcoController.js`, `katalogController.js`, `bildirimController.js` | İş mantığı, `admin/*` Feature-Module ayrımı, TCO analizi, bildirim kutusu/aksiyon merkezi ve PostgreSQL transaction (`BEGIN`/`COMMIT`/`ROLLBACK`) yönetimi |
 | **Middlewares** | `middlewares/authMiddleware.js`, `rbacMiddleware.js` | JWT doğrulama, `FLEET_MANAGER`/`DRIVER` rol ve `org_id` erişim filtreleri |
 | **Utils** | `utils/odometerGuard.js`, `utils/dateUtils.js` | `FOR UPDATE` araç kilidi, komşu sayaç sınırları (`422`), `aracSayaciniSenkronizeEt`, TR takvim yardımcıları |
-| **Services** | `services/notificationScheduler.js`, `notificationService.js`, `predictiveService.js`, `alertEvaluators.js`, `emailService.js`, `smsService.js` | Günlük/haftalık cron, ortak tahmini bakım & eşik motoru, dedup, `bildirim_tercihleri` + RBAC filtreli bildirim/e-posta gönderimi |
+| **Services** | `services/notificationScheduler.js`, `notificationService.js`, `predictiveService.js`, `alertEvaluators.js`, `tcoService.js`, `emailService.js`, `smsService.js` | Günlük/haftalık cron, ortak tahmini bakım & eşik motoru, TCO birim maliyet & yenileme skoru motoru, dedup, `bildirim_tercihleri` + RBAC filtreli bildirim/e-posta gönderimi |
 
 ## 4. PostgreSQL Veritabanı Tabloları (13 Tablo)
 1. **`organizations`:** Kurumsal kiracı kaydı (`org_id`, `unvan`, `vergi_no`, `plan_tipi`, `aktif`, `olusturulma_tarihi`, `aylik_yakit_butcesi`, `aylik_bakim_butcesi`).

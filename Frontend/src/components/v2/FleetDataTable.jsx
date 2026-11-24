@@ -33,6 +33,8 @@ export default function FleetDataTable({
   loading = false,
   hasLoaded = false,
   canManage = false,
+  canViewAnalytics = false,
+  tcoByAracId = null,
   globalVehicleActive = false,
   initialDurumFilter = 'all',
   onDurumFilterChange,
@@ -66,7 +68,10 @@ export default function FleetDataTable({
     }
   }, [kategoriFilter, kategoriler]);
 
-  const enrichedRows = useMemo(() => enrichFleetRows(araclar), [araclar]);
+  const enrichedRows = useMemo(
+    () => enrichFleetRows(araclar, {}, tcoByAracId),
+    [araclar, tcoByAracId]
+  );
 
   const filteredData = useMemo(
     () =>
@@ -109,11 +114,12 @@ export default function FleetDataTable({
     () =>
       buildFleetColumns({
         canManage,
+        canViewAnalytics,
         onDetail,
         onEditClick,
         onDeleteRequest,
       }),
-    [canManage, onDetail, onEditClick, onDeleteRequest]
+    [canManage, canViewAnalytics, onDetail, onEditClick, onDeleteRequest]
   );
 
   const table = useReactTable({

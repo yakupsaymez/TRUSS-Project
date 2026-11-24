@@ -3,7 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Filter, Plus, X } from 'lucide-react';
 import useAuthStore from '@/store/useAuthStore';
 import useVehicleStore from '@/store/useVehicleStore';
-import { resolveRole, ROLES } from '@/components/v2/channelAccess';
+import raporService from '@/services/raporService';
+import { canAccessChannel, resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import FleetDataTable from '@/components/v2/FleetDataTable';
 import ConfirmDialog from '@/components/v2/ConfirmDialog';
@@ -35,10 +36,12 @@ export default function Filo() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
+  const [tcoByAracId, setTcoByAracId] = useState(null);
   const fetchAttemptedRef = useRef(false);
 
   const role = resolveRole(user);
   const canManage = [ROLES.SYSTEM_ADMIN, ROLES.FLEET_MANAGER].includes(role);
+  const canViewAnalytics = canAccessChannel(user, 'analytics');
 
   useEffect(() => {
     if (!hasLoaded && !loading && !fetchAttemptedRef.current) {
@@ -46,6 +49,48 @@ export default function Filo() {
       fetchAraclar();
     }
   }, [hasLoaded, loading, fetchAraclar]);
+
+  useEffect(() => {
+    if (!canViewAnalytics) {
+      setTcoByAracId(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const loadTco = async () => {
+      try {
+        const res = await raporService.getTcoAnalizi(90);
+        if (cancelled) return;
+        const list = Array.isArray(res?.araclar)
+          ? res.araclar
+          : Array.isArray(res?.ogeler)
+            ? res.ogeler
+            : [];
+        const map = {};
+        for (const item of list) {
+          if (item?.arac_id != null) {
+            map[String(item.arac_id)] = item;
+          }
+        }
+        setTcoByAracId(map);
+      } catch {
+        if (!cancelled) setTcoByAracId({});
+      }
+    };
+
+    loadTco();
+    const handleDataChanged = (event) => {
+      const scope = event?.detail?.scope;
+      if (!scope || scope === 'movement' || scope === 'vehicle' || scope === 'part') {
+        loadTco();
+      }
+    };
+    window.addEventListener('truss:data-changed', handleDataChanged);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('truss:data-changed', handleDataChanged);
+    };
+  }, [canViewAnalytics]);
 
   const globalVehicleActive = Boolean(seciliAracId && seciliAracId !== 'tum');
 
@@ -189,6 +234,8 @@ export default function Filo() {
         loading={loading}
         hasLoaded={hasLoaded}
         canManage={canManage}
+        canViewAnalytics={canViewAnalytics}
+        tcoByAracId={tcoByAracId}
         globalVehicleActive={globalVehicleActive}
         initialDurumFilter={initialDurumFilter}
         onDurumFilterChange={handleDurumFilterChange}

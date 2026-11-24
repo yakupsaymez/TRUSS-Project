@@ -9,9 +9,11 @@ import {
   FleetRowActions,
   SortableHeader,
 } from './FleetTableCells';
+import FleetEfficiencyCell from './FleetEfficiencyCell';
 
 export function buildFleetColumns({
   canManage,
+  canViewAnalytics = false,
   onDetail,
   onEditClick,
   onDeleteRequest,
@@ -113,6 +115,21 @@ export function buildFleetColumns({
         />
       ),
     },
+    ...(canViewAnalytics
+      ? [
+          {
+            id: 'verimlilik',
+            accessorFn: (row) =>
+              row.tco?.veri_yeterli && typeof row.tco.verimlilik_skoru === 'number'
+                ? row.tco.verimlilik_skoru
+                : Number.POSITIVE_INFINITY,
+            header: ({ column }) => (
+              <SortableHeader column={column} label="Verimlilik" />
+            ),
+            cell: ({ row }) => <FleetEfficiencyCell tco={row.original.tco} />,
+          },
+        ]
+      : []),
     {
       id: 'actions',
       header: () => (

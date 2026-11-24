@@ -13,6 +13,7 @@ import CostTrendChart from '@/components/v2/CostTrendChart';
 import FleetHealthWidget from '@/components/v2/FleetHealthWidget';
 import DocumentComplianceCard from '@/components/v2/DocumentComplianceCard';
 import BudgetVarianceCard from '@/components/v2/BudgetVarianceCard';
+import FleetEfficiencyCard from '@/components/v2/FleetEfficiencyCard';
 import EmptyState from '@/components/v2/EmptyState';
 import VehicleSheet from '@/components/v2/VehicleSheet';
 import { Button } from '@/components/ui/button';
@@ -256,6 +257,12 @@ export default function GenelBakis() {
                   className="lg:col-span-6"
                 />
               </div>
+
+              <FleetEfficiencyCard
+                canViewAnalytics={canViewAnalytics}
+                seciliAracId={seciliAracId}
+                onSelectVehicle={handleSelectVehicle}
+              />
             </>
           ) : (
             <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
