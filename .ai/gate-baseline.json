@@ -10,11 +10,9 @@
   "files": {
     "Frontend/src/components/v2/AppShell.jsx": 637,
     "Frontend/src/components/v2/CommandPalette.jsx": 723,
-    "Frontend/src/components/v2/ComponentDataTable.jsx": 1030,
     "Frontend/src/components/v2/CrewDataTable.jsx": 835,
     "Frontend/src/components/v2/FleetCalendar.jsx": 725,
     "Frontend/src/components/v2/FleetDataTable.jsx": 824,
-    "Frontend/src/components/v2/FleetLiveMap.jsx": 813,
-    "Frontend/src/components/v2/LedgerDataTable.jsx": 920
+    "Frontend/src/components/v2/FleetLiveMap.jsx": 813
   }
 }
