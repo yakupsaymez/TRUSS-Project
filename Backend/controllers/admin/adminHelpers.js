@@ -42,6 +42,11 @@ const ensureManagerOrgId = async (userId) => {
       [newOrgId, userId]
     );
 
+    await client.query(
+      'UPDATE araclar SET org_id = $1 WHERE kullanici_id = $2 AND org_id IS NULL',
+      [newOrgId, userId]
+    );
+
     await client.query('COMMIT');
     return newOrgId;
   } catch (err) {

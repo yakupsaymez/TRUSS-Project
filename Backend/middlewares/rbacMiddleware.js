@@ -63,7 +63,7 @@ const buildVehicleAccessFilter = (user, paramOffset = 1) => {
   if (user?.role === 'SYSTEM_ADMIN') {
     if (user.org_id) {
       return {
-        clause: `EXISTS (SELECT 1 FROM users o WHERE o.user_id = a.kullanici_id AND o.org_id = $${paramOffset})`,
+        clause: `a.org_id = $${paramOffset}`,
         params: [user.org_id],
       };
     }
@@ -72,10 +72,7 @@ const buildVehicleAccessFilter = (user, paramOffset = 1) => {
   if (user?.role === 'FLEET_MANAGER') {
     if (user.org_id) {
       return {
-        clause: `EXISTS (
-          SELECT 1 FROM users o
-          WHERE o.user_id = a.kullanici_id AND o.org_id = $${paramOffset}
-        )`,
+        clause: `a.org_id = $${paramOffset}`,
         params: [user.org_id],
       };
     }

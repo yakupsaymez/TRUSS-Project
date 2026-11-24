@@ -11,6 +11,22 @@ const {
   sayacBirimi,
 } = require('../utils/odometerGuard');
 
+const extractFaturaFromNotlar = (rawNotlar) => {
+  if (!rawNotlar) return null;
+  const match = String(rawNotlar).match(/\[Fatura:\s*([^\]]+)\]/i);
+  if (!match) return null;
+  return match[1].trim().slice(0, 80) || null;
+};
+
+const resolveFaturaNo = (explicitFaturaNo, rawNotlar) => {
+  if (explicitFaturaNo !== undefined) {
+    return String(explicitFaturaNo || '').trim().slice(0, 80) || null;
+  }
+  return extractFaturaFromNotlar(rawNotlar);
+};
+
+const normalizeBelgeUrl = (raw) => String(raw || '').trim() || null;
+
 const bakimBaseFields = {
   bakim_tipi: Joi.string().trim().min(1).max(150).required(),
   tarih: Joi.alternatives().try(Joi.string().trim().min(10).max(32), Joi.date()).required(),
@@ -19,6 +35,8 @@ const bakimBaseFields = {
   notlar: Joi.string().max(2000).allow('', null).optional(),
   aciklama: Joi.string().max(2000).allow('', null).optional(),
   sifirla_parcalar: Joi.boolean().optional(),
+  fatura_no: Joi.string().trim().max(80).allow('', null).optional(),
+  belge_url: Joi.string().trim().max(2048).pattern(/^(https?:\/\/|\/)/i).allow('', null).optional(),
 };
 
 const bakimCreateSchema = Joi.object({
@@ -36,9 +54,10 @@ const getAllBakimlar = async (req, res) => {
   try {
     const { clause, params } = buildVehicleAccessFilter(req.user);
     const query = `
-      SELECT b.*, a.plaka, a.marka, a.model, a.sayac_tipi
+      SELECT b.*, ou.ad_soyad AS olusturan_ad, a.plaka, a.marka, a.model, a.sayac_tipi
       FROM bakimlar b
       INNER JOIN araclar a ON a.arac_id = b.arac_id
+      LEFT JOIN users ou ON ou.user_id = b.olusturan_user_id
       WHERE ${clause}
       ORDER BY b.tarih DESC, b.bakim_id DESC
     `;
@@ -70,9 +89,10 @@ const getBakimlarByArac = async (req, res) => {
     }
 
     const query = `
-      SELECT b.*, a.plaka, a.marka, a.model, a.sayac_tipi
+      SELECT b.*, ou.ad_soyad AS olusturan_ad, a.plaka, a.marka, a.model, a.sayac_tipi
       FROM bakimlar b
       INNER JOIN araclar a ON a.arac_id = b.arac_id
+      LEFT JOIN users ou ON ou.user_id = b.olusturan_user_id
       WHERE b.arac_id = $1 AND (${clause})
       ORDER BY b.tarih DESC, b.bakim_id DESC
     `;
@@ -109,6 +129,10 @@ const createBakim = async (req, res) => {
 
   const sayisalKm = km;
   const sayisalMaliyet = maliyet;
+  const notlarDegeri = notlar || aciklama || null;
+  const faturaNo = resolveFaturaNo(value.fatura_no, notlarDegeri);
+  const belgeUrl = normalizeBelgeUrl(value.belge_url);
+  const olusturanUserId = req.user?.user_id || null;
 
   let client;
   try {
@@ -140,8 +164,8 @@ const createBakim = async (req, res) => {
     }
 
     const query = `
-      INSERT INTO bakimlar (arac_id, bakim_tipi, tarih, km, maliyet, notlar)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO bakimlar (arac_id, bakim_tipi, tarih, km, maliyet, notlar, fatura_no, belge_url, olusturan_user_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `;
 
@@ -151,7 +175,10 @@ const createBakim = async (req, res) => {
       gun,
       sayisalKm,
       sayisalMaliyet,
-      notlar || aciklama || null,
+      notlarDegeri,
+      faturaNo,
+      belgeUrl,
+      olusturanUserId,
     ]);
 
     // Periyodik Bakım / Yağ & Filtre Bakımı için deterministik parça sıfırlama
@@ -251,7 +278,7 @@ const updateBakim = async (req, res) => {
     // Kaydı kilitle: eşzamanlı güncelleme araya giremez
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
     const bakimOwnershipCheck = await client.query(
-      `SELECT b.bakim_id, b.arac_id, b.km
+      `SELECT b.bakim_id, b.arac_id, b.km, b.belge_url
        FROM bakimlar b
        INNER JOIN araclar a ON b.arac_id = a.arac_id
        WHERE b.bakim_id = $1 AND (${clause})
@@ -266,6 +293,7 @@ const updateBakim = async (req, res) => {
 
     const kaynakAracId = Number(bakimOwnershipCheck.rows[0].arac_id);
     const eskiKm = bakimOwnershipCheck.rows[0].km;
+    const mevcutBelgeUrl = bakimOwnershipCheck.rows[0].belge_url || null;
     const hedefAracId = Number(arac_id || kaynakAracId);
     if (!Number.isInteger(hedefAracId) || hedefAracId <= 0) {
       await client.query('ROLLBACK');
@@ -313,12 +341,16 @@ const updateBakim = async (req, res) => {
       return res.status(422).json(sayac422Govdesi(sayisalKm, sinirlar, hedefArac.sayac_tipi));
     }
 
+    const notlarDegeri = notlar || aciklama || null;
+    const faturaNo = resolveFaturaNo(value.fatura_no, notlarDegeri);
+    const belgeUrl = value.belge_url !== undefined ? normalizeBelgeUrl(value.belge_url) : mevcutBelgeUrl;
+
     const result = await client.query(
       `UPDATE bakimlar
-       SET arac_id = $1, bakim_tipi = $2, tarih = $3, km = $4, maliyet = $5, notlar = $6
-       WHERE bakim_id = $7
+       SET arac_id = $1, bakim_tipi = $2, tarih = $3, km = $4, maliyet = $5, notlar = $6, fatura_no = $7, belge_url = $8
+       WHERE bakim_id = $9
        RETURNING *`,
-      [hedefAracId, bakim_tipi, gun, sayisalKm, sayisalMaliyet, notlar || aciklama || null, bakimId]
+      [hedefAracId, bakim_tipi, gun, sayisalKm, sayisalMaliyet, notlarDegeri, faturaNo, belgeUrl, bakimId]
     );
 
     await aracSayaciniSenkronizeEt(client, {

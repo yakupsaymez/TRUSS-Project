@@ -4,17 +4,6 @@ const { buildVehicleAccessFilter } = require('../middlewares/rbacMiddleware');
 const { ensureManagerOrgId } = require('./admin/adminHelpers');
 const { bugunTR } = require('../utils/dateUtils');
 
-let budgetColsEnsured = false;
-const ensureBudgetColumns = async () => {
-  if (budgetColsEnsured) return;
-  await pool.query(`
-    ALTER TABLE organizations
-      ADD COLUMN IF NOT EXISTS aylik_yakit_butcesi NUMERIC(12, 2) NOT NULL DEFAULT 50000,
-      ADD COLUMN IF NOT EXISTS aylik_bakim_butcesi NUMERIC(12, 2) NOT NULL DEFAULT 25000
-  `);
-  budgetColsEnsured = true;
-};
-
 // 1. GENEL OZET (Toplam arac, toplam yakit gideri, toplam bakim gideri, yaklasan parca degisimi sayisi)
 const getGenelOzet = async (req, res) => {
   try {
@@ -155,8 +144,6 @@ const getAracMaliyetDagilimi = async (req, res) => {
 // 4. AYLIK FILO BUTCE / GERCEKLESEN ANALIZI
 const getButceAnalizi = async (req, res) => {
   try {
-    await ensureBudgetColumns();
-
     let aylikYakitButcesi = 50000;
     let aylikBakimButcesi = 25000;
 
@@ -298,8 +285,6 @@ const updateButceHedefi = async (req, res) => {
   }
 
   try {
-    await ensureBudgetColumns();
-
     const orgId = await ensureManagerOrgId(req.user.user_id);
 
     if (!orgId) {

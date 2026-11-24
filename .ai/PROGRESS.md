@@ -18,10 +18,11 @@
   - `V2.1-HOTFIX-W1` (Wave 1: `FIX-1` + `FIX-3B`): `SYSTEM_ADMIN` `org_id` izolasyonu, `ADR-09` parca `arac_id` kilidi, `JWT_SECRET` fail-fast, `fk_araclar_kullanici ON DELETE SET NULL`, `GenelTab` salt-okunur kilit, dark mod kontrast, sticky tablo aksiyonları ve Takvim/KPI/Filo UX yamaları — **QA PASS**.
   - `V2.1-HOTFIX-W2` (Wave 2: `FIX-2` + `FIX-3A`): `H-05` başlangıç sayacı/tek kayıt silme/KM-SMH kilidi & deterministik bakım parça sıfırlaması, `H-06` `ADR-11` tarih/varyant & `400` katalog doğrulaması, `H-08` TX+`FOR UPDATE` bütçe/TR zaman dilimi, `H-12` `zimmetli_sofor_id`/`ad` JOIN, `H-04` 3 aktif yetki anahtarı senkronu ve `H-10` `analytics` finans gizliliği + tek-toast yamaları — **QA PASS**.
   - `V2.1-HOTFIX-W3` (Wave 3 / `FIX-4` — Faz A Kapanış): `H-13` kök/BE `package*.json` `ABTS` & `recharts` temizliği ve `ARCHITECTURE_MAP` DB senkronu, `H-16` `yakitController`/`bakimController` Joi taşma validasyonu + `raporController` `detay` sızıntı temizliği + `CORS_ORIGIN` + Gate 2 `utils/**` + OKLCH `index.css` & ölü kod temizliği (`exporter.js`, `sayacInputSinifi`), `H-15` `useAppStore` `vite-ui-theme` koruması + tablo `autoResetPageIndex: false` + `OrganizasyonTab`/`PasswordChangeForm` tek-toast ve `/app/parcalar` açık tema kontrastı — **QA PASS**.
+  - `V2.2-DBPERF`: `araclar.org_id` kiracı kolonu + backfill, `yakitlar`/`bakimlar` `fatura_no`/`belge_url`/`olusturan_user_id` normalizasyonu, 5 kompozit/kısmi indeks (`idx_araclar_org_id`, `idx_yakitlar_arac_tarih_km`, `idx_bakimlar_arac_tarih_km`, `idx_parca_takip_arac_id`, `idx_atamalar_aktif_arac`), runtime `ALTER TABLE` kaldırımı ve `ADR-17` — **QA PASS**.
 
 ## 2. Sıradaki Kuyruk (Öncelik Sırasıyla)
-- **Mühürlenenler:** `PERF-1/1b`, `REFACTOR-1` (`14/14 -> 0` monolit), `OPS-1..5`, `QA-SWEEP` (`BE+FE`), `V2.1-FE4`, `CLEANUP-1`, `V2.1-HOTFIX-W1`, `V2.1-HOTFIX-W2` ve `V2.1-HOTFIX-W3` (`FIX-4` — Faz A) mühürlendi.
-- **Sırada / Beklemede:** Faz A tamamlandı -> Faz B (`V2.2-DBPERF` + `V2.2-NOTIFY` + `V2.2-INBOX` -> `V2.2-TCO` + `V2.2-ANOMALY`).
+- **Mühürlenenler:** `PERF-1/1b`, `REFACTOR-1` (`14/14 -> 0` monolit), `OPS-1..5`, `QA-SWEEP` (`BE+FE`), `V2.1-FE4`, `CLEANUP-1`, `V2.1-HOTFIX-W1`, `V2.1-HOTFIX-W2`, `V2.1-HOTFIX-W3` (`FIX-4` — Faz A) ve `V2.2-DBPERF` mühürlendi.
+- **Sırada / Beklemede:** `V2.2-NOTIFY` + `V2.2-INBOX` -> `V2.2-TCO` + `V2.2-ANOMALY`.
 
 ## 3. Açık Teknik Riskler
 - **Bundle Bütçesi (`PASS` / Kilitlendi):** Ana giriş chunk'ı `1416.5 KB → 89.6 KB`, en büyük vendor chunk `351.3 KB` (`maxChunkKb: 352 KB` ratchet tavanına kilitlendi).
@@ -31,8 +32,8 @@
 ## 4. 📌 Durum Panosu (Her Yanıt Sonunda Zorunlu Şablon)
 | Ajan | Model / Güç | Şu An Ne Yapıyor | Hemen Şimdi Ne Yapmalı | İleride Ne Yapacak |
 | :--- | :--- | :--- | :--- | :--- |
-| **S5 (Baş Mimar)** | `pro` (`Neon High` / Opus) | `V2.1-HOTFIX-W3` (`FIX-4`) mühürlendi, Faz A kapandı | Temiz oturumda Faz B (`V2.2-DBPERF`) planlamasına geçmeli | `V2.2` paket orkestrasyonu |
-| **S1 (Frontend)** | `inherit` (`Neon` Normal) | `FIX-4B` OKLCH/tema/tablo/tek-toast yamaları mühürlendi (`QA PASS`) | Faz B için temiz oturumda beklemeli | `V2.2` FE paketleri |
-| **S2 (Backend / Ops)** | `inherit` (`Argon` / `Neon`) | `FIX-4A` + `/s2-seal` tamamlandı (`main` mühürlendi) | Faz B için temiz oturumda beklemeli | `V2.2-DBPERF` & BE paketleri |
-| **S3 (QA / Denetçi)** | `pro` (`Hidrojen` / `Argon`) | `V2.1-HOTFIX-W3` 7-kapı + API + E2E PASS onaylandı | Faz B QA için temiz oturumda beklemeli | `V2.2` paketlerinde 7 kapılı QA |
+| **S5 (Baş Mimar)** | `pro` (`Neon High` / Opus) | `V2.2-DBPERF` mühürlendi (`QA PASS`) | Temiz oturumda `V2.2-NOTIFY` planlamasına geçmeli | `V2.2-INBOX`, `V2.2-TCO`, `V2.2-ANOMALY` orkestrasyonu |
+| **S1 (Frontend)** | `inherit` (`Neon` Normal) | Beklemede (`0 diff`) | `V2.2-NOTIFY` / `V2.2-INBOX` için hazır beklemeli | `V2.2` FE paketleri |
+| **S2 (Backend / Ops)** | `inherit` (`Argon` / `Neon`) | `V2.2-DBPERF` `/s2-seal` tamamlandı (`main` mühürlendi) | `V2.2-NOTIFY` için hazır beklemeli | `V2.2-NOTIFY`, `V2.2-TCO`, `V2.2-ANOMALY` BE |
+| **S3 (QA / Denetçi)** | `pro` (`Hidrojen` / `Argon`) | `V2.2-DBPERF` 7-kapı + API/SQL QA `PASS` onaylandı | `V2.2-NOTIFY` QA için hazır beklemeli | `V2.2` paketlerinde 7 kapılı QA |
 | **S4 (Bug Hunter)** | `flash` (`2.8 Flash`) | `QA-SWEEP` tamamlandı (`0` açık hata) | Beklemede kalmalı | `V2.2` sonrası cerrahi hata avı |

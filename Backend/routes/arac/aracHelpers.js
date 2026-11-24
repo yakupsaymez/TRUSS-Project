@@ -170,23 +170,9 @@ const dogrulaKategoriId = async (client, kategoriId) => {
   }
 };
 
-let locationColsEnsured = false;
-const ensureLocationColumns = async () => {
-  if (locationColsEnsured) return;
-  await pool.query(`
-    ALTER TABLE araclar
-      ADD COLUMN IF NOT EXISTS son_enlem NUMERIC(9, 6),
-      ADD COLUMN IF NOT EXISTS son_boylam NUMERIC(9, 6),
-      ADD COLUMN IF NOT EXISTS son_konum_adi VARCHAR(160),
-      ADD COLUMN IF NOT EXISTS son_konum_zamani TIMESTAMPTZ
-  `);
-  locationColsEnsured = true;
-};
-
 module.exports = {
   olusturDinamikParcaSablonu,
   aracSchema,
   cozumleVaryantBilgileri,
   dogrulaKategoriId,
-  ensureLocationColumns,
 };

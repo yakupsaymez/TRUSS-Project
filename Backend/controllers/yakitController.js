@@ -4,6 +4,22 @@ const { buildVehicleAccessFilter } = require('../middlewares/rbacMiddleware');
 const { ileriTarihMi, tarihStr } = require('../utils/dateUtils');
 const { araclariKilitle, aracSayaciniSenkronizeEt, sayacSinirlari, sayacIhlaliMi, sayac422Govdesi, sayacBirimi } = require('../utils/odometerGuard');
 
+const extractFaturaFromNotlar = (rawNotlar) => {
+  if (!rawNotlar) return null;
+  const match = String(rawNotlar).match(/\[Fatura:\s*([^\]]+)\]/i);
+  if (!match) return null;
+  return match[1].trim().slice(0, 80) || null;
+};
+
+const resolveFaturaNo = (explicitFaturaNo, rawNotlar) => {
+  if (explicitFaturaNo !== undefined) {
+    return String(explicitFaturaNo || '').trim().slice(0, 80) || null;
+  }
+  return extractFaturaFromNotlar(rawNotlar);
+};
+
+const normalizeBelgeUrl = (raw) => String(raw || '').trim() || null;
+
 const yakitBaseFields = {
   yakit_tipi: Joi.string().trim().max(50).allow('', null).optional(),
   tarih: Joi.alternatives().try(Joi.string().trim().min(10).max(32), Joi.date()).required(),
@@ -11,6 +27,8 @@ const yakitBaseFields = {
   tutar: Joi.number().greater(0).max(9999999999.99).required(),
   km: Joi.number().integer().min(0).max(2147483647).allow(null, '').optional(),
   notlar: Joi.string().max(2000).allow('', null).optional(),
+  fatura_no: Joi.string().trim().max(80).allow('', null).optional(),
+  belge_url: Joi.string().trim().max(2048).pattern(/^(https?:\/\/|\/)/i).allow('', null).optional(),
 };
 
 const yakitCreateSchema = Joi.object({
@@ -28,9 +46,10 @@ const getAllYakitlar = async (req, res) => {
   try {
     const { clause, params } = buildVehicleAccessFilter(req.user);
     const query = `
-      SELECT y.*, a.plaka, a.marka, a.model, a.sayac_tipi
+      SELECT y.*, ou.ad_soyad AS olusturan_ad, a.plaka, a.marka, a.model, a.sayac_tipi
       FROM yakitlar y
       INNER JOIN araclar a ON a.arac_id = y.arac_id
+      LEFT JOIN users ou ON ou.user_id = y.olusturan_user_id
       WHERE ${clause}
       ORDER BY y.tarih DESC, y.yakit_id DESC
     `;
@@ -62,9 +81,10 @@ const getYakitlarByArac = async (req, res) => {
     }
 
     const query = `
-      SELECT y.*, a.plaka, a.marka, a.model, a.sayac_tipi
+      SELECT y.*, ou.ad_soyad AS olusturan_ad, a.plaka, a.marka, a.model, a.sayac_tipi
       FROM yakitlar y
       INNER JOIN araclar a ON a.arac_id = y.arac_id
+      LEFT JOIN users ou ON ou.user_id = y.olusturan_user_id
       WHERE y.arac_id = $1 AND (${clause})
       ORDER BY y.tarih DESC, y.yakit_id DESC
     `;
@@ -102,6 +122,10 @@ const createYakit = async (req, res) => {
   const sayisalLitre = litre;
   const sayisalTutar = tutar;
   const sayisalKm = km !== undefined && km !== '' && km !== null ? Number(km) : null;
+  const notlarDegeri = notlar || null;
+  const faturaNo = resolveFaturaNo(value.fatura_no, notlarDegeri);
+  const belgeUrl = normalizeBelgeUrl(value.belge_url);
+  const olusturanUserId = req.user?.user_id || null;
 
   let client;
   try {
@@ -135,8 +159,8 @@ const createYakit = async (req, res) => {
     }
 
     const query = `
-      INSERT INTO yakitlar (arac_id, yakit_tipi, tarih, litre, tutar, km, notlar)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO yakitlar (arac_id, yakit_tipi, tarih, litre, tutar, km, notlar, fatura_no, belge_url, olusturan_user_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
     `;
 
@@ -147,7 +171,10 @@ const createYakit = async (req, res) => {
       sayisalLitre,
       sayisalTutar,
       sayisalKm,
-      notlar || null,
+      notlarDegeri,
+      faturaNo,
+      belgeUrl,
+      olusturanUserId,
     ]);
 
     if (sayisalKm !== null) {
@@ -216,7 +243,7 @@ const updateYakit = async (req, res) => {
     // Kaydı kilitle: eşzamanlı güncelleme araya giremez
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
     const yakitOwnershipCheck = await client.query(
-      `SELECT y.yakit_id, y.arac_id, y.km
+      `SELECT y.yakit_id, y.arac_id, y.km, y.belge_url
        FROM yakitlar y
        INNER JOIN araclar a ON y.arac_id = a.arac_id
        WHERE y.yakit_id = $1 AND (${clause})
@@ -231,6 +258,7 @@ const updateYakit = async (req, res) => {
 
     const kaynakAracId = Number(yakitOwnershipCheck.rows[0].arac_id);
     const eskiKm = yakitOwnershipCheck.rows[0].km;
+    const mevcutBelgeUrl = yakitOwnershipCheck.rows[0].belge_url || null;
     const hedefAracId = Number(arac_id || kaynakAracId);
     if (!Number.isInteger(hedefAracId) || hedefAracId <= 0) {
       await client.query('ROLLBACK');
@@ -280,6 +308,10 @@ const updateYakit = async (req, res) => {
       }
     }
 
+    const notlarDegeri = notlar || null;
+    const faturaNo = resolveFaturaNo(value.fatura_no, notlarDegeri);
+    const belgeUrl = value.belge_url !== undefined ? normalizeBelgeUrl(value.belge_url) : mevcutBelgeUrl;
+
     const result = await client.query(
       `UPDATE yakitlar
        SET arac_id = $1,
@@ -288,8 +320,10 @@ const updateYakit = async (req, res) => {
            litre = $4,
            tutar = $5,
            km = $6,
-           notlar = $7
-       WHERE yakit_id = $8
+           notlar = $7,
+           fatura_no = $8,
+           belge_url = $9
+       WHERE yakit_id = $10
        RETURNING *`,
       [
         hedefAracId,
@@ -298,7 +332,9 @@ const updateYakit = async (req, res) => {
         sayisalLitre,
         sayisalTutar,
         sayisalKm,
-        notlar || null,
+        notlarDegeri,
+        faturaNo,
+        belgeUrl,
         yakitId,
       ]
     );

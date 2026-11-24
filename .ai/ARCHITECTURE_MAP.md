@@ -37,7 +37,7 @@
 ## 3. Backend Mimari Haritası (`Backend/`)
 | Katman | Dosyalar | Sorumluluk |
 | :--- | :--- | :--- |
-| **Giriş & DB** | `index.js`, `db.js`, `database.sql` | Express sunucusu, `pg` bağlantı havuzu (`OID 1082` saf `YYYY-MM-DD` parser), şema |
+| **Giriş & DB** | `index.js`, `db.js`, `database.sql`, `scripts/migrateV22DbPerf.js` | Express sunucusu, `pg` bağlantı havuzu (`OID 1082` saf `YYYY-MM-DD` parser), şema ve idempotent V2.2-DBPERF migrasyonu |
 | **Routes** | `routes/userRoutes.js`, `adminRoutes.js`, `aracRoutes.js` + `routes/arac/{aracHelpers.js,aracHandlers.js,aracMutationHandlers.js}`, `yakitRoutes.js`, `bakimRoutes.js`, `parcaRoutes.js`, `raporRoutes.js`, `katalogRoutes.js` | `/api/*` REST uçları, Joi şema doğrulaması, `arac/*` alt handler modülleri ve middleware zinciri |
 | **Controllers** | `controllers/userController.js`, `adminController.js` + `controllers/admin/{adminHelpers.js,adminUserController.js,adminOrgAssignmentController.js}`, `yakitController.js`, `bakimController.js`, `parcaController.js`, `raporController.js`, `katalogController.js` | İş mantığı, `admin/*` Feature-Module ayrımı, PostgreSQL transaction (`BEGIN`/`COMMIT`/`ROLLBACK`) yönetimi |
 | **Middlewares** | `middlewares/authMiddleware.js`, `rbacMiddleware.js` | JWT doğrulama, `FLEET_MANAGER`/`DRIVER` rol ve `org_id` erişim filtreleri |
@@ -47,12 +47,13 @@
 ## 4. PostgreSQL Veritabanı Tabloları (12 Tablo)
 1. **`organizations`:** Kurumsal kiracı kaydı (`org_id`, `unvan`, `vergi_no`, `plan_tipi`, `aktif`, `olusturulma_tarihi`, `aylik_yakit_butcesi`, `aylik_bakim_butcesi`).
 2. **`users`:** Kullanıcılar (`user_id`, `ad_soyad`, `email`, `sifre`, `telefon`, `org_id`, `role`, `yetkiler` JSONB, `bildirim_tercihleri` JSONB, `email_bildirim_aktif`, `sms_bildirim_aktif`, `dil`, `para_birimi`, `olcu_birimi`, `kayit_tarihi`).
-3. **`araclar`:** Filo envanteri (`arac_id`, `kullanici_id`, `plaka`, `kategori_id`, `kategori`, `marka`, `model`, `yil`, `sayac_tipi` [`KM`/`SMH`], `guncel_km`, `guncel_calisma_saati`, `varyant_id`, `onerilen_bakim_km`, `triger_degisim_km`, `calisma_saati_bakim`, `muayene_tarihi`, `kasko_tarihi`, `sigorta_tarihi`, `son_enlem`, `son_boylam`, `son_konum_adi`, `son_konum_zamani`).
+3. **`araclar`:** Filo envanteri (`arac_id`, `kullanici_id`, `org_id`, `plaka`, `kategori_id`, `kategori`, `marka`, `model`, `yil`, `sayac_tipi` [`KM`/`SMH`], `guncel_km`, `guncel_calisma_saati`, `varyant_id`, `onerilen_bakim_km`, `triger_degisim_km`, `calisma_saati_bakim`, `muayene_tarihi`, `kasko_tarihi`, `sigorta_tarihi`, `son_enlem`, `son_boylam`, `son_konum_adi`, `son_konum_zamani`).
 4. **`arac_sofor_atamalari`:** Aktif ve geçmiş araç-sürücü zimmet kayıtları (`atama_id`, `arac_id`, `sofor_user_id`, `atanma_tarihi`, `teslim_tarihi`, `aktif`).
-5. **`yakitlar`:** Yakıt alım hareketleri (`yakit_id`, `arac_id`, `yakit_tipi`, `tarih`, `litre`, `tutar`, `km`, `notlar`).
-6. **`bakimlar`:** Bakım/servis hareketleri (`bakim_id`, `arac_id`, `bakim_tipi`, `tarih`, `km`, `maliyet`, `notlar`).
+5. **`yakitlar`:** Yakıt alım hareketleri (`yakit_id`, `arac_id`, `yakit_tipi`, `tarih`, `litre`, `tutar`, `km`, `notlar`, `fatura_no`, `belge_url`, `olusturan_user_id`).
+6. **`bakimlar`:** Bakım/servis hareketleri (`bakim_id`, `arac_id`, `bakim_tipi`, `tarih`, `km`, `maliyet`, `notlar`, `fatura_no`, `belge_url`, `olusturan_user_id`).
 7. **`parca_takip`:** Araç bileşen/parça ömür takibi (`parca_id`, `arac_id`, `parca_adi`, `son_degisim_km`, `degisim_araligi_km`, `son_degisim_tarihi`, `maliyet`, `notlar`).
 8. **`ref_kategoriler`, `ref_markalar`, `ref_kategori_marka`, `ref_modeller`, `ref_arac_varyantlari`:** 5'li normalize araç katalog referans tabloları.
+9. **`V2.2-DBPERF` İndeksleri:** `idx_araclar_org_id`, `idx_yakitlar_arac_tarih_km`, `idx_bakimlar_arac_tarih_km`, `idx_parca_takip_arac_id`, `idx_atamalar_aktif_arac` (`WHERE aktif = TRUE`).
 
 ## 5. AI-OS & Antigravity v2.34.0 Katmanı (`.ai/` & `.agent/` — `OPS-1..5`)
 - **Kanonik Hafıza & Otomasyon (`.ai/` & `scripts/`):** `PROGRESS.md`, `SWARM_PLAYBOOK.md`, `ENGINEERING_GUARDRAILS.md`, `ARCHITECTURE_MAP.md`, `DECISIONS.md` (`ADR-01..12`), `gate-baseline.json`, `skills/caveman.md` + `scripts/ai-gate.mjs` (`gate`/`gate:fast`), `scripts/context-pack.mjs` (`context:pack`), `scripts/context-audit.mjs` (`context:audit`) & `.githooks/pre-commit`.

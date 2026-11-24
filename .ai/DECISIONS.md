@@ -82,4 +82,8 @@
 - **Kök Neden:** Kök lockfile ve `index.css` eski `ABTS`/`--truss-*` kalıntıları taşıyor, yakıt/bakım sayısal taşmaları `500` üretiyor, `localStorage.clear()` tema tercihini siliyor ve inline form hataları çift toast basıyordu.
 - **Kalıcı Kural:** Yakıt/bakım yazma uçları DB sayısal limitleriyle sınırlı Joi şemaları kullanır, `server.js` `process.env.CORS_ORIGIN` okur, Gate 2 `Frontend/src/utils/**` yolunu da tarar; çıkışta yalnız auth/filo store sıfırlanır, tablolar `autoResetPageIndex: false` kullanır ve inline alan hataları `notifyApiError` tetiklemez.
 
+### ADR-17: Doğrudan `araclar.org_id` Kiracı İzolasyonu, Sıfır Runtime DDL & Fatura/Oluşturan Normalizasyonu
+- **Tarih:** 2026-11-25 (`V2.2-DBPERF`)
+- **Kök Neden:** Dolaylı `users` alt sorgusu (`EXISTS`) ve eksik kompozit indeksler sorguları yavaşlatıyor, `kullanici_id IS NULL` araçlar org izolasyonundan düşebiliyor, runtime `ALTER TABLE` çağrıları istek yolunu kirletiyor ve fatura/belge/oluşturan bilgisi metin içinde kayboluyordu.
+- **Kalıcı Kural:** `buildVehicleAccessFilter` ve atama sorguları doğrudan indeksli `a.org_id = $N` kullanır (`ensureManagerOrgId` TX backfill ile); controller/route içi `ALTER TABLE` yasaktır (tüm şema değişiklikleri idempotent `database.sql` + migration scripti ile yürür) ve `yakitlar`/`bakimlar` `fatura_no`, `belge_url`, `olusturan_user_id` kolonlarını kalıcı olarak tutar.
 

@@ -271,6 +271,51 @@ ALTER TABLE araclar ALTER COLUMN kullanici_id DROP NOT NULL;
 ALTER TABLE araclar DROP CONSTRAINT IF EXISTS fk_araclar_kullanici;
 ALTER TABLE araclar ADD CONSTRAINT fk_araclar_kullanici FOREIGN KEY (kullanici_id) REFERENCES users(user_id) ON DELETE SET NULL;
 
+-- MIGRATION: V2.2-DBPERF (Kiraci Semasi, Kompozit Indeksler & Fatura/Olusturan Normalizasyonu)
+ALTER TABLE organizations
+    ADD COLUMN IF NOT EXISTS aylik_yakit_butcesi NUMERIC(12, 2) NOT NULL DEFAULT 50000,
+    ADD COLUMN IF NOT EXISTS aylik_bakim_butcesi NUMERIC(12, 2) NOT NULL DEFAULT 25000;
 
+ALTER TABLE araclar
+    ADD COLUMN IF NOT EXISTS son_enlem NUMERIC(9, 6),
+    ADD COLUMN IF NOT EXISTS son_boylam NUMERIC(9, 6),
+    ADD COLUMN IF NOT EXISTS son_konum_adi VARCHAR(160),
+    ADD COLUMN IF NOT EXISTS son_konum_zamani TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS org_id INTEGER REFERENCES organizations(org_id) ON DELETE SET NULL;
 
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS bildirim_tercihleri JSONB NOT NULL DEFAULT '{"belge_vadesi":{"email":true,"sms":true},"periyodik_bakim":{"email":true,"sms":true},"parca_omru":{"email":true,"sms":false},"maliyet_ozeti":{"email":true,"sms":false}}'::jsonb;
+
+UPDATE araclar a
+SET org_id = u.org_id
+FROM users u
+WHERE a.kullanici_id = u.user_id
+  AND a.org_id IS NULL
+  AND u.org_id IS NOT NULL;
+
+ALTER TABLE yakitlar
+    ADD COLUMN IF NOT EXISTS fatura_no VARCHAR(80),
+    ADD COLUMN IF NOT EXISTS belge_url TEXT,
+    ADD COLUMN IF NOT EXISTS olusturan_user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL;
+
+ALTER TABLE bakimlar
+    ADD COLUMN IF NOT EXISTS fatura_no VARCHAR(80),
+    ADD COLUMN IF NOT EXISTS belge_url TEXT,
+    ADD COLUMN IF NOT EXISTS olusturan_user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL;
+
+UPDATE yakitlar
+SET fatura_no = LEFT(BTRIM((regexp_match(notlar, '\[Fatura:\s*([^\]]+)\]', 'i'))[1]), 80)
+WHERE fatura_no IS NULL
+  AND notlar ~* '\[Fatura:\s*[^\]]+\]';
+
+UPDATE bakimlar
+SET fatura_no = LEFT(BTRIM((regexp_match(notlar, '\[Fatura:\s*([^\]]+)\]', 'i'))[1]), 80)
+WHERE fatura_no IS NULL
+  AND notlar ~* '\[Fatura:\s*[^\]]+\]';
+
+CREATE INDEX IF NOT EXISTS idx_araclar_org_id ON araclar (org_id);
+CREATE INDEX IF NOT EXISTS idx_yakitlar_arac_tarih_km ON yakitlar (arac_id, tarih DESC, km DESC);
+CREATE INDEX IF NOT EXISTS idx_bakimlar_arac_tarih_km ON bakimlar (arac_id, tarih DESC, km DESC);
+CREATE INDEX IF NOT EXISTS idx_parca_takip_arac_id ON parca_takip (arac_id);
+CREATE INDEX IF NOT EXISTS idx_atamalar_aktif_arac ON arac_sofor_atamalari (arac_id) WHERE aktif = TRUE;
 

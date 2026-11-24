@@ -50,10 +50,7 @@ const assignVehicleToDriver = async (req, res) => {
        FROM araclar a
        WHERE a.arac_id = $1
          AND (${clause})
-         AND EXISTS (
-           SELECT 1 FROM users o
-           WHERE o.user_id = a.kullanici_id AND o.org_id = $${orgParamIdx}
-         )
+         AND a.org_id = $${orgParamIdx}
        FOR UPDATE OF a`,
       [arac_id, ...params, orgId]
     );
@@ -139,10 +136,7 @@ const unassignVehicle = async (req, res) => {
        FROM araclar a
        WHERE a.arac_id = $1
          AND (${clause})
-         AND EXISTS (
-           SELECT 1 FROM users o
-           WHERE o.user_id = a.kullanici_id AND o.org_id = $${orgParamIdx}
-         )`,
+         AND a.org_id = $${orgParamIdx}`,
       [arac_id, ...params, orgId]
     );
     if (aracCheck.rowCount === 0) {
@@ -191,7 +185,7 @@ const getOrganization = async (req, res) => {
          o.aktif,
          o.olusturulma_tarihi,
          (SELECT COUNT(*)::int FROM users u WHERE u.org_id = o.org_id) AS uye_sayisi,
-         (SELECT COUNT(*)::int FROM araclar a JOIN users u ON u.user_id = a.kullanici_id WHERE u.org_id = o.org_id) AS arac_sayisi
+         (SELECT COUNT(*)::int FROM araclar a WHERE a.org_id = o.org_id) AS arac_sayisi
        FROM organizations o
        WHERE o.org_id = $1
        LIMIT 1`,

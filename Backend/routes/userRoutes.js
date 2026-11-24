@@ -55,15 +55,6 @@ const DEFAULT_NOTIFICATION_MATRIX = {
   maliyet_ozeti: { email: true, sms: false },
 };
 
-let notifColEnsured = false;
-const ensureNotificationMatrixColumn = async () => {
-  if (notifColEnsured) return;
-  await pool.query(
-    `ALTER TABLE users ADD COLUMN IF NOT EXISTS bildirim_tercihleri JSONB NOT NULL DEFAULT '${JSON.stringify(DEFAULT_NOTIFICATION_MATRIX)}'::jsonb`
-  );
-  notifColEnsured = true;
-};
-
 const normalizeNotificationMatrix = (raw) => {
   const src = raw && typeof raw === 'object' ? raw : {};
   return Object.keys(DEFAULT_NOTIFICATION_MATRIX).reduce((acc, key) => {
@@ -80,7 +71,6 @@ const normalizeNotificationMatrix = (raw) => {
 // BILDIRIM AYARLARI GUNCELLEME
 router.get('/settings/notifications', authMiddleware, async (req, res) => {
   try {
-    await ensureNotificationMatrixColumn();
 
     const result = await pool.query(
       `SELECT user_id, ad_soyad, email, telefon, email_bildirim_aktif, sms_bildirim_aktif, bildirim_tercihleri
@@ -250,7 +240,6 @@ router.put('/settings/notifications', authMiddleware, async (req, res) => {
   }
 
   try {
-    await ensureNotificationMatrixColumn();
 
     const hasMatrix = value.bildirim_tercihleri !== undefined;
     const matrixPayload = JSON.stringify(

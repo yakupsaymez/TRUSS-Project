@@ -7,8 +7,8 @@ const {
   aracSchema,
   cozumleVaryantBilgileri,
   dogrulaKategoriId,
-  ensureLocationColumns,
 } = require('./aracHelpers');
+const { ensureManagerOrgId } = require('../../controllers/admin/adminHelpers');
 const { updateArac, deleteArac } = require('./aracMutationHandlers');
 
 // POST /api/araclar/ekle — ARAÇ EKLE (Sadece SYSTEM_ADMIN ve FLEET_MANAGER)
@@ -35,6 +35,11 @@ const createArac = async (req, res) => {
     sigorta_tarihi,
   } = value;
   const kullanici_id = req.user?.user_id;
+
+  let orgId = req.user?.org_id || null;
+  if (!orgId && req.user?.role === 'FLEET_MANAGER' && kullanici_id) {
+    orgId = await ensureManagerOrgId(kullanici_id);
+  }
 
   let client = null;
   try {
@@ -84,16 +89,16 @@ const createArac = async (req, res) => {
 
     const insertQuery = `
       INSERT INTO araclar (
-        plaka, kategori_id, kategori, marka, model, yil, kullanici_id,
+        plaka, kategori_id, kategori, marka, model, yil, kullanici_id, org_id,
         guncel_km, guncel_calisma_saati, sayac_tipi, varyant_id,
         onerilen_bakim_km, triger_degisim_km, calisma_saati_bakim,
         muayene_tarihi, kasko_tarihi, sigorta_tarihi
       )
       VALUES (
-        $1, $2, $3, $4, $5, $6, $7,
-        $8, $9, $10, $11,
-        $12, $13, $14,
-        $15, $16, $17
+        $1, $2, $3, $4, $5, $6, $7, $8,
+        $9, $10, $11, $12,
+        $13, $14, $15,
+        $16, $17, $18
       )
       RETURNING *
     `;
@@ -106,6 +111,7 @@ const createArac = async (req, res) => {
       model,
       yil,
       kullanici_id,
+      orgId,
       baslangicKm,
       baslangicSaat,
       sayacTipi,
@@ -158,8 +164,6 @@ const createArac = async (req, res) => {
 // Son bakım, güncel sayaç, bakım periyodu ve son 30 gün yakıt gideri tek sorguda döner (N+1 engeli)
 const listAraclar = async (req, res) => {
   try {
-    await ensureLocationColumns();
-
     const { clause, params } = buildVehicleAccessFilter(req.user);
     const result = await pool.query(
       `SELECT
@@ -183,7 +187,7 @@ const listAraclar = async (req, res) => {
          z.zimmetli_sofor_id,
          z.zimmetli_sofor_ad
        FROM araclar a
-       INNER JOIN users u ON u.user_id = a.kullanici_id
+       LEFT JOIN users u ON u.user_id = a.kullanici_id
        LEFT JOIN ref_kategoriler k ON k.kategori_id = a.kategori_id
        LEFT JOIN LATERAL (
          SELECT b.km AS son_bakim_km, b.tarih AS son_bakim_tarihi
@@ -247,8 +251,6 @@ const updateAracKonum = async (req, res) => {
   const aracId = paramCheck.value.id;
 
   try {
-    await ensureLocationColumns();
-
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
     const accessCheck = await pool.query(
       `SELECT arac_id, plaka FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
