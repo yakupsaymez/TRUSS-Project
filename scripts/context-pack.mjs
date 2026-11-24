@@ -27,24 +27,29 @@ function readSection(relPath) {
   return fs.readFileSync(fullPath, 'utf8').trim();
 }
 
+const isFull = process.argv.includes('--full');
+const modeLabel = isFull ? 'full' : 'standard';
+
 const branch = runGit('branch --show-current');
 const headSha = runGit('rev-parse --short HEAD');
-const recentCommits = runGit('log --oneline -n 10');
+const recentCommits = runGit('log --oneline -n 8');
 const gitStatus = runGit('status --short') || '(clean working tree)';
 
 const CORE_FILES = [
   'AGENTS.md',
   '.ai/PROGRESS.md',
   '.ai/SWARM_PLAYBOOK.md',
-  '.ai/skills/caveman.md',
+  '.ai/ENGINEERING_GUARDRAILS.md',
   '.ai/DECISIONS.md',
-  '.ai/ARCHITECTURE_MAP.md',
+  '.ai/skills/caveman.md',
+  ...(isFull ? ['.ai/ARCHITECTURE_MAP.md'] : []),
 ];
 
 const parts = [
-  `# TRUSS — Universal AI Context Pack`,
+  `# TRUSS — Universal AI Context Pack (${modeLabel})`,
   `- **Generated At:** ${new Date().toISOString()}`,
   `- **Git Branch:** \`${branch}\` (\`${headSha}\`)`,
+  `- **Mode:** \`${modeLabel}\``,
   '',
   '---',
 ];
@@ -59,7 +64,7 @@ for (const relPath of CORE_FILES) {
 
 parts.push('');
 parts.push('## Git Snapshot');
-parts.push('### Last 10 Commits (`git log --oneline -n 10`)');
+parts.push('### Last 8 Commits (`git log --oneline -n 8`)');
 parts.push('```text');
 parts.push(recentCommits);
 parts.push('```');
@@ -76,5 +81,5 @@ process.stdout.write(output);
 const byteCount = Buffer.byteLength(output, 'utf8');
 const estimatedTokens = Math.ceil(byteCount / 4);
 process.stderr.write(
-  `[truss:context-pack] Bytes: ${byteCount} | Estimated Tokens (~4B/tok): ~${estimatedTokens}\n`
+  `[truss:context-pack] Mode: ${modeLabel} | Bytes: ${byteCount} | Estimated Tokens (~4B/tok): ~${estimatedTokens}\n`
 );

@@ -19,10 +19,10 @@
    - Her P0/P1 hata çözümünden sonra `.ai/DECISIONS.md` dosyasına **3 satırlık `P0-to-Rule`** (`Tarih · Kök Neden · Kalıcı Kural`) eklenir.
 
 ## 3. Zorunlu Yanıt Sonu Protokolü (`📌 Durum Panosu`)
-Her ajan (S1..S5), her yanıtının en sonunda **5 ajanın tamamını** içeren `📌 Durum Panosu` tablosunu basmak zorundadır:
-- Aktif ajanın durumu (`🟢 Aktif` / `🟢 Tamamlandı`),
-- Sırada bekleyen veya hazır olan ajanların durumu (`🟡 Hazır` / `⚪ Beklemede`),
-- Kullanıcıya bir sonraki adımda hangi ajana hangi komutu vereceğini gösteren net tek satırlık yönlendirme.
+Her ajan (S1..S5), her yanıtının en sonunda **5 ajanın tamamını** şu 5 sütun standardıyla içeren `📌 Durum Panosu` tablosunu basmak zorundadır:
+`| Ajan | Model / Güç | Şu An Ne Yapıyor | Hemen Şimdi Ne Yapmalı | İleride Ne Yapacak |`
+- Her satırda ilgili ajanın anlık durumu, hemen şimdi yapması gereken eylem ve sıradaki faz görevi net olarak yazılır.
+- Tablonun altına kullanıcıya bir sonraki adımda hangi ajana hangi komutu vereceğini gösteren tek satırlık yönlendirme eklenir.
 
 ## 4. Çakışma Önleme Kuralları
 - Aynı anda iki ajan aynı dosyaya dokunamaz.
