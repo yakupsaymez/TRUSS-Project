@@ -51,3 +51,9 @@
 - **Tarih:** 2026-11-24 (`OPS-1`)
 - **Kök Neden:** Dağınık v1 kural ve anayasa dokümanları eski `ABTS` adını ve geçersiz renk/mimari kurallarını ajan bağlamına sızdırıyordu.
 - **Kalıcı Kural:** Tüm AI araçları (`CLAUDE.md`, `.cursorrules`, `.windsurfrules`) tek kaynak olan `AGENTS.md` ve `.ai/*` dosyalarına işaret eder; eski dokümanlar silinir veya `.ai/archive/` altında ignore edilir.
+
+### ADR-11: Nullable Katalog Alanlarında `undefined` vs `null` Ayrımı (`PATCH/PUT`)
+- **Tarih:** 2026-11-24 (`QA-SWEEP-BE`)
+- **Kök Neden:** `aracMutationHandlers.js` içinde `kategori_id ? Number(kategori_id) : mevcut.kategori_id` kontrolü, manuel kategoriye geçişte gönderilen açık `null` değerini eski katalog ID'siyle eziyordu.
+- **Kalıcı Kural:** Güncelleme uçlarında temizlenebilir FK/katalog alanları falsy kontrolle değil `field !== undefined ? (field ? Number(field) : null) : mevcut.field` kalıbıyla işlenir.
+

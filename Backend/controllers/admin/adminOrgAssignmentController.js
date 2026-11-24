@@ -30,7 +30,7 @@ const assignVehicleToDriver = async (req, res) => {
     atanmaTarihi = gun;
   }
 
-  const client = await pool.connect();
+  let client = null;
   try {
     const managerId = req.user?.user_id;
     const orgId = await ensureManagerOrgId(managerId);
@@ -38,6 +38,9 @@ const assignVehicleToDriver = async (req, res) => {
     if (!orgId) {
       return res.status(404).json({ message: 'Yönetici organizasyonu bulunamadı.' });
     }
+
+    client = await pool.connect();
+    await client.query('BEGIN');
 
     // Araç erişimi RBAC filtresiyle; ek olarak aracın sahibi aynı organizasyonda olmalı (çapraz kurum atamasını engeller)
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
@@ -50,14 +53,14 @@ const assignVehicleToDriver = async (req, res) => {
          AND EXISTS (
            SELECT 1 FROM users o
            WHERE o.user_id = a.kullanici_id AND o.org_id = $${orgParamIdx}
-         )`,
+         )
+       FOR UPDATE OF a`,
       [arac_id, ...params, orgId]
     );
     if (aracCheck.rowCount === 0) {
+      await client.query('ROLLBACK');
       return res.status(403).json({ message: 'Bu araç filonuza ait değil veya yetkiniz yok.' });
     }
-
-    await client.query('BEGIN');
 
     // Şoförün aynı organizasyonda olduğunu doğrula; satır kilitlenir (eşzamanlı rol değişimi araya giremez)
     const driverCheck = await client.query(
@@ -102,11 +105,11 @@ const assignVehicleToDriver = async (req, res) => {
       assignment: assignResult.rows[0],
     });
   } catch (err) {
-    await client.query('ROLLBACK').catch(() => null);
+    if (client) await client.query('ROLLBACK').catch(() => null);
     console.error('Araç zimmetleme hatası:', err);
     return res.status(500).json({ message: 'Sunucu hatası oluştu.' });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 };
 

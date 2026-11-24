@@ -99,9 +99,9 @@ const aracSchema = Joi.object({
   onerilen_bakim_km: Joi.number().integer().min(0).optional().allow(null, ''),
   triger_degisim_km: Joi.number().integer().min(0).optional().allow(null, ''),
   calisma_saati_bakim: Joi.number().integer().min(0).optional().allow(null, ''),
-  muayene_tarihi: Joi.date().iso().optional().allow(null, ''),
-  kasko_tarihi: Joi.date().iso().optional().allow(null, ''),
-  sigorta_tarihi: Joi.date().iso().optional().allow(null, ''),
+  muayene_tarihi: Joi.date().iso().raw().optional().allow(null, ''),
+  kasko_tarihi: Joi.date().iso().raw().optional().allow(null, ''),
+  sigorta_tarihi: Joi.date().iso().raw().optional().allow(null, ''),
 });
 
 // Varyant bilgilerini veritabanından çözüp eksik bakım periyotlarını tamamlar

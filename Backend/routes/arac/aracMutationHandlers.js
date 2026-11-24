@@ -1,5 +1,6 @@
 const pool = require('../../db');
 const { buildVehicleAccessFilter } = require('../../middlewares/rbacMiddleware.js');
+const { tarihStr } = require('../../utils/dateUtils');
 const { aracSchema, cozumleVaryantBilgileri } = require('./aracHelpers');
 
 // PUT /api/araclar/:arac_id — ARAÇ GÜNCELLE (Sadece SYSTEM_ADMIN ve FLEET_MANAGER)
@@ -32,8 +33,9 @@ const updateArac = async (req, res) => {
     sigorta_tarihi,
   } = value;
 
-  const client = await pool.connect();
+  let client = null;
   try {
+    client = await pool.connect();
     await client.query('BEGIN');
 
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
@@ -127,7 +129,7 @@ const updateArac = async (req, res) => {
 
     const result = await client.query(updateQuery, [
       plaka,
-      kategori_id ? Number(kategori_id) : mevcut.kategori_id,
+      kategori_id !== undefined ? (kategori_id ? Number(kategori_id) : null) : mevcut.kategori_id,
       kategori || mevcut.kategori || 'Otomobil',
       marka,
       model,
@@ -139,21 +141,21 @@ const updateArac = async (req, res) => {
       varyantBilgi.onerilenBakimKm,
       varyantBilgi.trigerDegisimKm,
       varyantBilgi.calismaSaatiBakim,
-      muayene_tarihi || null,
-      kasko_tarihi || null,
-      sigorta_tarihi || null,
+      muayene_tarihi ? tarihStr(muayene_tarihi) : null,
+      kasko_tarihi ? tarihStr(kasko_tarihi) : null,
+      sigorta_tarihi ? tarihStr(sigorta_tarihi) : null,
       aracId,
     ]);
 
     await client.query('COMMIT');
     res.status(200).json({ message: 'Araç güncellendi', arac: result.rows[0] });
   } catch (err) {
-    await client.query('ROLLBACK').catch(() => null);
+    if (client) await client.query('ROLLBACK').catch(() => null);
     console.error('Araç Güncelleme Hatası:', err);
     if (err.code === '23505') return res.status(409).json({ message: 'Bu plaka zaten kayıtlı.' });
     res.status(500).json({ message: 'Sunucu hatası' });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 };
 

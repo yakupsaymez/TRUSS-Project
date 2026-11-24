@@ -1,5 +1,6 @@
 const pool = require('../../db');
 const { buildVehicleAccessFilter } = require('../../middlewares/rbacMiddleware.js');
+const { tarihStr } = require('../../utils/dateUtils');
 const Joi = require('joi');
 const {
   olusturDinamikParcaSablonu,
@@ -34,8 +35,9 @@ const createArac = async (req, res) => {
   } = value;
   const kullanici_id = req.user?.user_id;
 
-  const client = await pool.connect();
+  let client = null;
   try {
+    client = await pool.connect();
     await client.query('BEGIN');
 
     const varyantBilgi = await cozumleVaryantBilgileri(client, {
@@ -106,9 +108,9 @@ const createArac = async (req, res) => {
       varyantBilgi.onerilenBakimKm,
       varyantBilgi.trigerDegisimKm,
       varyantBilgi.calismaSaatiBakim,
-      muayene_tarihi || null,
-      kasko_tarihi || null,
-      sigorta_tarihi || null,
+      muayene_tarihi ? tarihStr(muayene_tarihi) : null,
+      kasko_tarihi ? tarihStr(kasko_tarihi) : null,
+      sigorta_tarihi ? tarihStr(sigorta_tarihi) : null,
     ]);
 
     const aracId = result.rows[0].arac_id;
@@ -136,12 +138,12 @@ const createArac = async (req, res) => {
     await client.query('COMMIT');
     res.status(201).json({ message: 'Araç eklendi', arac: result.rows[0] });
   } catch (err) {
-    await client.query('ROLLBACK').catch(() => null);
+    if (client) await client.query('ROLLBACK').catch(() => null);
     console.error('Araç Ekleme Hatası:', err);
     if (err.code === '23505') return res.status(409).json({ message: 'Bu plaka zaten kayıtlı.' });
     res.status(500).json({ message: 'Sunucu hatası' });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 };
 
