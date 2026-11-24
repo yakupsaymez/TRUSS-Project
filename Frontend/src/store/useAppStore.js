@@ -42,7 +42,6 @@ const useAppStore = create((set) => ({
   handleLogout: (navigate) => {
     useAuthStore.getState().logout();
     useVehicleStore.getState().reset();
-    localStorage.clear();
     navigate('/login');
   }
 }));

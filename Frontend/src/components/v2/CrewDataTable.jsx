@@ -70,6 +70,11 @@ export default function CrewDataTable({
     setPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }));
   }, [searchQuery, roleFilter]);
 
+  useEffect(() => {
+    const maxPage = Math.max(0, Math.ceil(filteredUsers.length / pagination.pageSize) - 1);
+    setPagination((prev) => (prev.pageIndex > maxPage ? { ...prev, pageIndex: maxPage } : prev));
+  }, [filteredUsers.length, pagination.pageSize]);
+
   const hasActiveFilters = Boolean(searchQuery.trim() || roleFilter !== 'ALL');
 
   const clearFilters = () => {
@@ -103,6 +108,7 @@ export default function CrewDataTable({
     data: filteredUsers,
     columns,
     getRowId: (row, index) => String(row.user_id ?? row.email ?? index),
+    autoResetPageIndex: false,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     onPaginationChange: setPagination,

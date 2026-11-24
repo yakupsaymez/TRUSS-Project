@@ -66,12 +66,6 @@ export const getSayacBirimi = (arac) => (isSmhArac(arac) ? 'saat' : 'km');
 // Mevcut Chrono arayüzündeki büyük harfli etiket: 'KM' | 'SMH'
 export const getSayacBirimEtiketi = (arac) => (isSmhArac(arac) ? 'SMH' : 'KM');
 
-// Hata varsa kırmızı çerçeve; yoksa standart Chrono input çerçevesi.
-export const sayacInputSinifi = (hata) =>
-  hata
-    ? 'border-destructive focus:border-destructive'
-    : 'border-truss-border focus:border-truss-purple';
-
 // Ekran okuyucu bağlantısı: input'a yayılır → <input {...sayacAria(hata, 'id')} />
 export const sayacAria = (hata, hataId) =>
   hata ? { 'aria-invalid': true, 'aria-describedby': hataId } : {};

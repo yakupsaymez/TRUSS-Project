@@ -1,7 +1,7 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 
-// src/utils/sayacHatasi.js (parseSayacHatasi / sayacInputSinifi / sayacAria) çıktısını satır içi gösterir.
+// src/utils/sayacHatasi.js (parseSayacHatasi / sayacAria) çıktısını satır içi gösterir.
 export default function SayacFieldError({ id, hata, className }) {
   if (!hata) return null;
 

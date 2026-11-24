@@ -100,7 +100,12 @@ export default function ComponentDataTable({
 
   useEffect(() => {
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-  }, [searchQuery, activeStatusFilter, seciliAracId, parcalar.length]);
+  }, [searchQuery, activeStatusFilter, seciliAracId]);
+
+  useEffect(() => {
+    const maxPage = Math.max(0, Math.ceil(filteredRows.length / pagination.pageSize) - 1);
+    setPagination((prev) => (prev.pageIndex > maxPage ? { ...prev, pageIndex: maxPage } : prev));
+  }, [filteredRows.length, pagination.pageSize]);
 
   const hasActiveFilters =
     searchQuery.trim().length > 0 || isVehicleFiltered || activeStatusFilter !== ALL_VALUE;
@@ -131,6 +136,7 @@ export default function ComponentDataTable({
     data: filteredRows,
     columns,
     getRowId: (row) => row.id,
+    autoResetPageIndex: false,
     state: { sorting, columnVisibility, pagination },
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,

@@ -66,7 +66,7 @@ const getGenelOzet = async (req, res) => {
     return res.status(200).json(result.rows[0]);
   } catch (err) {
     console.error('RAPOR GENEL-OZET HATASI:', err);
-    return res.status(500).json({ message: 'Sunucu hatası', detay: err.message });
+    return res.status(500).json({ message: 'Sunucu hatası' });
   }
 };
 
@@ -111,7 +111,7 @@ const getAylikHarcamaTrendi = async (req, res) => {
     return res.status(200).json(result.rows);
   } catch (err) {
     console.error('RAPOR AYLIK-TREND HATASI:', err);
-    return res.status(500).json({ message: 'Sunucu hatası', detay: err.message });
+    return res.status(500).json({ message: 'Sunucu hatası' });
   }
 };
 
@@ -148,7 +148,7 @@ const getAracMaliyetDagilimi = async (req, res) => {
     return res.status(200).json(result.rows);
   } catch (err) {
     console.error('RAPOR ARAC-MALIYET HATASI:', err);
-    return res.status(500).json({ message: 'Sunucu hatası', detay: err.message });
+    return res.status(500).json({ message: 'Sunucu hatası' });
   }
 };
 
@@ -281,7 +281,7 @@ const getButceAnalizi = async (req, res) => {
     });
   } catch (err) {
     console.error('RAPOR BUTCE HATASI:', err);
-    return res.status(500).json({ message: 'Sunucu hatası', detay: err.message });
+    return res.status(500).json({ message: 'Sunucu hatası' });
   }
 };
 
@@ -333,7 +333,7 @@ const updateButceHedefi = async (req, res) => {
     });
   } catch (err) {
     console.error('RAPOR BUTCE GUNCELLEME HATASI:', err);
-    return res.status(500).json({ message: 'Sunucu hatası', detay: err.message });
+    return res.status(500).json({ message: 'Sunucu hatası' });
   }
 };
 

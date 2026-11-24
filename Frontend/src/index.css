@@ -22,14 +22,6 @@
     'Plus Jakarta Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
 
-  --color-truss-bg: var(--truss-bg);
-  --color-truss-surface: var(--truss-surface);
-  --color-truss-purple: var(--truss-purple);
-  --color-truss-purple-hover: var(--truss-purple-hover);
-  --color-truss-text: var(--truss-text);
-  --color-truss-muted: var(--truss-muted);
-  --color-truss-border: var(--truss-border);
-
   --color-status-success: var(--status-success);
   --color-status-warning: var(--status-warning);
   --color-status-danger: var(--status-danger);
@@ -81,13 +73,6 @@
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
-
-  --shadow-truss-glow:
-    0 0 24px -4px rgba(124, 58, 237, 0.45), 0 8px 20px -6px rgba(0, 0, 0, 0.65);
-  --shadow-truss-card:
-    0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 36px -16px rgba(0, 0, 0, 0.7);
-  --shadow-truss-modal:
-    0 24px 64px -12px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 @layer base {
@@ -118,120 +103,102 @@
   }
 
   :root {
-    /* Açık (Light) Mod — TRUSS değişkenleri (ayrıştırılmış yüzeyler) */
-    --truss-bg: #F4F4F5;
-    --truss-surface: #FFFFFF;
-    --truss-purple: #7C3AED;
-    --truss-purple-hover: #6D28D9;
-    --truss-text: #09090B;
-    --truss-muted: #52525B;
-    --truss-border: #E4E4E7;
-
-    --background: #F4F4F5;
-    --foreground: #09090B;
-    --card: #FFFFFF;
-    --card-foreground: #09090B;
-    --popover: #FFFFFF;
-    --popover-foreground: #09090B;
-    --primary: #7C3AED;
-    --primary-foreground: #FFFFFF;
-    --secondary: #E4E4E7;
-    --secondary-foreground: #18181B;
-    --muted: #E4E4E7;
-    --muted-foreground: #52525B;
-    --accent: #E4E4E7;
-    --accent-foreground: #18181B;
-    --destructive: #BE123C;
-    --border: #E4E4E7;
-    --input: #D4D4D8;
-    --ring: #7C3AED;
+    --background: oklch(0.967 0.001 286.4);
+    --foreground: oklch(0.141 0.004 285.8);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.141 0.004 285.8);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.141 0.004 285.8);
+    --primary: oklch(0.541 0.247 293);
+    --primary-foreground: oklch(1 0 0);
+    --secondary: oklch(0.92 0.004 286.3);
+    --secondary-foreground: oklch(0.21 0.006 285.9);
+    --muted: oklch(0.92 0.004 286.3);
+    --muted-foreground: oklch(0.39 0.014 286);
+    --accent: oklch(0.92 0.004 286.3);
+    --accent-foreground: oklch(0.21 0.006 285.9);
+    --destructive: oklch(0.514 0.198 16.9);
+    --border: oklch(0.92 0.004 286.3);
+    --input: oklch(0.871 0.005 286.3);
+    --ring: oklch(0.541 0.247 293);
 
     /* Semantik durum renkleri (Light — koyu kontrastlı) */
-    --status-success: #047857;
-    --status-warning: #b45309;
-    --status-danger: #be123c;
-    --status-info: #0284c7;
+    --status-success: oklch(0.508 0.105 165.6);
+    --status-warning: oklch(0.555 0.146 49);
+    --status-danger: oklch(0.514 0.198 16.9);
+    --status-info: oklch(0.588 0.139 242);
 
     /* Grafik renkleri (Light — yüksek kontrastlı) */
-    --chart-1: #7C3AED;
-    --chart-2: #6D28D9;
-    --chart-3: #8B5CF6;
-    --chart-4: #A78BFA;
-    --chart-5: #5B21B6;
+    --chart-1: oklch(0.541 0.247 293);
+    --chart-2: oklch(0.491 0.241 292.6);
+    --chart-3: oklch(0.606 0.219 292.7);
+    --chart-4: oklch(0.709 0.159 293.5);
+    --chart-5: oklch(0.432 0.211 292.8);
     --radius: 0.75rem;
 
     /* Sidebar (Light) */
-    --sidebar: #F4F4F5;
-    --sidebar-foreground: #09090B;
-    --sidebar-primary: #7C3AED;
-    --sidebar-primary-foreground: #FFFFFF;
-    --sidebar-accent: #E4E4E7;
-    --sidebar-accent-foreground: #18181B;
-    --sidebar-border: #E4E4E7;
-    --sidebar-ring: #7C3AED;
+    --sidebar: oklch(0.967 0.001 286.4);
+    --sidebar-foreground: oklch(0.141 0.004 285.8);
+    --sidebar-primary: oklch(0.541 0.247 293);
+    --sidebar-primary-foreground: oklch(1 0 0);
+    --sidebar-accent: oklch(0.92 0.004 286.3);
+    --sidebar-accent-foreground: oklch(0.21 0.006 285.9);
+    --sidebar-border: oklch(0.92 0.004 286.3);
+    --sidebar-ring: oklch(0.541 0.247 293);
 
     /* Toast (Light) */
-    --toast-bg: #FFFFFF;
-    --toast-text: #09090B;
-    --toast-border: #E4E4E7;
+    --toast-bg: oklch(1 0 0);
+    --toast-text: oklch(0.141 0.004 285.8);
+    --toast-border: oklch(0.92 0.004 286.3);
   }
 
   .dark {
-    /* Koyu (Dark) Mod — TRUSS değişkenleri */
-    --truss-bg: #09090B;
-    --truss-surface: #18181B;
-    --truss-purple: #8B5CF6;
-    --truss-purple-hover: #7C3AED;
-    --truss-text: #FAFAFA;
-    --truss-muted: #A1A1AA;
-    --truss-border: #27272A;
-
-    --background: #09090B;
-    --foreground: #FAFAFA;
-    --card: #18181B;
-    --card-foreground: #FAFAFA;
-    --popover: #18181B;
-    --popover-foreground: #FAFAFA;
-    --primary: #8B5CF6;
-    --primary-foreground: #FFFFFF;
-    --secondary: #121215;
-    --secondary-foreground: #FAFAFA;
-    --muted: #121215;
-    --muted-foreground: #A1A1AA;
-    --accent: #27272A;
-    --accent-foreground: #FAFAFA;
-    --destructive: #F43F5E;
-    --border: #27272A;
-    --input: #27272A;
-    --ring: #8B5CF6;
+    --background: oklch(0.141 0.004 285.8);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.21 0.006 285.9);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.21 0.006 285.9);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.606 0.219 292.7);
+    --primary-foreground: oklch(1 0 0);
+    --secondary: oklch(0.184 0.006 285.8);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.184 0.006 285.8);
+    --muted-foreground: oklch(0.712 0.013 286.1);
+    --accent: oklch(0.274 0.005 286);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.645 0.215 16.4);
+    --border: oklch(0.274 0.005 286);
+    --input: oklch(0.274 0.005 286);
+    --ring: oklch(0.606 0.219 292.7);
 
     /* Semantik durum renkleri (Dark — parlak tonlar) */
-    --status-success: #10b981;
-    --status-warning: #f59e0b;
-    --status-danger: #f43f5e;
-    --status-info: #38bdf8;
+    --status-success: oklch(0.696 0.149 162.5);
+    --status-warning: oklch(0.769 0.165 70.1);
+    --status-danger: oklch(0.645 0.215 16.4);
+    --status-info: oklch(0.754 0.139 232.7);
 
     /* Grafik renkleri (Dark) */
-    --chart-1: #DDD6FE;
-    --chart-2: #C4B5FD;
-    --chart-3: #A78BFA;
-    --chart-4: #8B5CF6;
-    --chart-5: #7C3AED;
+    --chart-1: oklch(0.894 0.055 293.3);
+    --chart-2: oklch(0.811 0.101 293.6);
+    --chart-3: oklch(0.709 0.159 293.5);
+    --chart-4: oklch(0.606 0.219 292.7);
+    --chart-5: oklch(0.541 0.247 293);
 
     /* Sidebar (Dark) */
-    --sidebar: #09090B;
-    --sidebar-foreground: #FAFAFA;
-    --sidebar-primary: #8B5CF6;
-    --sidebar-primary-foreground: #FFFFFF;
-    --sidebar-accent: #18181B;
-    --sidebar-accent-foreground: #FAFAFA;
-    --sidebar-border: #27272A;
-    --sidebar-ring: #8B5CF6;
+    --sidebar: oklch(0.141 0.004 285.8);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.606 0.219 292.7);
+    --sidebar-primary-foreground: oklch(1 0 0);
+    --sidebar-accent: oklch(0.21 0.006 285.9);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(0.274 0.005 286);
+    --sidebar-ring: oklch(0.606 0.219 292.7);
 
     /* Toast (Dark) */
-    --toast-bg: #18181B;
-    --toast-text: #FAFAFA;
-    --toast-border: #27272A;
+    --toast-bg: oklch(0.21 0.006 285.9);
+    --toast-text: oklch(0.985 0 0);
+    --toast-border: oklch(0.274 0.005 286);
   }
 
   html {
@@ -261,8 +228,8 @@ body {
 
 body {
   background-image:
-    radial-gradient(1100px 480px at 0% -10%, rgba(124, 58, 237, 0.06), transparent 60%),
-    radial-gradient(900px 460px at 100% 0%, rgba(6, 182, 212, 0.03), transparent 55%);
+    radial-gradient(1100px 480px at 0% -10%, color-mix(in oklch, var(--primary) 6%, transparent), transparent 60%),
+    radial-gradient(900px 460px at 100% 0%, color-mix(in oklch, var(--status-info) 3%, transparent), transparent 55%);
   background-attachment: fixed;
   transition: background-color 220ms ease, color 220ms ease;
   min-height: 100vh;
@@ -364,11 +331,11 @@ table,
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.28);
+  background: color-mix(in oklch, var(--muted-foreground) 28%, transparent);
   border-radius: 9999px;
   border: 2px solid transparent;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.45);
+  background: color-mix(in oklch, var(--muted-foreground) 45%, transparent);
 }

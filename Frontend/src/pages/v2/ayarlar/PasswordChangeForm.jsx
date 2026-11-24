@@ -152,9 +152,9 @@ export default function PasswordChangeForm() {
       const msg = err?.response?.data?.message || 'Şifre güncellenemedi.';
       if (code === 'CURRENT_PASSWORD_INVALID' || err?.response?.status === 401) {
         setPasswordErrors((prev) => ({ ...prev, currentPassword: msg }));
-      } else {
-        setPasswordFormError(msg);
+        return;
       }
+      setPasswordFormError(msg);
       notifyApiError(err, 'Şifre güncellenemedi.');
     } finally {
       if (mountedRef.current) setSavingPassword(false);

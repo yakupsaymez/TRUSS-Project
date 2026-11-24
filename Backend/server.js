@@ -15,8 +15,12 @@ const katalogRoutes = require('./routes/katalogRoutes'); // Araç katalog (marka
 
 const app = express(); // Express uygulama nesnesini olusturur.
 
+const corsOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean)
+  : ['http://localhost:5173'];
+
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: corsOrigins.length > 0 ? corsOrigins : ['http://localhost:5173'],
   credentials: true
 }));
 app.use(express.json()); // JSON body verilerini okuyabilmek icin middleware ekler.

@@ -62,6 +62,7 @@ export default function LedgerDataTable({
     data: state.filteredRows,
     columns,
     getRowId: (row) => row.id,
+    autoResetPageIndex: false,
     state: { sorting: state.sorting, pagination: state.pagination },
     onSortingChange: state.setSorting,
     onPaginationChange: state.setPagination,

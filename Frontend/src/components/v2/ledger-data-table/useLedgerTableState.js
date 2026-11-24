@@ -76,8 +76,12 @@ export default function useLedgerTableState({ rows, araclar, seciliAracId, onVeh
     baslangicTarihi,
     bitisTarihi,
     seciliAracId,
-    rows.length,
   ]);
+
+  useEffect(() => {
+    const maxPage = Math.max(0, Math.ceil(filteredRows.length / pagination.pageSize) - 1);
+    setPagination((prev) => (prev.pageIndex > maxPage ? { ...prev, pageIndex: maxPage } : prev));
+  }, [filteredRows.length, pagination.pageSize]);
 
   const hasActiveFilters =
     activeTab !== ALL_VALUE ||

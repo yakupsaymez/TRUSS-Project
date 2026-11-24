@@ -134,7 +134,7 @@ export default function ComponentTableToolbar({
               type="button"
               variant="outline"
               size="sm"
-              className="h-9 gap-1.5 text-xs"
+              className="h-9 gap-1.5 border-border bg-card text-xs text-foreground"
               aria-label="Kolon görünürlüğü"
             >
               <LayoutGrid className="size-3.5" />

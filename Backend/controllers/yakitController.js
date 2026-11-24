@@ -1,7 +1,27 @@
 const pool = require('../db');
+const Joi = require('joi');
 const { buildVehicleAccessFilter } = require('../middlewares/rbacMiddleware');
 const { ileriTarihMi, tarihStr } = require('../utils/dateUtils');
 const { araclariKilitle, aracSayaciniSenkronizeEt, sayacSinirlari, sayacIhlaliMi, sayac422Govdesi, sayacBirimi } = require('../utils/odometerGuard');
+
+const yakitBaseFields = {
+  yakit_tipi: Joi.string().trim().max(50).allow('', null).optional(),
+  tarih: Joi.alternatives().try(Joi.string().trim().min(10).max(32), Joi.date()).required(),
+  litre: Joi.number().greater(0).max(99999999.99).required(),
+  tutar: Joi.number().greater(0).max(9999999999.99).required(),
+  km: Joi.number().integer().min(0).max(2147483647).allow(null, '').optional(),
+  notlar: Joi.string().max(2000).allow('', null).optional(),
+};
+
+const yakitCreateSchema = Joi.object({
+  ...yakitBaseFields,
+  arac_id: Joi.number().integer().positive().required(),
+});
+
+const yakitUpdateSchema = Joi.object({
+  ...yakitBaseFields,
+  arac_id: Joi.number().integer().positive().allow(null, '').optional(),
+});
 
 // KULLANICININ ERİŞEBİLDİĞİ TÜM YAKIT KAYITLARINI LİSTELE (RBAC Filtreli)
 const getAllYakitlar = async (req, res) => {
@@ -59,16 +79,16 @@ const getYakitlarByArac = async (req, res) => {
 
 // YENİ YAKIT KAYDI EKLE (RBAC + Pozitif Değer + Odometer Kronoloji 422 Validasyonu)
 const createYakit = async (req, res) => {
-  const { arac_id, yakit_tipi, tarih, litre, tutar, km, notlar } = req.body;
-
-  if (!arac_id || !tarih || litre === undefined || litre === '' || tutar === undefined || tutar === '') {
-    return res.status(400).json({ message: 'Zorunlu alanlar (arac_id, litre, tutar, tarih) eksik.' });
+  const { error, value } = yakitCreateSchema.validate(req.body || {}, {
+    convert: true,
+    stripUnknown: true,
+  });
+  if (error) {
+    return res.status(400).json({ message: error.details[0].message });
   }
 
-  const aracId = Number(arac_id);
-  if (!Number.isInteger(aracId) || aracId <= 0) {
-    return res.status(400).json({ message: 'Geçersiz araç kimliği.' });
-  }
+  const { arac_id, yakit_tipi, tarih, litre, tutar, km, notlar } = value;
+  const aracId = arac_id;
 
   const gun = tarihStr(tarih);
   if (!gun) {
@@ -79,23 +99,13 @@ const createYakit = async (req, res) => {
     return res.status(400).json({ message: 'İleri tarihli kayıt girilemez.' });
   }
 
-  const sayisalLitre = Number(litre);
-  const sayisalTutar = Number(tutar);
+  const sayisalLitre = litre;
+  const sayisalTutar = tutar;
   const sayisalKm = km !== undefined && km !== '' && km !== null ? Number(km) : null;
 
-  if (!Number.isFinite(sayisalLitre) || sayisalLitre <= 0 || !Number.isFinite(sayisalTutar) || sayisalTutar <= 0) {
-    return res.status(400).json({ message: 'Girilen litre ve tutar değerleri 0\'dan büyük olmalıdır.' });
-  }
-
-  if (
-    sayisalKm !== null &&
-    (!Number.isFinite(sayisalKm) || !Number.isInteger(sayisalKm) || sayisalKm < 0 || sayisalKm > 2147483647)
-  ) {
-    return res.status(400).json({ message: 'Geçersiz KM / Çalışma Saati değeri.' });
-  }
-
-  const client = await pool.connect();
+  let client;
   try {
+    client = await pool.connect();
     await client.query('BEGIN');
 
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
@@ -158,27 +168,32 @@ const createYakit = async (req, res) => {
 
     return res.status(201).json({ message: 'Yakit kaydi eklendi', yakit: result.rows[0] });
   } catch (err) {
-    await client.query('ROLLBACK').catch(() => null);
+    if (client) await client.query('ROLLBACK').catch(() => null);
     console.error('Yakıt ekleme hatası:', err);
     return res.status(500).json({ message: 'Sunucu hatasi' });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 };
 
 // BELİRLİ YAKIT KAYDINI GÜNCELLE
 const updateYakit = async (req, res) => {
   const { yakit_id } = req.params;
-  const { arac_id, yakit_tipi, tarih, litre, tutar, km, notlar } = req.body;
 
   const yakitId = Number(yakit_id);
   if (!Number.isInteger(yakitId) || yakitId <= 0) {
     return res.status(400).json({ message: 'Geçersiz yakıt kimliği.' });
   }
 
-  if (!tarih || litre === undefined || litre === '' || tutar === undefined || tutar === '') {
-    return res.status(400).json({ message: 'Zorunlu alanlar (litre, tutar, tarih) eksik.' });
+  const { error, value } = yakitUpdateSchema.validate(req.body || {}, {
+    convert: true,
+    stripUnknown: true,
+  });
+  if (error) {
+    return res.status(400).json({ message: error.details[0].message });
   }
+
+  const { arac_id, yakit_tipi, tarih, litre, tutar, km, notlar } = value;
 
   const gun = tarihStr(tarih);
   if (!gun) {
@@ -189,23 +204,13 @@ const updateYakit = async (req, res) => {
     return res.status(400).json({ message: 'İleri tarihli kayıt girilemez.' });
   }
 
-  const sayisalLitre = Number(litre);
-  const sayisalTutar = Number(tutar);
+  const sayisalLitre = litre;
+  const sayisalTutar = tutar;
   const sayisalKm = km !== undefined && km !== '' && km !== null ? Number(km) : null;
 
-  if (!Number.isFinite(sayisalLitre) || sayisalLitre <= 0 || !Number.isFinite(sayisalTutar) || sayisalTutar <= 0) {
-    return res.status(400).json({ message: 'Girilen litre ve tutar değerleri 0\'dan büyük olmalıdır.' });
-  }
-
-  if (
-    sayisalKm !== null &&
-    (!Number.isFinite(sayisalKm) || !Number.isInteger(sayisalKm) || sayisalKm < 0 || sayisalKm > 2147483647)
-  ) {
-    return res.status(400).json({ message: 'Geçersiz KM / Çalışma Saati değeri.' });
-  }
-
-  const client = await pool.connect();
+  let client;
   try {
+    client = await pool.connect();
     await client.query('BEGIN');
 
     // Kaydı kilitle: eşzamanlı güncelleme araya giremez
@@ -310,11 +315,11 @@ const updateYakit = async (req, res) => {
 
     return res.status(200).json({ message: 'Yakit kaydi guncellendi', yakit: result.rows[0] });
   } catch (err) {
-    await client.query('ROLLBACK').catch(() => null);
+    if (client) await client.query('ROLLBACK').catch(() => null);
     console.error('Yakıt güncelleme hatası:', err);
     return res.status(500).json({ message: 'Sunucu hatasi' });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 };
 
@@ -327,8 +332,9 @@ const deleteYakit = async (req, res) => {
     return res.status(400).json({ message: 'Geçersiz yakıt kimliği.' });
   }
 
-  const client = await pool.connect();
+  let client;
   try {
+    client = await pool.connect();
     await client.query('BEGIN');
 
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
@@ -357,11 +363,11 @@ const deleteYakit = async (req, res) => {
 
     return res.status(200).json({ message: 'Yakit kaydi silindi' });
   } catch (err) {
-    await client.query('ROLLBACK').catch(() => null);
+    if (client) await client.query('ROLLBACK').catch(() => null);
     console.error('Yakıt silme hatası:', err);
     return res.status(500).json({ message: 'Sunucu hatasi' });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 };
 

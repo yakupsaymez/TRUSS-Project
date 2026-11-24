@@ -380,6 +380,7 @@ function runCli() {
       ...walkFiles(path.join(ROOT_DIR, 'Frontend', 'src', 'pages', 'v2'), isJsOrJsx),
       ...walkFiles(path.join(ROOT_DIR, 'Frontend', 'src', 'pages', 'home'), isJsOrJsx),
       ...walkFiles(path.join(ROOT_DIR, 'Frontend', 'src', 'components', 'v2'), isJsOrJsx),
+      ...walkFiles(path.join(ROOT_DIR, 'Frontend', 'src', 'utils'), isJsOrJsx),
     ]);
     const homePage = path.join(ROOT_DIR, 'Frontend', 'src', 'pages', 'HomePage.jsx');
     if (fs.existsSync(homePage)) targetSet.add(homePage);
@@ -397,7 +398,7 @@ function runCli() {
       id: '2. Semantic Theme Hygiene',
       status: violations.length > 0 ? 'FAIL' : 'PASS',
       ms: Date.now() - t0,
-      summary: `${targets.length} v2/home files scanned, ${violations.length} violations`,
+      summary: `${targets.length} v2/home/utils files scanned, ${violations.length} violations`,
       details: violations,
     });
   }

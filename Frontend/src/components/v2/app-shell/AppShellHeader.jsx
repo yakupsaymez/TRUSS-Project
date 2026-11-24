@@ -98,7 +98,7 @@ export default function AppShellHeader({
           onClick={onOpenPalette}
           aria-label="Komut paletini aç"
           title="Komut paletini aç (⌘K)"
-          className="size-8 rounded-lg border-border bg-card text-muted-foreground hover:text-foreground sm:hidden"
+          className="size-8 rounded-lg border-border bg-card text-foreground/80 hover:text-foreground sm:hidden"
         >
           <Search className="size-3.5" />
         </Button>
@@ -108,7 +108,7 @@ export default function AppShellHeader({
           size="sm"
           onClick={onOpenPalette}
           aria-label="Komut paletini aç"
-          className="hidden h-8 items-center gap-2 rounded-lg border-border bg-card px-2.5 text-xs text-muted-foreground hover:text-foreground sm:inline-flex"
+          className="hidden h-8 items-center gap-2 rounded-lg border-border bg-card px-2.5 text-xs text-foreground/80 hover:text-foreground sm:inline-flex"
         >
           <Search className="size-3.5" />
           <span>Ara...</span>
@@ -122,7 +122,7 @@ export default function AppShellHeader({
           onClick={onToggleTheme}
           aria-label={isDark ? 'Açık temaya geç' : 'Koyu temaya geç'}
           title={isDark ? 'Açık temaya geç' : 'Koyu temaya geç'}
-          className="size-8 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground"
+          className="size-8 rounded-lg border border-border bg-card text-foreground/80 hover:text-foreground"
         >
           {isDark ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
         </Button>

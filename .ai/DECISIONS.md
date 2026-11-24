@@ -77,4 +77,9 @@
 - **Kök Neden:** Boş hareketli araçta başlangıç KM ezilebiliyor, kayıtlı araçta `KM/SMH` değiştirilebiliyor, UI'da etkisiz 6'lı yetki anahtarları sahte `1/6 Yakıt AÇIK` üretiyor ve `analytics` yetkisi olmayan sürücülere tablo/özet tutarları sızıyordu.
 - **Kalıcı Kural:** Hareket/parça kaydı olan araçta `sayac_tipi` değişimi `422` ile engellenir ve boş hareketlerde `araclar.guncel_km` tabanı korunur; ekip yetki matrisi yalnız sunucudaki 3 aktif anahtarı (`yakit`, `bakim`, `finans`) esas alır ve finans sütun/özetleri `canAccessChannel(user, 'analytics')` ile gizlenir.
 
+### ADR-16: Yakıt/Bakım Joi Taşma Koruması, `CORS_ORIGIN`, Gate 2 `utils/**` & State/Toast Hijyeni
+- **Tarih:** 2026-11-25 (`V2.1-HOTFIX-W3`)
+- **Kök Neden:** Kök lockfile ve `index.css` eski `ABTS`/`--truss-*` kalıntıları taşıyor, yakıt/bakım sayısal taşmaları `500` üretiyor, `localStorage.clear()` tema tercihini siliyor ve inline form hataları çift toast basıyordu.
+- **Kalıcı Kural:** Yakıt/bakım yazma uçları DB sayısal limitleriyle sınırlı Joi şemaları kullanır, `server.js` `process.env.CORS_ORIGIN` okur, Gate 2 `Frontend/src/utils/**` yolunu da tarar; çıkışta yalnız auth/filo store sıfırlanır, tablolar `autoResetPageIndex: false` kullanır ve inline alan hataları `notifyApiError` tetiklemez.
+
 

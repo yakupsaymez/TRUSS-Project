@@ -45,13 +45,13 @@
 | **Services** | `services/notificationScheduler.js`, `notificationService.js`, `emailService.js`, `smsService.js` | Günlük cron, `bildirim_tercihleri` JSONB filtreli e-posta/SMS uyarıları |
 
 ## 4. PostgreSQL Veritabanı Tabloları (12 Tablo)
-1. **`organizations`:** Kurumsal kiracı kaydı (`org_id`, `unvan`, `vergi_no`, `plan_tipi`, `aylik_yakit_butcesi`, `aylik_bakim_butcesi`).
-2. **`users`:** Kullanıcılar (`user_id`, `org_id`, `rol`, `kanal_izinleri`, `bildirim_tercihleri` JSONB).
-3. **`araclar`:** Filo envanteri (`arac_id`, `kullanici_id`, `plaka`, `sayac_tipi` [`KM`/`SMH`], `guncel_km`, `guncel_calisma_saati`, `son_enlem`, `son_boylam`, `son_konum_adi`, `son_konum_zamani`).
-4. **`arac_sofor_atamalari`:** Aktif ve geçmiş araç-sürücü zimmet kayıtları (`atama_id`, `arac_id`, `sofor_id`, `atanma_tarihi`, `bitis_tarihi`).
-5. **`yakitlar`:** Yakıt alım hareketleri (`yakit_id`, `arac_id`, `tarih`, `litre`, `tutar`, `km`).
-6. **`bakimlar`:** Bakım/servis hareketleri (`bakim_id`, `arac_id`, `tarih`, `aciklama`, `tutar`, `km`).
-7. **`parca_takip`:** Araç bileşen/parça ömür takibi (`parca_id`, `arac_id`, `parca_adi`, `takilma_tarihi`, `takilma_km`, `beklenen_omur_km`, `son_bakim_tarihi`).
+1. **`organizations`:** Kurumsal kiracı kaydı (`org_id`, `unvan`, `vergi_no`, `plan_tipi`, `aktif`, `olusturulma_tarihi`, `aylik_yakit_butcesi`, `aylik_bakim_butcesi`).
+2. **`users`:** Kullanıcılar (`user_id`, `ad_soyad`, `email`, `sifre`, `telefon`, `org_id`, `role`, `yetkiler` JSONB, `bildirim_tercihleri` JSONB, `email_bildirim_aktif`, `sms_bildirim_aktif`, `dil`, `para_birimi`, `olcu_birimi`, `kayit_tarihi`).
+3. **`araclar`:** Filo envanteri (`arac_id`, `kullanici_id`, `plaka`, `kategori_id`, `kategori`, `marka`, `model`, `yil`, `sayac_tipi` [`KM`/`SMH`], `guncel_km`, `guncel_calisma_saati`, `varyant_id`, `onerilen_bakim_km`, `triger_degisim_km`, `calisma_saati_bakim`, `muayene_tarihi`, `kasko_tarihi`, `sigorta_tarihi`, `son_enlem`, `son_boylam`, `son_konum_adi`, `son_konum_zamani`).
+4. **`arac_sofor_atamalari`:** Aktif ve geçmiş araç-sürücü zimmet kayıtları (`atama_id`, `arac_id`, `sofor_user_id`, `atanma_tarihi`, `teslim_tarihi`, `aktif`).
+5. **`yakitlar`:** Yakıt alım hareketleri (`yakit_id`, `arac_id`, `yakit_tipi`, `tarih`, `litre`, `tutar`, `km`, `notlar`).
+6. **`bakimlar`:** Bakım/servis hareketleri (`bakim_id`, `arac_id`, `bakim_tipi`, `tarih`, `km`, `maliyet`, `notlar`).
+7. **`parca_takip`:** Araç bileşen/parça ömür takibi (`parca_id`, `arac_id`, `parca_adi`, `son_degisim_km`, `degisim_araligi_km`, `son_degisim_tarihi`, `maliyet`, `notlar`).
 8. **`ref_kategoriler`, `ref_markalar`, `ref_kategori_marka`, `ref_modeller`, `ref_arac_varyantlari`:** 5'li normalize araç katalog referans tabloları.
 
 ## 5. AI-OS & Antigravity v2.34.0 Katmanı (`.ai/` & `.agent/` — `OPS-1..5`)

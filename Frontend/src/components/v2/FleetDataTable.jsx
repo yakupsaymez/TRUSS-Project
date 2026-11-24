@@ -81,7 +81,12 @@ export default function FleetDataTable({
 
   useEffect(() => {
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-  }, [searchQuery, sayacFilter, durumFilter, kategoriFilter, araclar.length]);
+  }, [searchQuery, sayacFilter, durumFilter, kategoriFilter]);
+
+  useEffect(() => {
+    const maxPage = Math.max(0, Math.ceil(filteredData.length / pagination.pageSize) - 1);
+    setPagination((prev) => (prev.pageIndex > maxPage ? { ...prev, pageIndex: maxPage } : prev));
+  }, [filteredData.length, pagination.pageSize]);
 
   const hasActiveFilters =
     searchQuery.trim().length > 0 ||
@@ -115,6 +120,7 @@ export default function FleetDataTable({
     data: filteredData,
     columns,
     getRowId: (row) => row.id,
+    autoResetPageIndex: false,
     state: {
       sorting,
       pagination,

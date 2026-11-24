@@ -1,4 +1,5 @@
 const pool = require('../db');
+const Joi = require('joi');
 const { buildVehicleAccessFilter } = require('../middlewares/rbacMiddleware');
 const { ileriTarihMi, tarihStr } = require('../utils/dateUtils');
 const {
@@ -9,6 +10,26 @@ const {
   sayac422Govdesi,
   sayacBirimi,
 } = require('../utils/odometerGuard');
+
+const bakimBaseFields = {
+  bakim_tipi: Joi.string().trim().min(1).max(150).required(),
+  tarih: Joi.alternatives().try(Joi.string().trim().min(10).max(32), Joi.date()).required(),
+  km: Joi.number().integer().min(0).max(2147483647).required(),
+  maliyet: Joi.number().greater(0).max(9999999999.99).required(),
+  notlar: Joi.string().max(2000).allow('', null).optional(),
+  aciklama: Joi.string().max(2000).allow('', null).optional(),
+  sifirla_parcalar: Joi.boolean().optional(),
+};
+
+const bakimCreateSchema = Joi.object({
+  ...bakimBaseFields,
+  arac_id: Joi.number().integer().positive().required(),
+});
+
+const bakimUpdateSchema = Joi.object({
+  ...bakimBaseFields,
+  arac_id: Joi.number().integer().positive().allow(null, '').optional(),
+});
 
 // KULLANICININ ERİŞEBİLDİĞİ TÜM BAKIMLARI LİSTELE (RBAC Filtreli)
 const getAllBakimlar = async (req, res) => {
@@ -66,16 +87,16 @@ const getBakimlarByArac = async (req, res) => {
 
 // YENİ BAKIM KAYDI EKLE (RBAC + Pozitif Değer + Odometer Kronoloji 422 Validasyonu)
 const createBakim = async (req, res) => {
-  const { arac_id, bakim_tipi, tarih, km, maliyet, notlar, aciklama } = req.body;
-
-  if (!arac_id || !bakim_tipi || !tarih || km === undefined || km === '' || maliyet === undefined || maliyet === '') {
-    return res.status(400).json({ message: 'Gerekli alanlar eksik.' });
+  const { error, value } = bakimCreateSchema.validate(req.body || {}, {
+    convert: true,
+    stripUnknown: true,
+  });
+  if (error) {
+    return res.status(400).json({ message: error.details[0].message });
   }
 
-  const aracId = Number(arac_id);
-  if (!Number.isInteger(aracId) || aracId <= 0) {
-    return res.status(400).json({ message: 'Geçersiz araç kimliği.' });
-  }
+  const { arac_id, bakim_tipi, tarih, km, maliyet, notlar, aciklama, sifirla_parcalar } = value;
+  const aracId = arac_id;
 
   const gun = tarihStr(tarih);
   if (!gun) {
@@ -86,22 +107,12 @@ const createBakim = async (req, res) => {
     return res.status(400).json({ message: 'İleri tarihli kayıt girilemez.' });
   }
 
-  const sayisalKm = Number(km);
-  const sayisalMaliyet = Number(maliyet);
+  const sayisalKm = km;
+  const sayisalMaliyet = maliyet;
 
-  if (
-    !Number.isFinite(sayisalKm) ||
-    !Number.isInteger(sayisalKm) ||
-    sayisalKm < 0 ||
-    sayisalKm > 2147483647 ||
-    !Number.isFinite(sayisalMaliyet) ||
-    sayisalMaliyet <= 0
-  ) {
-    return res.status(400).json({ message: 'Girilen tutar/maliyet 0\'dan büyük ve KM/Saat değeri geçerli olmalıdır.' });
-  }
-
-  const client = await pool.connect();
+  let client;
   try {
+    client = await pool.connect();
     await client.query('BEGIN');
 
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
@@ -165,7 +176,7 @@ const createBakim = async (req, res) => {
     };
 
     const sifirlanacakParcalar = PERIYODIK_SIFIRLAMA_HARITASI[bakim_tipi] || null;
-    if (req.body.sifirla_parcalar !== false && sifirlanacakParcalar) {
+    if (sifirla_parcalar !== false && sifirlanacakParcalar) {
       await client.query(
         `UPDATE parca_takip
          SET son_degisim_km = $1,
@@ -193,29 +204,35 @@ const createBakim = async (req, res) => {
 
     return res.status(201).json({ message: 'Bakim kaydi eklendi', bakim: result.rows[0] });
   } catch (err) {
-    await client.query('ROLLBACK').catch(() => null);
+    if (client) await client.query('ROLLBACK').catch(() => null);
     console.error('Bakım ekleme hatası:', err);
     return res.status(500).json({ message: 'Sunucu hatasi' });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 };
 
 // BELİRLİ BAKIM KAYDINI GÜNCELLE
 const updateBakim = async (req, res) => {
   const { bakim_id } = req.params;
-  const { arac_id, bakim_tipi, tarih, km, maliyet, notlar } = req.body;
 
   const bakimId = Number(bakim_id);
   if (!Number.isInteger(bakimId) || bakimId <= 0) {
     return res.status(400).json({ message: 'Geçersiz bakım kimliği.' });
   }
 
-  if (!bakim_tipi || !tarih || km === undefined || km === '' || maliyet === undefined || maliyet === '') {
-    return res.status(400).json({ message: 'Gerekli alanlar eksik.' });
+  const { error, value } = bakimUpdateSchema.validate(req.body || {}, {
+    convert: true,
+    stripUnknown: true,
+  });
+  if (error) {
+    return res.status(400).json({ message: error.details[0].message });
   }
 
-  if (!tarihStr(tarih)) {
+  const { arac_id, bakim_tipi, tarih, km, maliyet, notlar, aciklama } = value;
+
+  const gun = tarihStr(tarih);
+  if (!gun) {
     return res.status(400).json({ message: 'Geçersiz tarih formatı.' });
   }
 
@@ -223,23 +240,12 @@ const updateBakim = async (req, res) => {
     return res.status(400).json({ message: 'İleri tarihli kayıt girilemez.' });
   }
 
-  const gun = tarihStr(tarih);
-  const sayisalKm = Number(km);
-  const sayisalMaliyet = Number(maliyet);
+  const sayisalKm = km;
+  const sayisalMaliyet = maliyet;
 
-  if (
-    !Number.isFinite(sayisalKm) ||
-    !Number.isInteger(sayisalKm) ||
-    sayisalKm < 0 ||
-    sayisalKm > 2147483647 ||
-    !Number.isFinite(sayisalMaliyet) ||
-    sayisalMaliyet <= 0
-  ) {
-    return res.status(400).json({ message: 'Girilen tutar/maliyet 0\'dan büyük ve KM/Saat değeri geçerli olmalıdır.' });
-  }
-
-  const client = await pool.connect();
+  let client;
   try {
+    client = await pool.connect();
     await client.query('BEGIN');
 
     // Kaydı kilitle: eşzamanlı güncelleme araya giremez
@@ -312,7 +318,7 @@ const updateBakim = async (req, res) => {
        SET arac_id = $1, bakim_tipi = $2, tarih = $3, km = $4, maliyet = $5, notlar = $6
        WHERE bakim_id = $7
        RETURNING *`,
-      [hedefAracId, bakim_tipi, gun, sayisalKm, sayisalMaliyet, notlar || null, bakimId]
+      [hedefAracId, bakim_tipi, gun, sayisalKm, sayisalMaliyet, notlar || aciklama || null, bakimId]
     );
 
     await aracSayaciniSenkronizeEt(client, {
@@ -327,11 +333,11 @@ const updateBakim = async (req, res) => {
 
     return res.status(200).json({ message: 'Bakim kaydi guncellendi', bakim: result.rows[0] });
   } catch (err) {
-    await client.query('ROLLBACK').catch(() => null);
+    if (client) await client.query('ROLLBACK').catch(() => null);
     console.error('Bakım güncelleme hatası:', err);
     return res.status(500).json({ message: 'Sunucu hatasi' });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 };
 
@@ -344,8 +350,9 @@ const deleteBakim = async (req, res) => {
     return res.status(400).json({ message: 'Geçersiz bakım kimliği.' });
   }
 
-  const client = await pool.connect();
+  let client;
   try {
+    client = await pool.connect();
     await client.query('BEGIN');
 
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
@@ -374,11 +381,11 @@ const deleteBakim = async (req, res) => {
 
     return res.status(200).json({ message: 'Bakim kaydi silindi' });
   } catch (err) {
-    await client.query('ROLLBACK').catch(() => null);
+    if (client) await client.query('ROLLBACK').catch(() => null);
     console.error('Bakım silme hatası:', err);
     return res.status(500).json({ message: 'Sunucu hatasi' });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 };
 

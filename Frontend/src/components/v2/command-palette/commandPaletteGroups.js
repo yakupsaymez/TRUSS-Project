@@ -1,4 +1,5 @@
 import { Car, Cog, Fuel, Plus, Settings, Wrench } from 'lucide-react';
+import { isSmhArac } from '@/utils/aracDurum';
 import { formatCurrency, formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import { parseLedgerNaturalInput, parsePartNaturalInput } from './commandPaletteParsers';
 
@@ -39,7 +40,11 @@ export function buildCommandGroups({
         summaryParts.push(formatCurrency(ledgerParsed.tutar, { maximumFractionDigits: 0 }));
       }
       if (ledgerParsed.km !== null) {
-        summaryParts.push(`${formatLocaleNumber(ledgerParsed.km, 0)} km`);
+        const matchedArac = ledgerParsed.prefill?.arac_id
+          ? araclar.find((a) => String(a.arac_id) === String(ledgerParsed.prefill.arac_id))
+          : null;
+        const unit = matchedArac && isSmhArac(matchedArac) ? 'saat' : 'km';
+        summaryParts.push(`${formatLocaleNumber(ledgerParsed.km, 0)} ${unit}`);
       }
 
       nlItems.push({

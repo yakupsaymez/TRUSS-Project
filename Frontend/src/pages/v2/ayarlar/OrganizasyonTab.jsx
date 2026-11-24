@@ -98,9 +98,9 @@ export default function OrganizasyonTab({
       const msg = err?.response?.data?.message || 'Organizasyon profili güncellenemedi.';
       if (status === 409 || code === 'TAX_NUMBER_EXISTS') {
         setOrgErrors((prev) => ({ ...prev, vergi_no: msg }));
-      } else {
-        setOrgFormError(msg);
+        return;
       }
+      setOrgFormError(msg);
       notifyApiError(err, 'Organizasyon profili güncellenemedi.');
     } finally {
       if (mountedRef.current) setSavingOrganization(false);

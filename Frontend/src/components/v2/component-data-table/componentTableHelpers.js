@@ -118,9 +118,9 @@ export function statusBadgeClass(durum) {
     return 'border-primary/30 bg-primary/10 text-primary';
   }
   if (durum === 'iyi') {
-    return 'border-border bg-muted text-foreground';
+    return 'border-status-success/35 bg-status-success/10 text-status-success';
   }
-  return 'border-border bg-background text-muted-foreground';
+  return 'border-border bg-secondary text-foreground/85';
 }
 
 export function buildEnrichedComponentRows(parcalar, aracMap) {

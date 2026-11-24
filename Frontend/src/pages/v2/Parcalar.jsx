@@ -225,7 +225,10 @@ export default function Parcalar() {
             <h1 className="text-xl font-bold tracking-tight text-foreground">
               Parça Ömür Matrisi
             </h1>
-            <Badge variant="secondary" className="tabular-nums">
+            <Badge
+              variant="outline"
+              className="border-border bg-secondary text-secondary-foreground font-medium tabular-nums"
+            >
               {formatLocaleNumber(parcalar.length, 0)} parça
             </Badge>
           </div>
