@@ -97,3 +97,8 @@
 - **Kök Neden:** Tekrarlı taramalar veya yakıt güncellemeleri aynı kayıt için mükerrer anomali üretebilir, incelenmiş kararları silebilir, `km <= 0`/eksik kayıtlarda yanlış ardışık dolum seçebilir veya `PATCH` ucunda kiracı sınırını aşabilirdi.
 - **Kalıcı Kural:** `yakit_anomalileri` üzerinde `uq_yakit_anomali_kayit_tip` + `ON CONFLICT DO NOTHING` idempotensi uygulanır; önceki kayıt yalnız `curKm > 0` iken `(tarih, km, yakit_id) < (...)` tuple sırasıyla seçilir; `update` yalnız `durum = 'acik'` kayıtları yenileyip `incelendi`/`yoksayildi` kararlarını korur ve `PATCH /anomaliler/:id` `FROM araclar a` + `buildVehicleAccessFilter` ile kiracı izolasyonu sağlar.
 
+### ADR-20: Gizli E-posta Dedup Kilidi, Ortak Saf Anomali Kuralları & Tek-Yayın Event Senkronu
+- **Tarih:** 2026-11-25 (`V2.2-POLISH`)
+- **Kök Neden:** `uygulama: false, email: true` tercihinde dedup `INSERT`'i atlanıyor, TCO CTE'leri tüm tabloyu tarıyor, toplu anomali taraması N+1 sorgu + kural ayrışması riski taşıyor ve `VehicleSheet`/`Parcalar`/`BudgetVarianceCard` mutasyonları `truss:data-changed` eksikliği/çift fetch üretiyordu.
+- **Kalıcı Kural:** E-posta bildirimleri `meta_json.uygulama_gizli = true` + `okundu_mu = TRUE` ile `bildirim_olaylari` dedup kilidine yazılır ve controller `GET`/`PATCH` uçlarında gizli satırlara `404` döner; `fuelAnomalyRules.js` saf kural yardımcılarını tekil ve toplu (`UNNEST ... RETURNING anomali_id`) tarama paylaşır; FE mutasyonları tekil `truss:data-changed` (`component`, `vehicle`, `budget`) ve `requestIdRef` ile çift fetch olmadan senkronize edilir.
+

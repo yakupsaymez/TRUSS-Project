@@ -40,6 +40,15 @@ export default function GenelBakis() {
   const [vehicleSheetOpen, setVehicleSheetOpen] = useState(false);
 
   const vehicleFetchAttemptedRef = useRef(false);
+  const mountedRef = useRef(true);
+  const financeRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!hasLoaded && !loading && !vehicleFetchAttemptedRef.current) {
@@ -48,28 +57,10 @@ export default function GenelBakis() {
     }
   }, [hasLoaded, loading, fetchAraclar]);
 
-  const fetchFinanceData = useCallback(async () => {
-    if (!canViewAnalytics) return;
-    setLoadingFinance(true);
-    try {
-      const [trendRes, maliyetRes, butceRes] = await Promise.all([
-        raporService.getAylikHarcamaTrendi(),
-        raporService.getAracMaliyetDagilimi(),
-        raporService.getButceAnalizi(),
-      ]);
-      setAylikTrend(Array.isArray(trendRes) ? trendRes : []);
-      setAracMaliyet(Array.isArray(maliyetRes) ? maliyetRes : []);
-      setButceAnalizi(butceRes || null);
-    } catch (err) {
-      notifyApiError(err, 'Finansal özet yüklenemedi.');
-    } finally {
-      setLoadingFinance(false);
-    }
-  }, [canViewAnalytics]);
-
   // P0 RBAC: Finansal rapor istekleri YALNIZCA analytics yetkisi olan kullanıcılarda atılır
-  useEffect(() => {
+  const fetchFinanceData = useCallback(async () => {
     if (!canViewAnalytics) {
+      financeRequestIdRef.current += 1;
       setAylikTrend([]);
       setAracMaliyet([]);
       setButceAnalizi(null);
@@ -77,32 +68,29 @@ export default function GenelBakis() {
       return;
     }
 
-    let cancelled = false;
+    const reqId = ++financeRequestIdRef.current;
     setLoadingFinance(true);
-
-    Promise.all([
-      raporService.getAylikHarcamaTrendi(),
-      raporService.getAracMaliyetDagilimi(),
-      raporService.getButceAnalizi(),
-    ])
-      .then(([trendRes, maliyetRes, butceRes]) => {
-        if (cancelled) return;
-        setAylikTrend(Array.isArray(trendRes) ? trendRes : []);
-        setAracMaliyet(Array.isArray(maliyetRes) ? maliyetRes : []);
-        setButceAnalizi(butceRes || null);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        notifyApiError(err, 'Finansal özet yüklenemedi.');
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingFinance(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    try {
+      const [trendRes, maliyetRes, butceRes] = await Promise.all([
+        raporService.getAylikHarcamaTrendi(),
+        raporService.getAracMaliyetDagilimi(),
+        raporService.getButceAnalizi(),
+      ]);
+      if (!mountedRef.current || reqId !== financeRequestIdRef.current) return;
+      setAylikTrend(Array.isArray(trendRes) ? trendRes : []);
+      setAracMaliyet(Array.isArray(maliyetRes) ? maliyetRes : []);
+      setButceAnalizi(butceRes || null);
+    } catch (err) {
+      if (!mountedRef.current || reqId !== financeRequestIdRef.current) return;
+      notifyApiError(err, 'Finansal özet yüklenemedi.');
+    } finally {
+      if (mountedRef.current && reqId === financeRequestIdRef.current) setLoadingFinance(false);
+    }
   }, [canViewAnalytics]);
+
+  useEffect(() => {
+    fetchFinanceData();
+  }, [fetchFinanceData]);
 
   useEffect(() => {
     const handleDataChanged = (event) => {
@@ -247,7 +235,10 @@ export default function GenelBakis() {
                   butceData={butceAnalizi}
                   canManage={canManage}
                   loading={loadingFinance}
-                  onBudgetUpdated={fetchFinanceData}
+                  onBudgetUpdated={() => {
+                    fetchFinanceData();
+                    window.dispatchEvent(new CustomEvent('truss:data-changed', { detail: { scope: 'budget' } }));
+                  }}
                   className="lg:col-span-6"
                 />
                 <DocumentComplianceCard

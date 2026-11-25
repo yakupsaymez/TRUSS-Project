@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Bell, Info, Loader2, Save } from 'lucide-react';
 import api from '@/services/api';
+import useAuthStore from '@/store/useAuthStore';
+import { canAccessChannel } from '@/components/v2/channelAccess';
 import { notifyApiError } from '@/utils/apiError';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +34,11 @@ export default function BildirimlerTab({
   bildirimTercihleri,
   setBildirimTercihleri,
 }) {
+  const user = useAuthStore((s) => s.user);
+  const canViewAnalytics = canAccessChannel(user, 'analytics');
+  const visibleCategories = canViewAnalytics
+    ? NOTIFICATION_CATEGORIES
+    : NOTIFICATION_CATEGORIES.filter((category) => category.key !== 'maliyet_ozeti');
   const [savingNotifications, setSavingNotifications] = useState(false);
   const mountedRef = useRef(true);
 
@@ -189,7 +196,7 @@ export default function BildirimlerTab({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {NOTIFICATION_CATEGORIES.map((category) => {
+              {visibleCategories.map((category) => {
                 const CategoryIcon = category.icon;
                 const rowPrefs =
                   bildirimTercihleri[category.key] || DEFAULT_NOTIFICATION_MATRIX[category.key];

@@ -24,22 +24,37 @@ const buildVehicleTcoQuery = (accessClause, startIdx, endIdx) => `
   ),
   yakit_donem AS (
     SELECT arac_id, COALESCE(SUM(tutar), 0)::numeric AS yakit_maliyet, COALESCE(SUM(litre), 0)::numeric AS toplam_litre
-    FROM yakitlar WHERE tarih >= $${startIdx} AND tarih <= $${endIdx} GROUP BY arac_id
+    FROM yakitlar
+    WHERE tarih >= $${startIdx} AND tarih <= $${endIdx}
+      AND arac_id IN (SELECT arac_id FROM erisebilir_araclar)
+    GROUP BY arac_id
   ),
   bakim_donem AS (
     SELECT arac_id, COALESCE(SUM(maliyet), 0)::numeric AS bakim_maliyet
-    FROM bakimlar WHERE tarih >= $${startIdx} AND tarih <= $${endIdx} GROUP BY arac_id
+    FROM bakimlar
+    WHERE tarih >= $${startIdx} AND tarih <= $${endIdx}
+      AND arac_id IN (SELECT arac_id FROM erisebilir_araclar)
+    GROUP BY arac_id
   ),
   parca_donem AS (
     SELECT arac_id, COALESCE(SUM(maliyet), 0)::numeric AS parca_maliyet
-    FROM parca_takip WHERE son_degisim_tarihi >= $${startIdx} AND son_degisim_tarihi <= $${endIdx} GROUP BY arac_id
+    FROM parca_takip
+    WHERE son_degisim_tarihi >= $${startIdx} AND son_degisim_tarihi <= $${endIdx}
+      AND arac_id IN (SELECT arac_id FROM erisebilir_araclar)
+    GROUP BY arac_id
   ),
   sayac_noktalari AS (
     SELECT arac_id, COUNT(*)::int AS olcum_sayisi, MIN(km)::numeric AS min_sayac, MAX(km)::numeric AS max_sayac
     FROM (
-      SELECT arac_id, km FROM yakitlar WHERE tarih >= $${startIdx} AND tarih <= $${endIdx} AND km IS NOT NULL AND km > 0
+      SELECT arac_id, km
+      FROM yakitlar
+      WHERE tarih >= $${startIdx} AND tarih <= $${endIdx} AND km IS NOT NULL AND km > 0
+        AND arac_id IN (SELECT arac_id FROM erisebilir_araclar)
       UNION ALL
-      SELECT arac_id, km FROM bakimlar WHERE tarih >= $${startIdx} AND tarih <= $${endIdx} AND km IS NOT NULL AND km > 0
+      SELECT arac_id, km
+      FROM bakimlar
+      WHERE tarih >= $${startIdx} AND tarih <= $${endIdx} AND km IS NOT NULL AND km > 0
+        AND arac_id IN (SELECT arac_id FROM erisebilir_araclar)
     ) s
     GROUP BY arac_id
   )

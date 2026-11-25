@@ -37,7 +37,9 @@ export default function Filo() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
   const [tcoByAracId, setTcoByAracId] = useState(null);
+  const [loadingTco, setLoadingTco] = useState(false);
   const fetchAttemptedRef = useRef(false);
+  const tcoRequestIdRef = useRef(0);
 
   const role = resolveRole(user);
   const canManage = [ROLES.SYSTEM_ADMIN, ROLES.FLEET_MANAGER].includes(role);
@@ -52,15 +54,19 @@ export default function Filo() {
 
   useEffect(() => {
     if (!canViewAnalytics) {
+      tcoRequestIdRef.current += 1;
       setTcoByAracId(null);
+      setLoadingTco(false);
       return undefined;
     }
 
     let cancelled = false;
     const loadTco = async () => {
+      const reqId = ++tcoRequestIdRef.current;
+      setLoadingTco(true);
       try {
         const res = await raporService.getTcoAnalizi(90);
-        if (cancelled) return;
+        if (cancelled || reqId !== tcoRequestIdRef.current) return;
         const list = Array.isArray(res?.araclar)
           ? res.araclar
           : Array.isArray(res?.ogeler)
@@ -74,14 +80,16 @@ export default function Filo() {
         }
         setTcoByAracId(map);
       } catch {
-        if (!cancelled) setTcoByAracId({});
+        if (!cancelled && reqId === tcoRequestIdRef.current) setTcoByAracId({});
+      } finally {
+        if (!cancelled && reqId === tcoRequestIdRef.current) setLoadingTco(false);
       }
     };
 
     loadTco();
     const handleDataChanged = (event) => {
       const scope = event?.detail?.scope;
-      if (!scope || scope === 'movement' || scope === 'vehicle' || scope === 'part') {
+      if (!scope || scope === 'movement' || scope === 'vehicle' || scope === 'component' || scope === 'part') {
         loadTco();
       }
     };
@@ -172,6 +180,7 @@ export default function Filo() {
       const ok = await deleteVehicle(deleteTarget.arac_id);
       if (ok) {
         setDeleteTarget(null);
+        window.dispatchEvent(new CustomEvent('truss:data-changed', { detail: { scope: 'vehicle' } }));
       }
     } finally {
       setIsDeleting(false);
@@ -236,6 +245,7 @@ export default function Filo() {
         canManage={canManage}
         canViewAnalytics={canViewAnalytics}
         tcoByAracId={tcoByAracId}
+        loadingTco={loadingTco}
         globalVehicleActive={globalVehicleActive}
         initialDurumFilter={initialDurumFilter}
         onDurumFilterChange={handleDurumFilterChange}

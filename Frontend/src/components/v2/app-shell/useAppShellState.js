@@ -147,7 +147,9 @@ export function useAppShellState() {
 
   const notifyDataChanged = useCallback(
     (scope) => {
-      fetchAraclar();
+      if (scope !== 'vehicle') {
+        fetchAraclar();
+      }
       window.dispatchEvent(new CustomEvent('truss:data-changed', { detail: { scope } }));
     },
     [fetchAraclar]

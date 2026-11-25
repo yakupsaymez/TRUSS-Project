@@ -102,8 +102,8 @@ const aracSchema = Joi.object({
   muayene_tarihi: Joi.date().iso().raw().optional().allow(null, ''),
   kasko_tarihi: Joi.date().iso().raw().optional().allow(null, ''),
   sigorta_tarihi: Joi.date().iso().raw().optional().allow(null, ''),
-  depo_kapasitesi_l: Joi.number().greater(0).max(99999.9).optional().allow(null, ''),
-  hedef_tuketim: Joi.number().greater(0).max(9999.99).optional().allow(null, ''),
+  depo_kapasitesi_l: Joi.number().min(0.1).max(99999.9).optional().allow(null, ''),
+  hedef_tuketim: Joi.number().min(0.01).max(9999.99).optional().allow(null, ''),
 });
 
 // Varyant bilgilerini veritabanından çözüp eksik bakım periyotlarını tamamlar

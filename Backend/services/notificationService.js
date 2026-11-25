@@ -67,7 +67,7 @@ const resolveUserNotificationChannels = (user, kategori) => {
     : (typeof pref.eposta === 'boolean' ? pref.eposta : defaultPref.email);
   const smsPref = typeof pref.sms === 'boolean' ? pref.sms : defaultPref.sms;
   const uygulamaPref = typeof pref.uygulama === 'boolean' ? pref.uygulama : (emailPref || smsPref);
-  const kategoriAcik = Boolean(uygulamaPref || emailPref);
+  const kategoriAcik = Boolean(uygulamaPref || emailPref || smsPref);
 
   return {
     uygulamaAcik: kategoriAcik && uygulamaPref,
@@ -160,35 +160,40 @@ const dispatchNotificationToUser = async (user, payload, options = {}) => {
     return { created: false, deduplicated: false, emailSent: false, skipped: true, blockedByRbac: channels.blockedByRbac };
   }
 
-  let bildirimId = null;
-  if (channels.uygulamaAcik) {
-    const insertRes = await pool.query(
-      `INSERT INTO bildirim_olaylari (
-         org_id, user_id, arac_id, kategori, seviye,
-         referans_anahtar, baslik, mesaj, link_url, meta_json
-       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)
-       ON CONFLICT (user_id, kategori, referans_anahtar) DO NOTHING
-       RETURNING bildirim_id`,
-      [
-        payload.org_id ?? user.org_id ?? null,
-        user.user_id,
-        payload.arac_id ?? null,
-        payload.kategori,
-        payload.seviye || 'uyari',
-        String(payload.referans_anahtar).slice(0, 120),
-        String(payload.baslik || '').slice(0, 200),
-        String(payload.mesaj || ''),
-        payload.link_url ? String(payload.link_url).slice(0, 255) : null,
-        JSON.stringify(payload.meta_json || {}),
-      ]
-    );
+  const uygulamaGizli = !channels.uygulamaAcik;
+  const metaJson = uygulamaGizli
+    ? { ...(payload.meta_json || {}), uygulama_gizli: true }
+    : (payload.meta_json || {});
 
-    if (insertRes.rowCount === 0) {
-      return { created: false, deduplicated: true, emailSent: false };
-    }
-    bildirimId = insertRes.rows[0].bildirim_id;
+  const insertRes = await pool.query(
+    `INSERT INTO bildirim_olaylari (
+       org_id, user_id, arac_id, kategori, seviye,
+       referans_anahtar, baslik, mesaj, link_url, okundu_mu, okunma_tarihi, meta_json
+     )
+     VALUES (
+       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CASE WHEN $10 THEN NOW() ELSE NULL END, $11::jsonb
+     )
+     ON CONFLICT (user_id, kategori, referans_anahtar) DO NOTHING
+     RETURNING bildirim_id`,
+    [
+      payload.org_id ?? user.org_id ?? null,
+      user.user_id,
+      payload.arac_id ?? null,
+      payload.kategori,
+      payload.seviye || 'uyari',
+      String(payload.referans_anahtar).slice(0, 120),
+      String(payload.baslik || '').slice(0, 200),
+      String(payload.mesaj || ''),
+      payload.link_url ? String(payload.link_url).slice(0, 255) : null,
+      uygulamaGizli,
+      JSON.stringify(metaJson),
+    ]
+  );
+
+  if (insertRes.rowCount === 0) {
+    return { created: false, deduplicated: true, emailSent: false };
   }
+  const bildirimId = insertRes.rows[0].bildirim_id;
 
   let emailSent = false;
   if (channels.emailAcik && !options.skipEmail) {
@@ -203,7 +208,12 @@ const dispatchNotificationToUser = async (user, payload, options = {}) => {
     }
   }
 
-  return { created: Boolean(bildirimId), deduplicated: false, bildirimId, emailSent };
+  return {
+    created: channels.uygulamaAcik && Boolean(bildirimId),
+    deduplicated: false,
+    bildirimId,
+    emailSent,
+  };
 };
 
 module.exports = {

@@ -35,6 +35,7 @@ export default function FleetDataTable({
   canManage = false,
   canViewAnalytics = false,
   tcoByAracId = null,
+  loadingTco = false,
   globalVehicleActive = false,
   initialDurumFilter = 'all',
   onDurumFilterChange,
@@ -115,11 +116,12 @@ export default function FleetDataTable({
       buildFleetColumns({
         canManage,
         canViewAnalytics,
+        loadingTco,
         onDetail,
         onEditClick,
         onDeleteRequest,
       }),
-    [canManage, canViewAnalytics, onDetail, onEditClick, onDeleteRequest]
+    [canManage, canViewAnalytics, loadingTco, onDetail, onEditClick, onDeleteRequest]
   );
 
   const table = useReactTable({

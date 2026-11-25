@@ -1,6 +1,7 @@
 import React from 'react';
 import { formatLocaleNumber } from '@/utils/formatters';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
@@ -23,7 +24,16 @@ const SKOR_DURUM_META = {
   },
 };
 
-export default function FleetEfficiencyCell({ tco }) {
+export default function FleetEfficiencyCell({ tco, loading = false }) {
+  if (loading && !tco) {
+    return (
+      <div className="flex min-w-28 flex-col items-start gap-1">
+        <Skeleton className="h-5 w-14 rounded-md" />
+        <Skeleton className="h-3.5 w-20 rounded-sm" />
+      </div>
+    );
+  }
+
   if (!tco || !tco.veri_yeterli) {
     return (
       <div className="min-w-28">

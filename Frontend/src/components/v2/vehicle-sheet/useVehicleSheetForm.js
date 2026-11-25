@@ -127,6 +127,7 @@ export default function useVehicleSheetForm({ open, arac, onOpenChange, onSucces
       }
 
       await fetchAraclar();
+      window.dispatchEvent(new CustomEvent('truss:data-changed', { detail: { scope: 'vehicle' } }));
       toast.success(isEditMode ? 'Araç güncellendi.' : 'Araç eklendi.');
       onOpenChange?.(false);
       onSuccess?.();

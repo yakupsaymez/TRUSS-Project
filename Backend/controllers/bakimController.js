@@ -278,7 +278,7 @@ const updateBakim = async (req, res) => {
     // Kaydı kilitle: eşzamanlı güncelleme araya giremez
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
     const bakimOwnershipCheck = await client.query(
-      `SELECT b.bakim_id, b.arac_id, b.km, b.belge_url
+      `SELECT b.bakim_id, b.arac_id, b.km, b.fatura_no, b.belge_url
        FROM bakimlar b
        INNER JOIN araclar a ON b.arac_id = a.arac_id
        WHERE b.bakim_id = $1 AND (${clause})
@@ -293,6 +293,7 @@ const updateBakim = async (req, res) => {
 
     const kaynakAracId = Number(bakimOwnershipCheck.rows[0].arac_id);
     const eskiKm = bakimOwnershipCheck.rows[0].km;
+    const mevcutFaturaNo = bakimOwnershipCheck.rows[0].fatura_no || null;
     const mevcutBelgeUrl = bakimOwnershipCheck.rows[0].belge_url || null;
     const hedefAracId = Number(arac_id || kaynakAracId);
     if (!Number.isInteger(hedefAracId) || hedefAracId <= 0) {
@@ -342,7 +343,9 @@ const updateBakim = async (req, res) => {
     }
 
     const notlarDegeri = notlar || aciklama || null;
-    const faturaNo = resolveFaturaNo(value.fatura_no, notlarDegeri);
+    const faturaNo = value.fatura_no !== undefined
+      ? resolveFaturaNo(value.fatura_no, notlarDegeri)
+      : (extractFaturaFromNotlar(notlarDegeri) ?? mevcutFaturaNo);
     const belgeUrl = value.belge_url !== undefined ? normalizeBelgeUrl(value.belge_url) : mevcutBelgeUrl;
 
     const result = await client.query(

@@ -61,7 +61,7 @@ export default function ActionCenterCard({ seciliAracId = 'tum', canViewAnalytic
     const onDataChanged = () => fetchAksiyonMerkezi();
     window.addEventListener('truss:data-changed', onDataChanged);
     return () => window.removeEventListener('truss:data-changed', onDataChanged);
-  }, [fetchAksiyonMerkezi]);
+  }, [fetchAksiyonMerkezi, canViewAnalytics]);
 
   const showFinance = Boolean(canViewAnalytics && data?.finans_yetkisi === true);
   const isSingleVehicle = Boolean(seciliAracId && seciliAracId !== 'tum');

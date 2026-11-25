@@ -70,7 +70,7 @@ export default function FleetEfficiencyCard({
     if (!canViewAnalytics) return undefined;
     const onDataChanged = (event) => {
       const scope = event?.detail?.scope;
-      if (!scope || scope === 'movement' || scope === 'vehicle' || scope === 'part') {
+      if (!scope || scope === 'movement' || scope === 'vehicle' || scope === 'component' || scope === 'part') {
         fetchTco(donemGun);
       }
     };

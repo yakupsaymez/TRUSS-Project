@@ -251,7 +251,7 @@ const updateYakit = async (req, res) => {
     // Kaydı kilitle: eşzamanlı güncelleme araya giremez
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
     const yakitOwnershipCheck = await client.query(
-      `SELECT y.yakit_id, y.arac_id, y.km, y.belge_url
+      `SELECT y.yakit_id, y.arac_id, y.km, y.fatura_no, y.belge_url
        FROM yakitlar y
        INNER JOIN araclar a ON y.arac_id = a.arac_id
        WHERE y.yakit_id = $1 AND (${clause})
@@ -266,6 +266,7 @@ const updateYakit = async (req, res) => {
 
     const kaynakAracId = Number(yakitOwnershipCheck.rows[0].arac_id);
     const eskiKm = yakitOwnershipCheck.rows[0].km;
+    const mevcutFaturaNo = yakitOwnershipCheck.rows[0].fatura_no || null;
     const mevcutBelgeUrl = yakitOwnershipCheck.rows[0].belge_url || null;
     const hedefAracId = Number(arac_id || kaynakAracId);
     if (!Number.isInteger(hedefAracId) || hedefAracId <= 0) {
@@ -317,7 +318,9 @@ const updateYakit = async (req, res) => {
     }
 
     const notlarDegeri = notlar || null;
-    const faturaNo = resolveFaturaNo(value.fatura_no, notlarDegeri);
+    const faturaNo = value.fatura_no !== undefined
+      ? resolveFaturaNo(value.fatura_no, notlarDegeri)
+      : (extractFaturaFromNotlar(notlarDegeri) ?? mevcutFaturaNo);
     const belgeUrl = value.belge_url !== undefined ? normalizeBelgeUrl(value.belge_url) : mevcutBelgeUrl;
 
     const result = await client.query(

@@ -14,6 +14,7 @@ import FleetEfficiencyCell from './FleetEfficiencyCell';
 export function buildFleetColumns({
   canManage,
   canViewAnalytics = false,
+  loadingTco = false,
   onDetail,
   onEditClick,
   onDeleteRequest,
@@ -126,7 +127,9 @@ export function buildFleetColumns({
             header: ({ column }) => (
               <SortableHeader column={column} label="Verimlilik" />
             ),
-            cell: ({ row }) => <FleetEfficiencyCell tco={row.original.tco} />,
+            cell: ({ row }) => (
+              <FleetEfficiencyCell tco={row.original.tco} loading={loadingTco} />
+            ),
           },
         ]
       : []),

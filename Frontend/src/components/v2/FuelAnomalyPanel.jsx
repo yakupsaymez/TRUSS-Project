@@ -156,9 +156,10 @@ export default function FuelAnomalyPanel({ seciliAracId = null, canManage = fals
               <button
                 key={tab.id}
                 type="button"
+                disabled={scanning || busyId !== null}
                 onClick={() => setActiveDurum(tab.id)}
                 className={cn(
-                  'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+                  'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
                   activeDurum === tab.id
                     ? 'border-primary/40 bg-primary/10 text-primary'
                     : 'border-border bg-background text-muted-foreground hover:text-foreground'

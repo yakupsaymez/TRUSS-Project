@@ -24,9 +24,10 @@
   - `V2.2-TCO`: `Backend/services/tcoService.js`, `tcoController.js`, `GET /api/raporlar/tco-analizi`, `FleetEfficiencyCard.jsx`, `FleetEfficiencyCell.jsx`, `KM/SMH` ayrık birim maliyet & 0-100 yenileme skoru, `DRIVER` gizliliği — **QA PASS**.
   - `V2.2-ANOMALY-BE`: `Backend/services/fuelAnomalyService.js`, `yakitAnomalyController.js`, `yakit_anomalileri`, `araclar.{depo_kapasitesi_l,hedef_tuketim}`, 4 deterministik kural, `GET/PATCH/POST /api/yakitlar/anomaliler*`, `ON DELETE CASCADE` — **QA PASS**.
   - `V2.2-ANOMALY-FE`: `FuelAnomalyPanel.jsx`, `fuel-anomaly/FuelAnomalyRow.jsx`, `yakitService.js` anomali uçları, `VehicleSheet` `depo_kapasitesi_l`/`hedef_tuketim`, RBAC & `truss:data-changed` — **QA PASS**.
+  - `V2.2-POLISH`: `SW-01..SW-12` backend/frontend çapraz-modül onarımları, gizli e-posta dedup kilidi, CTE kiracı filtresi, ortak `fuelAnomalyRules.js` + toplu `UNNEST` tarama, `truss:data-changed` tek-yayın senkronu, TCO skeleton & RBAC bildirim matrisi — **QA PASS**.
 
 ## 2. Sıradaki Kuyruk (Öncelik Sırasıyla)
-- **Mühürlenenler:** `PERF-1/1b`, `REFACTOR-1` (`14/14 -> 0` monolit), `OPS-1..5`, `QA-SWEEP` (`BE+FE`), `V2.1-FE4`, `CLEANUP-1`, `V2.1-HOTFIX-W1`, `V2.1-HOTFIX-W2`, `V2.1-HOTFIX-W3` (`FIX-4` — Faz A), `V2.2-DBPERF`, `V2.2-NOTIFY`, `V2.2-INBOX`, `V2.2-TCO`, `V2.2-ANOMALY-BE` ve `V2.2-ANOMALY-FE` mühürlendi.
+- **Mühürlenenler:** `PERF-1/1b`, `REFACTOR-1` (`14/14 -> 0` monolit), `OPS-1..5`, `QA-SWEEP` (`BE+FE`), `V2.1-FE4`, `CLEANUP-1`, `V2.1-HOTFIX-W1`, `V2.1-HOTFIX-W2`, `V2.1-HOTFIX-W3` (`FIX-4` — Faz A), `V2.2-DBPERF`, `V2.2-NOTIFY`, `V2.2-INBOX`, `V2.2-TCO`, `V2.2-ANOMALY-BE`, `V2.2-ANOMALY-FE` ve `V2.2-POLISH` mühürlendi.
 - **Sırada / Beklemede:** Yok (S5 yeni paket planlaması bekleniyor).
 
 ## 3. Açık Teknik Riskler
@@ -37,8 +38,8 @@
 ## 4. 📌 Durum Panosu (Her Yanıt Sonunda Zorunlu Şablon)
 | Ajan | Model / Güç | Şu An Ne Yapıyor | Hemen Şimdi Ne Yapmalı | İleride Ne Yapacak |
 | :--- | :--- | :--- | :--- | :--- |
-| **S5 (Baş Mimar)** | `pro` (`Neon High` / Opus) | `V2.2-ANOMALY-FE` mühürlendi (`QA PASS`) | Yeni sprint / paket planlaması için hazır | Sonraki faz mikro-paket dağıtımı |
-| **S1 (Frontend)** | `inherit` (`Neon` Normal) | `V2.2-ANOMALY-FE` tamamlandı & mühürlendi | Beklemede kalmalı | Sonraki frontend paketleri |
-| **S2 (Backend / Ops)** | `inherit` (`Argon` / `Neon`) | `V2.2-ANOMALY-FE` `/s2-seal` tamamlandı (`main` mühürlendi) | Beklemede kalmalı | Sonraki backend/ops görevleri |
-| **S3 (QA / Denetçi)** | `pro` (`Hidrojen` / `Argon`) | `V2.2-ANOMALY-FE` QA + Browser E2E `PASS` onaylandı | Beklemede kalmalı | Sonraki paket QA denetimi |
+| **S5 (Baş Mimar)** | `pro` (`Neon High` / Opus) | `V2.2-POLISH` mühürlendi (`QA PASS`) | Yeni sprint / paket planlaması için hazır | Sonraki faz mikro-paket dağıtımı |
+| **S1 (Frontend)** | `inherit` (`Neon` Normal) | `V2.2-POLISH` tamamlandı & mühürlendi | Beklemede kalmalı | Sonraki frontend paketleri |
+| **S2 (Backend / Ops)** | `inherit` (`Argon` / `Neon`) | `V2.2-POLISH` `/s2-seal` tamamlandı (`main` mühürlendi) | Beklemede kalmalı | Sonraki backend/ops görevleri |
+| **S3 (QA / Denetçi)** | `pro` (`Hidrojen` / `Argon`) | `V2.2-POLISH` QA + Browser E2E `PASS` onaylandı | Beklemede kalmalı | Sonraki paket QA denetimi |
 | **S4 (Bug Hunter)** | `flash` (`2.8 Flash`) | `QA-SWEEP` tamamlandı (`0` açık hata) | Beklemede kalmalı | `V2.2` sonrası cerrahi hata avı |

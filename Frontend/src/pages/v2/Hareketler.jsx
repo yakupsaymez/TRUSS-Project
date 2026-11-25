@@ -90,6 +90,7 @@ export default function Hareketler() {
 
   const vehicleFetchAttemptedRef = useRef(false);
   const mountedRef = useRef(true);
+  const requestIdRef = useRef(0);
 
   const role = resolveRole(user);
   const canManage = [ROLES.SYSTEM_ADMIN, ROLES.FLEET_MANAGER].includes(role);
@@ -99,9 +100,7 @@ export default function Hareketler() {
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
+    return () => { mountedRef.current = false; };
   }, []);
 
   useEffect(() => {
@@ -112,20 +111,21 @@ export default function Hareketler() {
   }, [vehiclesHasLoaded, vehiclesLoading, fetchAraclar]);
 
   const verileriYukle = useCallback(async () => {
+    const reqId = ++requestIdRef.current;
     setLoading(true);
     try {
       const [yRes, bRes] = await Promise.all([
         yakitService.getAllYakitlar(),
         bakimService.getAllBakimlar(),
       ]);
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || reqId !== requestIdRef.current) return;
       setYakitlar(Array.isArray(yRes) ? yRes : yRes?.yakitlar || []);
       setBakimlar(Array.isArray(bRes) ? bRes : bRes?.bakimlar || []);
     } catch (err) {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || reqId !== requestIdRef.current) return;
       notifyApiError(err, 'Hareket kayıtları yüklenemedi.');
     } finally {
-      if (mountedRef.current) {
+      if (mountedRef.current && reqId === requestIdRef.current) {
         setLoading(false);
         setHasLoaded(true);
       }

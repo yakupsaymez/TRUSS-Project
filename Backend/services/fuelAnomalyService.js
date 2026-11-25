@@ -1,21 +1,14 @@
 const pool = require('../db');
 const { buildVehicleAccessFilter } = require('../middlewares/rbacMiddleware');
-const { tarihStr, gunFarkiTR, gunEkleTR, bugunTR } = require('../utils/dateUtils');
-
-const MAX_NUM_12_2 = 9999999999.99;
-
-const toPosNum = (v) => {
-  if (v === null || v === undefined || v === '') return null;
-  const n = Number(v);
-  return Number.isFinite(n) && n > 0 ? n : null;
-};
-
-const round2 = (v) => {
-  if (!Number.isFinite(v)) return null;
-  const r = Math.round(v * 100) / 100;
-  if (!Number.isFinite(r)) return null;
-  return Math.min(MAX_NUM_12_2, Math.max(-MAX_NUM_12_2, r));
-};
+const { tarihStr, gunEkleTR, bugunTR } = require('../utils/dateUtils');
+const {
+  toPosNum,
+  evalTankOverflowRule,
+  evalConsecutiveFillRule,
+  evalUnitPriceRule,
+  evalHighConsumptionRule,
+  collectScanAnomalies,
+} = require('./fuelAnomalyRules');
 
 const fetchCurrentRecord = async (db, yakitId) => {
   const res = await db.query(
@@ -64,46 +57,22 @@ const checkUnitPriceAnomaly = async (db, cur, curTarih, litre, tutar) => {
     [cur.org_id, cur.yakit_id, start30, curTarih]
   );
 
-  const cnt = Number(res.rows[0]?.cnt || 0);
-  const ort = toPosNum(res.rows[0]?.ort_birim_fiyat);
-  const birimFiyat = tutar / litre;
-  if (cnt >= 3 && ort !== null && Number.isFinite(birimFiyat) && birimFiyat > ort * 1.2) {
-    const olculen = round2(birimFiyat);
-    const esik = round2(ort * 1.2);
-    return {
-      tip: 'birim_fiyat_sapma',
-      seviye: 'uyari',
-      olculen_deger: olculen,
-      beklenen_esik: esik,
-      aciklama: `${cur.plaka}: Birim yakıt fiyatı (${olculen} ₺/L), 30 günlük kurum ortalamasının (${round2(ort)} ₺/L) +%20 eşiği (${esik} ₺/L) üzerinde.`,
-    };
-  }
-  return null;
+  return evalUnitPriceRule({
+    plaka: cur.plaka,
+    litre,
+    tutar,
+    cnt: Number(res.rows[0]?.cnt || 0),
+    ortBirimFiyat: res.rows[0]?.ort_birim_fiyat,
+  });
 };
 
 const checkHighConsumptionAnomaly = async (db, cur, curTarih, curKm, prev, litre, sayacTipi, hedef) => {
   if (curKm === null || !prev || !litre) return null;
   const prevKm = Number(prev.km);
-  const delta = Number.isFinite(prevKm) ? curKm - prevKm : 0;
-  if (delta <= 0) return null;
+  if (!Number.isFinite(prevKm) || curKm - prevKm <= 0) return null;
 
-  const tuketim = sayacTipi === 'SMH' ? litre / delta : (litre / delta) * 100;
-  if (!Number.isFinite(tuketim) || tuketim <= 0) return null;
-
-  const birimStr = sayacTipi === 'SMH' ? 'L/saat' : 'L/100km';
   if (hedef !== null) {
-    if (tuketim > hedef * 1.25) {
-      const olculen = round2(tuketim);
-      const esik = round2(hedef * 1.25);
-      return {
-        tip: 'yuksek_tuketim',
-        seviye: tuketim > hedef * 1.5 ? 'kritik' : 'uyari',
-        olculen_deger: olculen,
-        beklenen_esik: esik,
-        aciklama: `${cur.plaka}: Tüketim (${olculen} ${birimStr}), hedef tüketimin (${round2(hedef)} ${birimStr}) +%25 eşiği (${esik} ${birimStr}) üzerinde.`,
-      };
-    }
-    return null;
+    return evalHighConsumptionRule({ plaka: cur.plaka, curKm, prev, litre, sayacTipi, hedef });
   }
 
   if (!curTarih) return null;
@@ -136,20 +105,16 @@ const checkHighConsumptionAnomaly = async (db, cur, curTarih, curKm, prev, litre
     [cur.arac_id, cur.yakit_id, start90, curTarih, sayacTipi]
   );
 
-  const cnt = Number(avgRes.rows[0]?.cnt || 0);
-  const ort = toPosNum(avgRes.rows[0]?.ort_tuketim);
-  if (cnt >= 3 && ort !== null && tuketim > ort * 1.35) {
-    const olculen = round2(tuketim);
-    const esik = round2(ort * 1.35);
-    return {
-      tip: 'yuksek_tuketim',
-      seviye: tuketim > ort * 1.65 ? 'kritik' : 'uyari',
-      olculen_deger: olculen,
-      beklenen_esik: esik,
-      aciklama: `${cur.plaka}: Tüketim (${olculen} ${birimStr}), 90 günlük araç ortalamasının (${round2(ort)} ${birimStr}) +%35 eşiği (${esik} ${birimStr}) üzerinde.`,
-    };
-  }
-  return null;
+  return evalHighConsumptionRule({
+    plaka: cur.plaka,
+    curKm,
+    prev,
+    litre,
+    sayacTipi,
+    hedef: null,
+    cnt: Number(avgRes.rows[0]?.cnt || 0),
+    ortTuketim: avgRes.rows[0]?.ort_tuketim,
+  });
 };
 
 /**
@@ -177,53 +142,13 @@ const evaluateFuelRecordAnomalies = async (yakitId, { mode = 'create', db = pool
   const sayacTipi = cur.sayac_tipi === 'SMH' ? 'SMH' : 'KM';
   const curTarih = tarihStr(cur.tarih);
 
-  const detected = [];
-
-  // 1. Depo Aşımı
-  if (depo !== null && litre !== null && litre > depo * 1.05) {
-    const olculen = round2(litre);
-    const esik = round2(depo * 1.05);
-    detected.push({
-      tip: 'depo_asimi',
-      seviye: 'kritik',
-      olculen_deger: olculen,
-      beklenen_esik: esik,
-      aciklama: `${cur.plaka}: ${olculen} L dolum, depo kapasitesi (${round2(depo)} L) +%5 eşiği (${esik} L) aşıldı.`,
-    });
-  }
-
   const prev = curKm !== null ? await fetchPreviousFuelRecord(db, cur.arac_id, curTarih, curKm, cur.yakit_id) : null;
-
-  // 2. Ardışık Dolum
-  if (curKm !== null && prev) {
-    const prevTarih = tarihStr(prev.tarih);
-    const gunFarki = curTarih && prevTarih ? gunFarkiTR(curTarih, prevTarih) : null;
-    const prevKm = Number(prev.km);
-    if (gunFarki !== null && gunFarki >= 0 && gunFarki <= 1 && Number.isFinite(prevKm) && prevKm > 0) {
-      const delta = curKm - prevKm;
-      const esik = sayacTipi === 'SMH' ? 2 : 50;
-      if (delta >= 0 && delta < esik) {
-        const birim = sayacTipi === 'SMH' ? 'saat' : 'km';
-        detected.push({
-          tip: 'ardisik_dolum',
-          seviye: gunFarki === 0 && delta === 0 ? 'kritik' : 'uyari',
-          olculen_deger: round2(delta),
-          beklenen_esik: esik,
-          aciklama: `${cur.plaka}: ${gunFarki === 0 ? 'Aynı gün' : '1 gün arayla'} yalnızca ${round2(delta)} ${birim} farkla ardışık dolum (eşik: ${esik} ${birim}).`,
-        });
-      }
-    }
-  }
-
-  // 3. Birim Fiyat Sapması
-  const unitPriceAnomaly = await checkUnitPriceAnomaly(db, cur, curTarih, litre, tutar);
-  if (unitPriceAnomaly) detected.push(unitPriceAnomaly);
-
-  // 4. Yüksek Tüketim
-  const consumptionAnomaly = await checkHighConsumptionAnomaly(
-    db, cur, curTarih, curKm, prev, litre, sayacTipi, hedef
-  );
-  if (consumptionAnomaly) detected.push(consumptionAnomaly);
+  const detected = [
+    evalTankOverflowRule({ plaka: cur.plaka, depo, litre }),
+    evalConsecutiveFillRule({ plaka: cur.plaka, curTarih, curKm, prev, sayacTipi }),
+    await checkUnitPriceAnomaly(db, cur, curTarih, litre, tutar),
+    await checkHighConsumptionAnomaly(db, cur, curTarih, curKm, prev, litre, sayacTipi, hedef),
+  ].filter(Boolean);
 
   const inserted = [];
   for (const a of detected) {
@@ -241,31 +166,105 @@ const evaluateFuelRecordAnomalies = async (yakitId, { mode = 'create', db = pool
 };
 
 /**
- * Kullanıcının erişebildiği son N günlük yakıt kayıtlarını kronolojik sırayla tarar.
+ * Kullanıcının erişebildiği son N günlük yakıt kayıtlarını toplu sorgu + bellek içi pencereleme ile tarar.
  */
 const scanAccessibleFuelAnomalies = async (user, { gun = 90 } = {}) => {
   const { clause, params } = buildVehicleAccessFilter(user, 2);
   const baslangic = gunEkleTR(bugunTR(), -gun);
-  const rowsRes = await pool.query(
-    `SELECT y.yakit_id
-     FROM yakitlar y
-     INNER JOIN araclar a ON a.arac_id = y.arac_id
-     WHERE y.tarih >= $1::date
-       AND (${clause})
-     ORDER BY y.tarih ASC, y.km ASC NULLS LAST, y.yakit_id ASC`,
-    [baslangic, ...params]
+  const historyStart = gunEkleTR(baslangic, -90);
+  const priceStart = gunEkleTR(baslangic, -30);
+
+  const fuelRes = await pool.query(
+    `WITH erisebilir AS (
+       SELECT a.arac_id, a.org_id, a.plaka, a.sayac_tipi, a.depo_kapasitesi_l, a.hedef_tuketim
+       FROM araclar a
+       WHERE (${clause})
+     ),
+     sonrasi AS (
+       SELECT y.yakit_id, y.arac_id, y.tarih, y.litre, y.tutar, y.km,
+              e.org_id, e.plaka, e.sayac_tipi, e.depo_kapasitesi_l, e.hedef_tuketim
+       FROM yakitlar y
+       INNER JOIN erisebilir e ON e.arac_id = y.arac_id
+       WHERE y.tarih >= $1::date
+     ),
+     oncesi AS (
+       SELECT DISTINCT ON (y.arac_id)
+              y.yakit_id, y.arac_id, y.tarih, y.litre, y.tutar, y.km,
+              e.org_id, e.plaka, e.sayac_tipi, e.depo_kapasitesi_l, e.hedef_tuketim
+       FROM yakitlar y
+       INNER JOIN erisebilir e ON e.arac_id = y.arac_id
+       WHERE y.tarih < $1::date AND y.km IS NOT NULL AND y.km > 0
+       ORDER BY y.arac_id, y.tarih DESC, y.km DESC, y.yakit_id DESC
+     )
+     SELECT * FROM (SELECT * FROM oncesi UNION ALL SELECT * FROM sonrasi) birlesik
+     ORDER BY arac_id ASC, tarih ASC, km ASC NULLS LAST, yakit_id ASC`,
+    [historyStart, ...params]
   );
 
-  let yeniAnomali = 0;
-  for (const row of rowsRes.rows) {
-    const yeni = await evaluateFuelRecordAnomalies(row.yakit_id, { mode: 'scan' });
-    yeniAnomali += yeni.length;
+  const byVehicle = new Map();
+  const orgIdSet = new Set();
+  let tarananKayit = 0;
+
+  for (const row of fuelRes.rows) {
+    const curTarih = tarihStr(row.tarih);
+    const enriched = {
+      ...row,
+      tarihStr: curTarih,
+      litrePos: toPosNum(row.litre),
+      tutarPos: toPosNum(row.tutar),
+      kmPos: toPosNum(row.km),
+    };
+    if (curTarih && curTarih >= baslangic) {
+      tarananKayit += 1;
+      if (row.org_id !== null && row.org_id !== undefined) orgIdSet.add(Number(row.org_id));
+    }
+    if (!byVehicle.has(row.arac_id)) byVehicle.set(row.arac_id, []);
+    byVehicle.get(row.arac_id).push(enriched);
   }
 
-  return { taranan_kayit: rowsRes.rowCount || 0, yeni_anomali: yeniAnomali };
+  if (tarananKayit === 0) return { taranan_kayit: 0, yeni_anomali: 0 };
+
+  const pricesByOrg = new Map();
+  const orgIds = [...orgIdSet];
+  if (orgIds.length > 0) {
+    const priceRes = await pool.query(
+      `SELECT a.org_id, y.yakit_id, y.tarih, (y.tutar / y.litre)::numeric AS birim_fiyat
+       FROM yakitlar y
+       INNER JOIN araclar a ON a.arac_id = y.arac_id
+       WHERE a.org_id = ANY($1::int[]) AND y.litre > 0 AND y.tutar > 0 AND y.tarih >= $2::date
+       ORDER BY a.org_id ASC, y.tarih ASC, y.yakit_id ASC`,
+      [orgIds, priceStart]
+    );
+    for (const pr of priceRes.rows) {
+      const oid = Number(pr.org_id);
+      const birimFiyat = Number(pr.birim_fiyat);
+      if (!Number.isFinite(birimFiyat)) continue;
+      if (!pricesByOrg.has(oid)) pricesByOrg.set(oid, []);
+      pricesByOrg.get(oid).push({ yakit_id: pr.yakit_id, tarih: tarihStr(pr.tarih), birimFiyat });
+    }
+  }
+
+  const allDetected = collectScanAnomalies(byVehicle, pricesByOrg, baslangic);
+  if (allDetected.length === 0) return { taranan_kayit: tarananKayit, yeni_anomali: 0 };
+
+  const insRes = await pool.query(
+    `INSERT INTO yakit_anomalileri (org_id, arac_id, yakit_id, tip, seviye, olculen_deger, beklenen_esik, aciklama)
+     SELECT * FROM UNNEST($1::int[], $2::int[], $3::int[], $4::text[], $5::text[], $6::numeric[], $7::numeric[], $8::text[])
+     ON CONFLICT (yakit_id, tip) DO NOTHING
+     RETURNING anomali_id`,
+    [
+      allDetected.map((d) => d.org_id),
+      allDetected.map((d) => d.arac_id),
+      allDetected.map((d) => d.yakit_id),
+      allDetected.map((d) => d.tip),
+      allDetected.map((d) => d.seviye),
+      allDetected.map((d) => d.olculen_deger),
+      allDetected.map((d) => d.beklenen_esik),
+      allDetected.map((d) => d.aciklama),
+    ]
+  );
+
+  return { taranan_kayit: tarananKayit, yeni_anomali: insRes.rowCount || 0 };
 };
 
-module.exports = {
-  evaluateFuelRecordAnomalies,
-  scanAccessibleFuelAnomalies,
-};
+module.exports = { evaluateFuelRecordAnomalies, scanAccessibleFuelAnomalies };

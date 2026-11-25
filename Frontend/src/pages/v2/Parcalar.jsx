@@ -38,6 +38,7 @@ export default function Parcalar() {
 
   const vehicleFetchAttemptedRef = useRef(false);
   const mountedRef = useRef(true);
+  const requestIdRef = useRef(0);
 
   const role = resolveRole(user);
   const canManage = [ROLES.SYSTEM_ADMIN, ROLES.FLEET_MANAGER].includes(role);
@@ -58,16 +59,17 @@ export default function Parcalar() {
   }, [vehiclesHasLoaded, vehiclesLoading, fetchAraclar]);
 
   const verileriYukle = useCallback(async () => {
+    const reqId = ++requestIdRef.current;
     setLoading(true);
     try {
       const res = await parcaService.getAllParcalar();
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || reqId !== requestIdRef.current) return;
       setParcalar(Array.isArray(res) ? res : res?.parcalar || []);
     } catch (err) {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || reqId !== requestIdRef.current) return;
       notifyApiError(err, 'Parça listesi alınamadı.');
     } finally {
-      if (mountedRef.current) {
+      if (mountedRef.current && reqId === requestIdRef.current) {
         setLoading(false);
         setHasLoaded(true);
       }
@@ -80,6 +82,7 @@ export default function Parcalar() {
 
   useEffect(() => {
     const handleDataChanged = (event) => {
+      if (event?.detail?.source === 'parcalar-page') return;
       const scope = event?.detail?.scope;
       if (!scope || scope === 'component' || scope === 'movement' || scope === 'vehicle') {
         verileriYukle();
@@ -192,6 +195,9 @@ export default function Parcalar() {
 
   const handleSheetSuccess = useCallback(async () => {
     await verileriYukle();
+    window.dispatchEvent(
+      new CustomEvent('truss:data-changed', { detail: { scope: 'component', source: 'parcalar-page' } })
+    );
   }, [verileriYukle]);
 
   const handleDeleteRequest = useCallback(
@@ -210,6 +216,9 @@ export default function Parcalar() {
       toast.success('Parça takip kaydı silindi.');
       setDeleteTarget(null);
       await verileriYukle();
+      window.dispatchEvent(
+        new CustomEvent('truss:data-changed', { detail: { scope: 'component', source: 'parcalar-page' } })
+      );
     } catch (err) {
       notifyApiError(err, 'Parça silinemedi.');
     } finally {

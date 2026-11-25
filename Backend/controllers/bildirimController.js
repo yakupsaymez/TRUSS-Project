@@ -7,6 +7,8 @@ const { NOTIFY_DAY_THRESHOLD, PREDICTIVE_NOTIFY_DAY_THRESHOLD, evaluateEvrakAler
 const { hasFinanceAccess } = require('../services/notificationService');
 
 const SEVIYE_SIRASI = { kritik: 0, uyari: 1, bilgi: 2 };
+const VISIBLE_COND = "COALESCE((meta_json->>'uygulama_gizli')::boolean, FALSE) = FALSE";
+const VISIBLE_COND_B = "COALESCE((b.meta_json->>'uygulama_gizli')::boolean, FALSE) = FALSE";
 
 const getBildirimler = async (req, res) => {
   const schema = Joi.object({
@@ -21,7 +23,7 @@ const getBildirimler = async (req, res) => {
 
   try {
     const finansYetkisi = hasFinanceAccess(req.user);
-    const conditions = ['b.user_id = $1'];
+    const conditions = ['b.user_id = $1', VISIBLE_COND_B];
     const params = [req.user.user_id];
     if (!finansYetkisi) conditions.push("b.kategori <> 'maliyet_ozeti'");
     if (value.sadece_okunmamis) conditions.push('b.okundu_mu = FALSE');
@@ -33,8 +35,8 @@ const getBildirimler = async (req, res) => {
     const whereClause = conditions.join(' AND ');
     const listParams = [...params, value.limit, value.offset];
     const unreadQuery = finansYetkisi
-      ? 'SELECT COUNT(*)::int AS okunmamis FROM bildirim_olaylari WHERE user_id = $1 AND okundu_mu = FALSE'
-      : "SELECT COUNT(*)::int AS okunmamis FROM bildirim_olaylari WHERE user_id = $1 AND okundu_mu = FALSE AND kategori <> 'maliyet_ozeti'";
+      ? `SELECT COUNT(*)::int AS okunmamis FROM bildirim_olaylari WHERE user_id = $1 AND okundu_mu = FALSE AND ${VISIBLE_COND}`
+      : `SELECT COUNT(*)::int AS okunmamis FROM bildirim_olaylari WHERE user_id = $1 AND okundu_mu = FALSE AND ${VISIBLE_COND} AND kategori <> 'maliyet_ozeti'`;
 
     const [listRes, countRes, unreadRes] = await Promise.all([
       pool.query(
@@ -66,10 +68,13 @@ const markBildirimOkundu = async (req, res) => {
   if (paramCheck.error) return res.status(400).json({ message: 'Geçersiz bildirim kimliği.' });
 
   try {
+    const finansYetkisi = hasFinanceAccess(req.user);
+    const financeFilter = finansYetkisi ? '' : " AND kategori <> 'maliyet_ozeti'";
+
     const updateRes = await pool.query(
       `UPDATE bildirim_olaylari
        SET okundu_mu = TRUE, okunma_tarihi = COALESCE(okunma_tarihi, NOW())
-       WHERE bildirim_id = $1 AND user_id = $2
+       WHERE bildirim_id = $1 AND user_id = $2 AND ${VISIBLE_COND}${financeFilter}
        RETURNING *`,
       [paramCheck.value.id, req.user.user_id]
     );
@@ -78,7 +83,9 @@ const markBildirimOkundu = async (req, res) => {
     }
 
     const unreadRes = await pool.query(
-      'SELECT COUNT(*)::int AS okunmamis FROM bildirim_olaylari WHERE user_id = $1 AND okundu_mu = FALSE',
+      `SELECT COUNT(*)::int AS okunmamis
+       FROM bildirim_olaylari
+       WHERE user_id = $1 AND okundu_mu = FALSE AND ${VISIBLE_COND}${financeFilter}`,
       [req.user.user_id]
     );
     return res.status(200).json({ bildirim: updateRes.rows[0], okunmamis_sayisi: unreadRes.rows[0]?.okunmamis || 0 });
@@ -90,10 +97,13 @@ const markBildirimOkundu = async (req, res) => {
 
 const markTumBildirimlerOkundu = async (req, res) => {
   try {
+    const finansYetkisi = hasFinanceAccess(req.user);
+    const financeFilter = finansYetkisi ? '' : " AND kategori <> 'maliyet_ozeti'";
+
     const result = await pool.query(
       `UPDATE bildirim_olaylari
        SET okundu_mu = TRUE, okunma_tarihi = COALESCE(okunma_tarihi, NOW())
-       WHERE user_id = $1 AND okundu_mu = FALSE`,
+       WHERE user_id = $1 AND okundu_mu = FALSE AND ${VISIBLE_COND}${financeFilter}`,
       [req.user.user_id]
     );
     return res.status(200).json({

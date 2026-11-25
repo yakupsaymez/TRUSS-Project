@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Building2 } from 'lucide-react';
 import useAuthStore from '@/store/useAuthStore';
 import { resolveRole, ROLES } from '@/components/v2/channelAccess';
@@ -44,6 +45,7 @@ function SettingsSkeleton() {
 }
 
 export default function Ayarlar() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const user = useAuthStore((s) => s.user);
 
   const role = resolveRole(user);
@@ -58,13 +60,34 @@ export default function Ayarlar() {
     [isManager]
   );
 
-  const [activeTab, setActiveTab] = useState('genel');
+  const urlTab = searchParams.get('tab');
+  const resolvedUrlTab =
+    urlTab && settingsTabs.some((t) => t.id === urlTab) && (urlTab !== 'organizasyon' || isManager)
+      ? urlTab
+      : null;
+
+  const [activeTab, setActiveTab] = useState(() => resolvedUrlTab || 'genel');
 
   useEffect(() => {
-    if (!isManager && activeTab === 'organizasyon') {
+    if (resolvedUrlTab) {
+      setActiveTab((prev) => (prev === resolvedUrlTab ? prev : resolvedUrlTab));
+    } else if (!isManager && activeTab === 'organizasyon') {
       setActiveTab('genel');
     }
-  }, [isManager, activeTab]);
+  }, [resolvedUrlTab, isManager, activeTab]);
+
+  const handleTabChange = (tabId) => {
+    if (!settingsTabs.some((t) => t.id === tabId)) return;
+    if (tabId === 'organizasyon' && !isManager) return;
+    setActiveTab(tabId);
+    const next = new URLSearchParams(searchParams);
+    if (tabId === 'genel') {
+      next.delete('tab');
+    } else {
+      next.set('tab', tabId);
+    }
+    setSearchParams(next, { replace: true });
+  };
 
   const data = useAyarlarData({ user, isManager });
 
@@ -95,7 +118,7 @@ export default function Ayarlar() {
                   type="button"
                   role="tab"
                   aria-selected={isActive}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={cn(
                     'inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors',
                     isActive
@@ -125,7 +148,7 @@ export default function Ayarlar() {
                   type="button"
                   role="tab"
                   aria-selected={isActive}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={cn(
                     'flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium whitespace-nowrap transition-colors',
                     isActive

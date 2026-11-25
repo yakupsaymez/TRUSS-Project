@@ -141,7 +141,6 @@ export default function AppShell() {
             open={vehicleSheetOpen}
             onOpenChange={setVehicleSheetOpen}
             arac={null}
-            onSuccess={() => notifyDataChanged('vehicle')}
           />
         )}
         {canManage && componentSheetState.open && (

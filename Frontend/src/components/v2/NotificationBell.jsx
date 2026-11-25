@@ -214,7 +214,7 @@ export default function NotificationBell() {
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => { setOpen(false); navigate('/app/ayarlar'); }}
+            onClick={() => { setOpen(false); navigate('/app/ayarlar?tab=bildirimler'); }}
             className="h-8 w-full justify-between px-2.5 text-xs text-muted-foreground hover:text-foreground"
           >
             <span>Bildirim tercihleri</span>
