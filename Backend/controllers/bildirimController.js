@@ -178,6 +178,7 @@ const getAksiyonMerkezi = async (req, res) => {
         `SELECT a.arac_id, a.plaka, a.muayene_tarihi, a.kasko_tarihi, a.sigorta_tarihi
          FROM araclar a
          WHERE (${accessFilter.clause})
+           AND a.arsivlendi_mi = FALSE
            AND (
              (a.muayene_tarihi IS NOT NULL AND a.muayene_tarihi <= $${accessFilter.params.length + 1}::date)
              OR (a.kasko_tarihi IS NOT NULL AND a.kasko_tarihi <= $${accessFilter.params.length + 1}::date)
@@ -195,7 +196,7 @@ const getAksiyonMerkezi = async (req, res) => {
                 ) AS guncel_km
          FROM parca_takip p
          INNER JOIN araclar a ON a.arac_id = p.arac_id
-         WHERE ${accessFilter.clause}`,
+         WHERE (${accessFilter.clause}) AND a.arsivlendi_mi = FALSE`,
         accessFilter.params
       ),
       fetchPredictiveCandidates({ accessFilter }),

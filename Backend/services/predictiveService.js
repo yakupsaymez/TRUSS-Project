@@ -56,7 +56,7 @@ const fetchPredictiveCandidates = async (options = {}) => {
         LIMIT 2
       ) t
     ) rh ON TRUE
-    WHERE ${accessFilter.clause}
+    WHERE (${accessFilter.clause}) AND a.arsivlendi_mi = FALSE
     ORDER BY a.arac_id ASC
   `;
 

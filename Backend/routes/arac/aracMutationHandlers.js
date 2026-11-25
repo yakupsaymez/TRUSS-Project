@@ -224,29 +224,6 @@ const updateArac = async (req, res) => {
   }
 };
 
-// DELETE /api/araclar/:arac_id — ARAÇ SİL (Sadece SYSTEM_ADMIN ve FLEET_MANAGER)
-const deleteArac = async (req, res) => {
-  const { arac_id } = req.params;
-  const aracId = Number(arac_id);
-  if (!Number.isInteger(aracId) || aracId <= 0) {
-    return res.status(400).json({ message: 'Geçersiz araç kimliği.' });
-  }
-
-  try {
-    const { clause, params } = buildVehicleAccessFilter(req.user, 2);
-    const result = await pool.query(
-      `DELETE FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
-      [aracId, ...params]
-    );
-    if (result.rowCount === 0) return res.status(404).json({ message: 'Araç bulunamadı' });
-    res.status(200).json({ message: 'Araç başarıyla silindi' });
-  } catch (err) {
-    console.error('Araç Silme Hatası:', err);
-    res.status(500).json({ message: 'Sunucu hatası' });
-  }
-};
-
 module.exports = {
   updateArac,
-  deleteArac,
 };

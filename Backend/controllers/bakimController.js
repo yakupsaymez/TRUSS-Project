@@ -2,14 +2,8 @@ const pool = require('../db');
 const Joi = require('joi');
 const { buildVehicleAccessFilter } = require('../middlewares/rbacMiddleware');
 const { ileriTarihMi, tarihStr } = require('../utils/dateUtils');
-const {
-  araclariKilitle,
-  aracSayaciniSenkronizeEt,
-  sayacSinirlari,
-  sayacIhlaliMi,
-  sayac422Govdesi,
-  sayacBirimi,
-} = require('../utils/odometerGuard');
+const { araclariKilitle, arsivliAracEngelle, aracSayaciniSenkronizeEt, sayacSinirlari, sayacIhlaliMi, sayac422Govdesi, sayacBirimi } = require('../utils/odometerGuard');
+const { logAuditEvent } = require('../services/auditService');
 
 const extractFaturaFromNotlar = (rawNotlar) => {
   if (!rawNotlar) return null;
@@ -155,6 +149,7 @@ const createBakim = async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(403).json({ message: 'Bu aracı duzenlemek icin yetkiniz yoktur.' });
     }
+    if (await arsivliAracEngelle(client, res, hedefArac, 'bakım kaydı')) return;
 
     // Kronoloji kontrolü: tarihe göre alt/üst sınır (araclar.guncel_* alt sınıra katılmaz)
     const sinirlar = await sayacSinirlari(client, { aracId, tarih: gun });
@@ -319,6 +314,7 @@ const updateBakim = async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(403).json({ message: 'Hedef araca erişim yetkiniz yoktur.' });
     }
+    if (kaynakAracId !== hedefAracId && await arsivliAracEngelle(client, res, hedefArac, 'bakım kaydı')) return;
 
     if (kaynakAracId !== hedefAracId && kaynakArac && kaynakArac.sayac_tipi !== hedefArac.sayac_tipi) {
       await client.query('ROLLBACK');
@@ -392,7 +388,7 @@ const deleteBakim = async (req, res) => {
 
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
     const bakimCheck = await client.query(
-      `SELECT b.bakim_id, b.arac_id, b.km
+      `SELECT b.bakim_id, b.arac_id, b.km, a.plaka, a.org_id, b.bakim_tipi, b.tarih, b.maliyet
        FROM bakimlar b
        INNER JOIN araclar a ON b.arac_id = a.arac_id
        WHERE b.bakim_id = $1 AND (${clause})
@@ -405,14 +401,20 @@ const deleteBakim = async (req, res) => {
       return res.status(404).json({ message: 'Bakim kaydi bulunamadi' });
     }
 
-    const aracId = Number(bakimCheck.rows[0].arac_id);
-    const eskiKm = bakimCheck.rows[0].km;
+    const row = bakimCheck.rows[0];
+    const aracId = Number(row.arac_id);
+    const eskiKm = row.km;
 
     await araclariKilitle(client, [aracId]);
     await client.query('DELETE FROM bakimlar WHERE bakim_id = $1', [bakimId]);
     await aracSayaciniSenkronizeEt(client, { aracId, eskiKm });
 
     await client.query('COMMIT');
+    await logAuditEvent(req, {
+      eylem: 'BAKIM_SILINDI', varlik_tipi: 'bakim', varlik_id: bakimId, org_id: row.org_id,
+      ozet: `${row.plaka} plakalı aracın ${row.tarih} tarihli bakım kaydı silindi.`,
+      detay: { plaka: row.plaka, bakim_tipi: row.bakim_tipi, tarih: row.tarih, maliyet: row.maliyet },
+    });
 
     return res.status(200).json({ message: 'Bakim kaydi silindi' });
   } catch (err) {

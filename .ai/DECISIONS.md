@@ -112,3 +112,8 @@
 - **Kök Neden:** Global `100kb` JSON limiti büyük CSV gövdelerini kesebilir, tek başına `fatura_no` gerçek çift dolumları kaçırıp sahte çakışma üretebilir ve aynı gün ters-sıralı (`DESC`) CSV ekstreleri kronolojik sayaç doğrulamasında sahte `SAYAC_TUTARSIZ` reddine yol açabilirdi.
 - **Kalıcı Kural:** `/api/yakitlar/toplu-*` için global JSON parser atlanıp rota-lokal `1mb` `bulkJsonParser` uygulanır; `FOR UPDATE` kilidi altında `arac_id|tarih|litre|tutar|km` fiziksel dolum imzası (tek başına `fatura_no` yasak) ile dedup yapılır, adaylar `(tarih ASC, km ASC NULLS LAST, satir_no ASC)` sıralanıp tek `UNNEST` ile yazılır ve ardından `evaluateBatchFuelAnomalies` çalıştırılır.
 
+### ADR-23: Araç Soft-Archive (`arsivlendi_mi`) & Değişmez Denetim İzi (`denetim_kayitlari`)
+- **Tarih:** 2026-11-25 (`V2.2-AUDIT-BE`)
+- **Kök Neden:** Geçmiş yakıt/bakım/maliyetli parça kaydı olan araçların fiziksel silinmesi tarihsel finansal bütünlüğü bozuyor, ancak `parca_takip` başlangıç şablonu (maliyetsiz) hard-delete'i engellememeli; kritik mutasyonlar için de silinmeyen, kurcalanamayan ve kiracı izoleli denetim izi gerekiyordu.
+- **Kalıcı Kural:** `DELETE /api/araclar/:id` geçmiş yakıt/bakım veya `COALESCE(maliyet, 0) > 0` parça varsa aktif zimmetleri kapatıp `araclar.arsivlendi_mi = TRUE` yapar (arşivli araca yeni yakıt/bakım/CSV/zimmet `409 VEHICLE_ARCHIVED` ile engellenir, geçmiş maliyetler korunur); `denetim_kayitlari` `varlik_id` üzerinde FK/`CASCADE` olmadan append-only (`GET /api/denetim-kayitlari`) tutulur, `COMMIT` sonrası maskeli `auditService.logAuditEvent` ile yazılır ve `ADR-13` `org_id` izolasyonu (`403 FORBIDDEN_ORG_REQUIRED`) uygular.
+

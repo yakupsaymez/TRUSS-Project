@@ -7,6 +7,7 @@ const {
   ensureManagerOrgId,
   resolveManageableUser,
 } = require('./adminHelpers');
+const { logAuditEvent } = require('../../services/auditService');
 
 // 1. GET /api/admin/users — Yöneticiyle aynı org_id'ye sahip kullanıcıları ve zimmetli araçlarını listele
 const getOrgUsers = async (req, res) => {
@@ -154,6 +155,14 @@ const updateUserRole = async (req, res) => {
     }
 
     await client.query('COMMIT');
+    await logAuditEvent(req, {
+      eylem: 'KULLANICI_ROL_GUNCELLENDI',
+      varlik_tipi: 'user',
+      varlik_id: targetId,
+      org_id: ctx.orgId,
+      ozet: `${result.rows[0].email} kullanıcısının rolü ${eskiRol} -> ${value.role} olarak güncellendi.`,
+      detay: { email: result.rows[0].email, eski_rol: eskiRol, yeni_rol: value.role, kapatilan_zimmet_sayisi: kapatilanZimmetSayisi },
+    });
     return res.status(200).json({
       message: 'Kullanıcı rolü güncellendi.',
       user: result.rows[0],
@@ -203,6 +212,14 @@ const updateUserPermissions = async (req, res) => {
        RETURNING user_id, ad_soyad, email, telefon, role, org_id, yetkiler`,
       [JSON.stringify(value.yetkiler), targetId, ctx.orgId]
     );
+    await logAuditEvent(req, {
+      eylem: 'KULLANICI_YETKI_GUNCELLENDI',
+      varlik_tipi: 'user',
+      varlik_id: targetId,
+      org_id: ctx.orgId,
+      ozet: `${result.rows[0].email} kullanıcısının yetkileri güncellendi.`,
+      detay: { email: result.rows[0].email, degisen_yetkiler: value.yetkiler, guncel_yetkiler: result.rows[0].yetkiler },
+    });
     return res.status(200).json({ message: 'Kullanıcı yetkileri güncellendi.', user: result.rows[0] });
   } catch (err) {
     console.error('Yetki güncelleme hatası:', err);

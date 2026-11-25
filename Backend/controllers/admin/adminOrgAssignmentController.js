@@ -46,7 +46,7 @@ const assignVehicleToDriver = async (req, res) => {
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
     const orgParamIdx = 2 + params.length;
     const aracCheck = await client.query(
-      `SELECT a.arac_id, a.plaka, a.marka, a.model
+      `SELECT a.arac_id, a.plaka, a.marka, a.model, a.arsivlendi_mi
        FROM araclar a
        WHERE a.arac_id = $1
          AND (${clause})
@@ -57,6 +57,13 @@ const assignVehicleToDriver = async (req, res) => {
     if (aracCheck.rowCount === 0) {
       await client.query('ROLLBACK');
       return res.status(403).json({ message: 'Bu araç filonuza ait değil veya yetkiniz yok.' });
+    }
+    if (aracCheck.rows[0].arsivlendi_mi) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        code: 'VEHICLE_ARCHIVED',
+        message: 'Arşivlenmiş araca şoför zimmetlenemez.',
+      });
     }
 
     // Şoförün aynı organizasyonda olduğunu doğrula; satır kilitlenir (eşzamanlı rol değişimi araya giremez)
@@ -185,7 +192,7 @@ const getOrganization = async (req, res) => {
          o.aktif,
          o.olusturulma_tarihi,
          (SELECT COUNT(*)::int FROM users u WHERE u.org_id = o.org_id) AS uye_sayisi,
-         (SELECT COUNT(*)::int FROM araclar a WHERE a.org_id = o.org_id) AS arac_sayisi
+         (SELECT COUNT(*)::int FROM araclar a WHERE a.org_id = o.org_id AND a.arsivlendi_mi = FALSE) AS arac_sayisi
        FROM organizations o
        WHERE o.org_id = $1
        LIMIT 1`,

@@ -21,7 +21,7 @@ const cmpImportOrder = (a, b) => {
 const loadAccessibleVehicles = async (db, user) => {
   const { clause, params } = buildVehicleAccessFilter(user, 1);
   const res = await db.query(
-    `SELECT a.arac_id, a.org_id, a.plaka, a.sayac_tipi,
+    `SELECT a.arac_id, a.org_id, a.plaka, a.sayac_tipi, a.arsivlendi_mi,
             COALESCE(a.guncel_km, 0)::int AS guncel_km,
             COALESCE(a.guncel_calisma_saati, 0)::int AS guncel_calisma_saati,
             a.depo_kapasitesi_l, a.hedef_tuketim, v.yakit_tipi AS arac_yakit_tipi
@@ -93,6 +93,10 @@ const evaluateImportRows = async (db, parsedRows, byPlate) => {
     const vehicle = byPlate.get(row.plaka);
     if (!vehicle) {
       results.push(formatRow(row, 'hatali', { neden_kodu: 'TANIMSIZ_PLAKA', neden_mesaj: 'Plaka erişilebilir araçlar arasında bulunamadı.' }));
+      continue;
+    }
+    if (vehicle.arsivlendi_mi) {
+      results.push(formatRow(row, 'hatali', { arac_id: vehicle.arac_id, neden_kodu: 'ARAC_ARSIVLI', neden_mesaj: 'Arşivlenmiş araca yakıt kaydı aktarılamaz.' }));
       continue;
     }
     const yakitTipi = row.yakit_tipi || (vehicle.arac_yakit_tipi ? String(vehicle.arac_yakit_tipi).trim().slice(0, 50) : null);
@@ -201,7 +205,7 @@ const importFuelCsv = async (user, csvText) => {
       const lockMap = new Map((await araclariKilitle(client, lockIds)).map((l) => [l.arac_id, l]));
       for (const v of byPlate.values()) {
         const l = lockMap.get(v.arac_id);
-        if (l) Object.assign(v, { sayac_tipi: l.sayac_tipi, guncel_km: Number(l.guncel_km || 0), guncel_calisma_saati: Number(l.guncel_calisma_saati || 0) });
+        if (l) Object.assign(v, { sayac_tipi: l.sayac_tipi, guncel_km: Number(l.guncel_km || 0), guncel_calisma_saati: Number(l.guncel_calisma_saati || 0), arsivlendi_mi: Boolean(l.arsivlendi_mi) });
       }
     }
 

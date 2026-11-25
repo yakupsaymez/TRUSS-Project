@@ -13,6 +13,7 @@ const getGenelOzet = async (req, res) => {
         SELECT
           a.arac_id,
           a.sayac_tipi,
+          a.arsivlendi_mi,
           GREATEST(
             COALESCE(CASE WHEN a.sayac_tipi = 'SMH' THEN a.guncel_calisma_saati ELSE a.guncel_km END, 0),
             COALESCE((SELECT MAX(km) FROM bakimlar WHERE arac_id = a.arac_id), 0),
@@ -37,12 +38,13 @@ const getGenelOzet = async (req, res) => {
         SELECT COUNT(*) AS yaklasan_parca_sayisi
         FROM parca_takip p
         INNER JOIN kullanici_araclari ka ON ka.arac_id = p.arac_id
-        WHERE p.degisim_araligi_km IS NOT NULL
+        WHERE ka.arsivlendi_mi = FALSE
+          AND p.degisim_araligi_km IS NOT NULL
           AND p.degisim_araligi_km > 0
           AND ((COALESCE(p.son_degisim_km, 0) + p.degisim_araligi_km) - GREATEST(ka.guncel_km, COALESCE(p.son_degisim_km, 0))) <= LEAST(1500, ROUND(p.degisim_araligi_km * 0.15))
       )
       SELECT
-        (SELECT COUNT(*) FROM kullanici_araclari)::int AS toplam_arac,
+        (SELECT COUNT(*) FROM kullanici_araclari WHERE arsivlendi_mi = FALSE)::int AS toplam_arac,
         (SELECT toplam_yakit FROM yakit_toplam)::numeric AS toplam_yakit_gideri,
         (SELECT toplam_litre FROM yakit_toplam)::numeric AS toplam_litre,
         (SELECT toplam_bakim FROM bakim_toplam)::numeric AS toplam_bakim_gideri,

@@ -13,6 +13,7 @@ const raporRoutes = require('./routes/raporRoutes'); // Rapor ve özet endpoint'
 const adminRoutes = require('./routes/adminRoutes'); // Ekip ve şoför yönetimi rotalarını dahil eder.
 const katalogRoutes = require('./routes/katalogRoutes'); // Araç katalog (marka/model/varyant) rotalarını dahil eder.
 const bildirimRoutes = require('./routes/bildirimRoutes'); // Bildirim olayları ve aksiyon merkezi rotalarını dahil eder.
+const denetimRoutes = require('./routes/denetimRoutes'); // Değişmez denetim izi rotalarını dahil eder.
 
 const app = express(); // Express uygulama nesnesini olusturur.
 
@@ -44,5 +45,6 @@ app.use('/api/raporlar', raporRoutes); // Rapor ve özet rotalarını uygular.
 app.use('/api/admin', adminRoutes); // Ekip ve şoför yönetimi rotalarını uygular.
 app.use('/api/katalog', katalogRoutes); // Kademeli araç katalog rotalarını uygular.
 app.use('/api/bildirimler', bildirimRoutes); // Bildirim ve aksiyon merkezi rotalarını uygular.
+app.use('/api/denetim-kayitlari', denetimRoutes); // Değişmez denetim izi rotalarını uygular.
 
 module.exports = app; // Uygulama nesnesini index.js dosyasinda baslatmak uzere disa aktarir.

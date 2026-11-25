@@ -381,3 +381,34 @@ CREATE INDEX IF NOT EXISTS idx_yakit_anomalileri_org_durum
 CREATE INDEX IF NOT EXISTS idx_yakit_anomalileri_arac
     ON yakit_anomalileri (arac_id);
 
+-- MIGRATION: V2.2-AUDIT
+ALTER TABLE araclar
+    ADD COLUMN IF NOT EXISTS arsivlendi_mi BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS arsiv_tarihi TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS arsiv_nedeni VARCHAR(240);
+
+CREATE INDEX IF NOT EXISTS idx_araclar_org_aktif
+    ON araclar (org_id, arsivlendi_mi);
+
+CREATE TABLE IF NOT EXISTS denetim_kayitlari (
+    denetim_id BIGSERIAL PRIMARY KEY,
+    org_id INTEGER REFERENCES organizations(org_id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
+    kullanici_eposta VARCHAR(160),
+    kullanici_rol VARCHAR(40),
+    eylem VARCHAR(60) NOT NULL,
+    varlik_tipi VARCHAR(40) NOT NULL,
+    varlik_id INTEGER,
+    ozet TEXT NOT NULL,
+    detay_json JSONB,
+    ip_adresi VARCHAR(64),
+    olusturma_tarihi TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_denetim_org_tarih
+    ON denetim_kayitlari (org_id, olusturma_tarihi DESC);
+
+CREATE INDEX IF NOT EXISTS idx_denetim_varlik
+    ON denetim_kayitlari (varlik_tipi, varlik_id);
+
+

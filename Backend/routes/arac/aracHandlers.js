@@ -9,7 +9,7 @@ const {
   dogrulaKategoriId,
 } = require('./aracHelpers');
 const { ensureManagerOrgId } = require('../../controllers/admin/adminHelpers');
-const { updateArac, deleteArac } = require('./aracMutationHandlers');
+const { updateArac } = require('./aracMutationHandlers');
 
 // POST /api/araclar/ekle — ARAÇ EKLE (Sadece SYSTEM_ADMIN ve FLEET_MANAGER)
 const createArac = async (req, res) => {
@@ -157,6 +157,12 @@ const createArac = async (req, res) => {
 // GET /api/araclar — ARAÇLARI LİSTELE (RBAC Filtreli: SYSTEM_ADMIN, FLEET_MANAGER, DRIVER)
 // Son bakım, güncel sayaç, bakım periyodu ve son 30 gün yakıt gideri tek sorguda döner (N+1 engeli)
 const listAraclar = async (req, res) => {
+  const arsivParam = req.query?.arsiv ? String(req.query.arsiv).trim().toLowerCase() : 'aktif';
+  if (!['aktif', 'sadece', 'dahil'].includes(arsivParam)) {
+    return res.status(400).json({ message: 'Geçersiz arsiv parametresi.' });
+  }
+  const arsivClause =
+    arsivParam === 'aktif' ? 'AND a.arsivlendi_mi = FALSE' : arsivParam === 'sadece' ? 'AND a.arsivlendi_mi = TRUE' : '';
   try {
     const { clause, params } = buildVehicleAccessFilter(req.user);
     const result = await pool.query(
@@ -212,7 +218,7 @@ const listAraclar = async (req, res) => {
          ORDER BY asa.atanma_tarihi DESC, asa.atama_id DESC
          LIMIT 1
        ) z ON TRUE
-       WHERE ${clause}
+       WHERE (${clause}) ${arsivClause}
        ORDER BY a.arac_id DESC`,
       params
     );
@@ -284,6 +290,5 @@ module.exports = {
   createArac,
   listAraclar,
   updateAracKonum,
-  deleteArac,
   updateArac,
 };

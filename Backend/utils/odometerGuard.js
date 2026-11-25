@@ -14,7 +14,7 @@ const araclariKilitle = async (client, aracIdler) => {
     .sort((a, b) => a - b);
   if (idler.length === 0) return [];
   const result = await client.query(
-    `SELECT arac_id, sayac_tipi, guncel_km, guncel_calisma_saati
+    `SELECT arac_id, sayac_tipi, guncel_km, guncel_calisma_saati, arsivlendi_mi
      FROM araclar
      WHERE arac_id = ANY($1::int[])
      ORDER BY arac_id
@@ -22,6 +22,17 @@ const araclariKilitle = async (client, aracIdler) => {
     [idler]
   );
   return result.rows;
+};
+
+// Arşivlenmiş araca yeni yakıt/bakım eklenmesini veya taşınmasını engeller (409)
+const arsivliAracEngelle = async (client, res, arac, tur = 'kayıt') => {
+  if (!arac?.arsivlendi_mi) return false;
+  await client.query('ROLLBACK');
+  res.status(409).json({
+    code: 'VEHICLE_ARCHIVED',
+    message: `Arşivlenmiş araca yeni ${tur} eklenemez.`,
+  });
+  return true;
 };
 
 // İzin verilen sayaç aralığı: alt = tarih ve öncesindeki en yüksek km, üst = tarihten sonraki en düşük km
@@ -159,6 +170,7 @@ module.exports = {
   SAYAC_KAYNAKLARI,
   sayacBirimi,
   araclariKilitle,
+  arsivliAracEngelle,
   aracSayaciniSenkronizeEt,
   sayacSinirlari,
   sayacIhlaliMi,

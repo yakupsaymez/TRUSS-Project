@@ -20,7 +20,7 @@ const buildVehicleTcoQuery = (accessClause, startIdx, endIdx) => `
         COALESCE((SELECT MAX(km) FROM yakitlar WHERE arac_id = a.arac_id), 0)
       ) AS guncel_km
     FROM araclar a
-    WHERE ${accessClause}
+    WHERE (${accessClause}) AND a.arsivlendi_mi = FALSE
   ),
   yakit_donem AS (
     SELECT arac_id, COALESCE(SUM(tutar), 0)::numeric AS yakit_maliyet, COALESCE(SUM(litre), 0)::numeric AS toplam_litre
@@ -163,7 +163,7 @@ const computeTcoAnalysis = async (user, donemGun = 90) => {
     SELECT p.parca_id, p.arac_id, p.parca_adi, p.son_degisim_km, p.degisim_araligi_km, p.son_degisim_tarihi
     FROM parca_takip p
     INNER JOIN araclar a ON a.arac_id = p.arac_id
-    WHERE ${access.clause}
+    WHERE (${access.clause}) AND a.arsivlendi_mi = FALSE
   `;
 
   const [vehicleRes, parcaRes] = await Promise.all([

@@ -5,9 +5,9 @@ const {
   createArac,
   listAraclar,
   updateAracKonum,
-  deleteArac,
   updateArac,
 } = require('./arac/aracHandlers');
+const { deleteArac, archiveArac, restoreArac } = require('./arac/aracArchiveHandlers');
 
 const router = express.Router();
 
@@ -20,7 +20,11 @@ router.get('/', authMiddleware, listAraclar);
 // ARAÇ CANLI KONUM / SÜRÜCÜ CHECK-IN GÜNCELLE (SYSTEM_ADMIN, FLEET_MANAGER ve zimmetli DRIVER)
 router.put('/:id/konum', authMiddleware, updateAracKonum);
 
-// ARAÇ SİL (Sadece SYSTEM_ADMIN ve FLEET_MANAGER)
+// ARAÇ ARŞİVLE / GERİ YÜKLE (Sadece SYSTEM_ADMIN ve FLEET_MANAGER)
+router.patch('/:arac_id/arsiv', authMiddleware, authorizeRoles('SYSTEM_ADMIN', 'FLEET_MANAGER'), archiveArac);
+router.patch('/:arac_id/geri-yukle', authMiddleware, authorizeRoles('SYSTEM_ADMIN', 'FLEET_MANAGER'), restoreArac);
+
+// ARAÇ SİL / SOFT-ARCHIVE (Sadece SYSTEM_ADMIN ve FLEET_MANAGER)
 router.delete('/:arac_id', authMiddleware, authorizeRoles('SYSTEM_ADMIN', 'FLEET_MANAGER'), deleteArac);
 
 // ARAÇ GÜNCELLE (Sadece SYSTEM_ADMIN ve FLEET_MANAGER)

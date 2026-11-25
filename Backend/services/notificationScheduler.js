@@ -31,9 +31,12 @@ const notifyEvraklar = async ({ skipEmail = false, now = new Date() } = {}) => {
     `SELECT a.arac_id, a.org_id, a.kullanici_id, a.plaka,
             a.muayene_tarihi, a.kasko_tarihi, a.sigorta_tarihi
      FROM araclar a
-     WHERE (a.muayene_tarihi IS NOT NULL AND a.muayene_tarihi <= $1::date)
-        OR (a.kasko_tarihi IS NOT NULL AND a.kasko_tarihi <= $1::date)
-        OR (a.sigorta_tarihi IS NOT NULL AND a.sigorta_tarihi <= $1::date)`,
+     WHERE a.arsivlendi_mi = FALSE
+       AND (
+         (a.muayene_tarihi IS NOT NULL AND a.muayene_tarihi <= $1::date)
+         OR (a.kasko_tarihi IS NOT NULL AND a.kasko_tarihi <= $1::date)
+         OR (a.sigorta_tarihi IS NOT NULL AND a.sigorta_tarihi <= $1::date)
+       )`,
     [sinirTarih]
   );
 
@@ -73,6 +76,7 @@ const notifyParcalar = async ({ skipEmail = false, now = new Date() } = {}) => {
            ) AS guncel_km
     FROM parca_takip p
     INNER JOIN araclar a ON a.arac_id = p.arac_id
+    WHERE a.arsivlendi_mi = FALSE
   `);
 
   const recipientCache = new Map();

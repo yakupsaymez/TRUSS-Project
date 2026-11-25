@@ -28,9 +28,10 @@
   - `OPS-5b`: Principal Critic & Anti-Median Standardı (`.agent/rules/00-truss-core.md` §5 Principal Bar, `.agent/skills/critic/SKILL.md` `/critic`, `truss/SKILL.md` Faz 1 zorunlu Red-Team kilidi ve `s5-architect`/`s3-qa` seam şüpheciliği) — **QA PASS**.
   - `V2.2-IMPORT-BE`: `Backend/utils/csvFuelParser.js` (RFC-4180 TR/EN ayrıştırıcı, 1000 satır limiti, `ADR-02` TR takvim), `fuelImportService.js` (`FOR UPDATE`, fiziksel imza dedup, ters-sıralı aynı gün kronoloji koruması, `UNNEST` toplu yazım), `yakitImportController.js`, `fuelAnomalyService.evaluateBatchFuelAnomalies` ve `/api/yakitlar/toplu-onizleme|toplu-aktar` (`1mb` izole parser) — **QA PASS**.
   - `V2.2-IMPORT-FE`: `csvFuelParser.js` `normalizePlate`/`parseLocaleNumber` P1 yaması, `yakitService` toplu uçları, `FuelImportSheet.jsx`, `fuel-import/{FuelImportPreviewTable.jsx,fuelImportHelpers.js}` UTF-8/windows-1254 decoder + 100 satır dilimleme + RBAC — **QA PASS**.
+  - `V2.2-AUDIT-BE`: `denetim_kayitlari` değişmez denetim izi (`auditService.js`, `GET /api/denetim-kayitlari`, `ADR-13` `403 FORBIDDEN_ORG_REQUIRED`, hassas anahtar maskeleme), `araclar.arsivlendi_mi` soft-archive (`aracArchiveHandlers.js`, `PATCH /api/araclar/:id/{arsiv,geri-yukle}`, `arsiv=aktif|sadece|dahil`), `409 VEHICLE_ARCHIVED` kilidi ve tarihsel maliyet koruması (`ADR-23`) — **QA PASS**.
 
 ## 2. Sıradaki Kuyruk (Öncelik Sırasıyla)
-- **Mühürlenenler:** `PERF-1/1b`, `REFACTOR-1` (`14/14 -> 0` monolit), `OPS-1..5`, `QA-SWEEP` (`BE+FE`), `V2.1-FE4`, `CLEANUP-1`, `V2.1-HOTFIX-W1`, `V2.1-HOTFIX-W2`, `V2.1-HOTFIX-W3` (`FIX-4` — Faz A), `V2.2-DBPERF`, `V2.2-NOTIFY`, `V2.2-INBOX`, `V2.2-TCO`, `V2.2-ANOMALY-BE`, `V2.2-ANOMALY-FE`, `V2.2-POLISH`, `OPS-5b`, `V2.2-IMPORT-BE` ve `V2.2-IMPORT-FE` mühürlendi.
+- **Mühürlenenler:** `PERF-1/1b`, `REFACTOR-1` (`14/14 -> 0` monolit), `OPS-1..5`, `QA-SWEEP` (`BE+FE`), `V2.1-FE4`, `CLEANUP-1`, `V2.1-HOTFIX-W1`, `V2.1-HOTFIX-W2`, `V2.1-HOTFIX-W3` (`FIX-4` — Faz A), `V2.2-DBPERF`, `V2.2-NOTIFY`, `V2.2-INBOX`, `V2.2-TCO`, `V2.2-ANOMALY-BE`, `V2.2-ANOMALY-FE`, `V2.2-POLISH`, `OPS-5b`, `V2.2-IMPORT-BE`, `V2.2-IMPORT-FE` ve `V2.2-AUDIT-BE` mühürlendi.
 - **Sırada / Beklemede:** `V2.2` tam kapsamlı sürüm mühürlendi; yeni faz veya `S4` cerrahi tarama kullanıcı talebine göre başlatılır.
 
 ## 3. Açık Teknik Riskler
@@ -41,8 +42,8 @@
 ## 4. 📌 Durum Panosu (Her Yanıt Sonunda Zorunlu Şablon)
 | Ajan | Model / Güç | Şu An Ne Yapıyor | Hemen Şimdi Ne Yapmalı | İleride Ne Yapacak |
 | :--- | :--- | :--- | :--- | :--- |
-| **S5 (Baş Mimar)** | `pro` (`Neon High` / Opus) | `V2.2-IMPORT-FE` mühürlendi (`QA PASS`) | Yeni görev/faz için beklemede | Sonraki faz mikro-paket dağıtımı |
-| **S1 (Frontend)** | `inherit` (`Neon` Normal) | `V2.2-IMPORT-FE` tamamlandı & mühürlendi | Beklemede kalmalı | Sonraki UI/UX mikro-paketleri |
-| **S2 (Backend / Ops)** | `inherit` (`Argon` / `Neon`) | `V2.2-IMPORT-FE` `/s2-seal` tamamlandı (`main` mühürlendi) | Beklemede kalmalı | Sonraki backend/ops görevleri |
-| **S3 (QA / Denetçi)** | `pro` (`Hidrojen` / `Argon`) | `V2.2-IMPORT-FE` QA `PASS` onaylandı | Beklemede kalmalı | Sonraki paket QA denetimi |
+| **S5 (Baş Mimar)** | `pro` (`Neon High` / Opus) | `V2.2-AUDIT-BE` mühürlendi (`QA PASS`) | Yeni görev/faz için beklemede | Sonraki faz mikro-paket dağıtımı |
+| **S1 (Frontend)** | `inherit` (`Neon` Normal) | `V2.2-IMPORT-FE` tamamlandı & mühürlendi | Beklemede kalmalı | `V2.2-AUDIT-FE` veya sonraki UI/UX paketleri |
+| **S2 (Backend / Ops)** | `inherit` (`Argon` / `Neon`) | `V2.2-AUDIT-BE` `/s2-seal` tamamlandı (`main` mühürlendi) | Beklemede kalmalı | Sonraki backend/ops görevleri |
+| **S3 (QA / Denetçi)** | `pro` (`Hidrojen` / `Argon`) | `V2.2-AUDIT-BE` QA `PASS` onaylandı | Beklemede kalmalı | Sonraki paket QA denetimi |
 | **S4 (Bug Hunter)** | `flash` (`2.8 Flash`) | `QA-SWEEP` tamamlandı (`0` açık hata) | Beklemede kalmalı | `V2.2` sonrası cerrahi hata avı |

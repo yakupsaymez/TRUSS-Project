@@ -2,6 +2,7 @@ const Joi = require('joi');
 const pool = require('../db');
 const { buildVehicleAccessFilter } = require('../middlewares/rbacMiddleware');
 const { scanAccessibleFuelAnomalies } = require('../services/fuelAnomalyService');
+const { logAuditEvent } = require('../services/auditService');
 
 const VALID_TIPS = ['depo_asimi', 'ardisik_dolum', 'birim_fiyat_sapma', 'yuksek_tuketim'];
 
@@ -142,7 +143,7 @@ const updateYakitAnomaliDurum = async (req, res) => {
        WHERE ya.arac_id = a.arac_id
          AND ya.anomali_id = $4
          AND (${clause})
-       RETURNING ya.*`,
+       RETURNING ya.*, a.plaka, a.org_id AS arac_org_id`,
       [value.durum, notDegeri, req.user.user_id, id, ...params]
     );
 
@@ -150,9 +151,19 @@ const updateYakitAnomaliDurum = async (req, res) => {
       return res.status(404).json({ message: 'Anomali kaydı bulunamadı veya yetkiniz yok.' });
     }
 
+    const { plaka, arac_org_id, ...anomali } = result.rows[0];
+    await logAuditEvent(req, {
+      eylem: 'ANOMALI_GUNCELLENDI',
+      varlik_tipi: 'yakit_anomali',
+      varlik_id: id,
+      org_id: arac_org_id ?? anomali.org_id,
+      ozet: `${plaka} plakalı araç yakıt anomalisi (${anomali.tip}) "${anomali.durum}" olarak güncellendi.`,
+      detay: { plaka, tip: anomali.tip, durum: anomali.durum, inceleme_notu: anomali.inceleme_notu },
+    });
+
     return res.status(200).json({
       message: 'Anomali durumu güncellendi',
-      anomali: result.rows[0],
+      anomali,
     });
   } catch (err) {
     console.error('Yakıt anomali güncelleme hatası:', err);

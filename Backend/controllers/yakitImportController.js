@@ -1,5 +1,6 @@
 const Joi = require('joi');
 const { previewFuelCsv, importFuelCsv } = require('../services/fuelImportService');
+const { logAuditEvent } = require('../services/auditService');
 
 const csvImportSchema = Joi.object({
   csv_text: Joi.string().min(1).max(1000000).required(),
@@ -51,6 +52,12 @@ const commitYakitImport = async (req, res) => {
 
   try {
     const data = await importFuelCsv(req.user, check.csvText);
+    await logAuditEvent(req, {
+      eylem: 'YAKIT_TOPLU_AKTARIM',
+      varlik_tipi: 'yakit',
+      ozet: `Toplu yakıt CSV aktarımı: ${data.ozet?.eklenen || 0} eklendi, ${data.ozet?.mukerrer || 0} mükerrer, ${data.ozet?.hatali || 0} hatalı.`,
+      detay: data.ozet,
+    });
     return res.status(201).json(data);
   } catch (err) {
     return handleImportError(res, err, 'Yakıt CSV aktarım hatası');
