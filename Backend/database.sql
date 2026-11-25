@@ -253,19 +253,6 @@ BEGIN
     END IF;
 END$$;
 
-ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS bildirim_tercihleri JSONB NOT NULL DEFAULT '{"belge_vadesi":{"email":true,"sms":true},"periyodik_bakim":{"email":true,"sms":true},"parca_omru":{"email":true,"sms":false},"maliyet_ozeti":{"email":true,"sms":false}}'::jsonb;
-
-ALTER TABLE organizations
-    ADD COLUMN IF NOT EXISTS aylik_yakit_butcesi NUMERIC(12, 2) NOT NULL DEFAULT 50000,
-    ADD COLUMN IF NOT EXISTS aylik_bakim_butcesi NUMERIC(12, 2) NOT NULL DEFAULT 25000;
-
-ALTER TABLE araclar
-    ADD COLUMN IF NOT EXISTS son_enlem NUMERIC(9, 6),
-    ADD COLUMN IF NOT EXISTS son_boylam NUMERIC(9, 6),
-    ADD COLUMN IF NOT EXISTS son_konum_adi VARCHAR(160),
-    ADD COLUMN IF NOT EXISTS son_konum_zamani TIMESTAMPTZ;
-
 -- MIGRATION: FIX-1 (fk_araclar_kullanici ON DELETE SET NULL)
 ALTER TABLE araclar ALTER COLUMN kullanici_id DROP NOT NULL;
 ALTER TABLE araclar DROP CONSTRAINT IF EXISTS fk_araclar_kullanici;
@@ -392,7 +379,7 @@ CREATE INDEX IF NOT EXISTS idx_araclar_org_aktif
 
 CREATE TABLE IF NOT EXISTS denetim_kayitlari (
     denetim_id BIGSERIAL PRIMARY KEY,
-    org_id INTEGER REFERENCES organizations(org_id) ON DELETE CASCADE,
+    org_id INTEGER,
     user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
     kullanici_eposta VARCHAR(160),
     kullanici_rol VARCHAR(40),
@@ -402,7 +389,8 @@ CREATE TABLE IF NOT EXISTS denetim_kayitlari (
     ozet TEXT NOT NULL,
     detay_json JSONB,
     ip_adresi VARCHAR(64),
-    olusturma_tarihi TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    olusturma_tarihi TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT fk_denetim_kayitlari_org FOREIGN KEY (org_id) REFERENCES organizations(org_id) ON DELETE SET NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_denetim_org_tarih
@@ -410,5 +398,15 @@ CREATE INDEX IF NOT EXISTS idx_denetim_org_tarih
 
 CREATE INDEX IF NOT EXISTS idx_denetim_varlik
     ON denetim_kayitlari (varlik_tipi, varlik_id);
+
+-- MIGRATION: FORGE-M1
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version VARCHAR(80) PRIMARY KEY,
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    checksum VARCHAR(64) NOT NULL
+);
 
 

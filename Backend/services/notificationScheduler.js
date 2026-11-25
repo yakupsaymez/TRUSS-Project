@@ -154,14 +154,46 @@ const notifyPredictiveMaintenance = async ({ skipEmail = false, now = new Date()
   return dispatched;
 };
 
+const CRON_LOCKS = {
+  daily: [1414681939, 101],
+  weekly: [1414681939, 102],
+};
+
+const withAdvisoryLock = async ([k1, k2], fn) => {
+  let lockClient = null;
+  let locked = false;
+  let broken = false;
+  try {
+    lockClient = await pool.connect();
+    const res = await lockClient.query('SELECT pg_try_advisory_lock($1, $2) AS ok', [k1, k2]);
+    locked = res.rows[0]?.ok === true;
+    if (!locked) return { skipped: true };
+    return { skipped: false, result: await fn() };
+  } catch (err) {
+    broken = true;
+    throw err;
+  } finally {
+    if (lockClient) {
+      if (locked) {
+        await lockClient.query('SELECT pg_advisory_unlock($1, $2)', [k1, k2]).catch(() => { broken = true; });
+      }
+      lockClient.release(broken);
+    }
+  }
+};
+
 const runNotificationChecks = async (options = {}) => {
   const { skipEmail = false, now = new Date() } = options;
   try {
-    const belge = await notifyEvraklar({ skipEmail, now });
-    const parca = await notifyParcalar({ skipEmail, now });
-    const bakim = await notifyPredictiveMaintenance({ skipEmail, now });
-    console.log('[Cron] Akıllı bildirim taraması tamamlandı.', { belge, parca, bakim });
-    return { belge, parca, bakim };
+    const lockRes = await withAdvisoryLock(CRON_LOCKS.daily, async () => {
+      const belge = await notifyEvraklar({ skipEmail, now });
+      const parca = await notifyParcalar({ skipEmail, now });
+      const bakim = await notifyPredictiveMaintenance({ skipEmail, now });
+      console.log('[Cron] Akıllı bildirim taraması tamamlandı.', { belge, parca, bakim });
+      return { belge, parca, bakim };
+    });
+    if (lockRes.skipped) return { belge: 0, parca: 0, bakim: 0, skipped: true };
+    return lockRes.result;
   } catch (error) {
     console.error('[Cron] Bildirim taraması sırasında hata:', error.message);
     return { belge: 0, parca: 0, bakim: 0, error: error.message };
@@ -176,52 +208,56 @@ const runWeeklySummaryCheck = async (options = {}) => {
   const haftaAnahtar = isoHaftaTR(now);
 
   try {
-    const { rows: orgs } = await pool.query(
-      'SELECT org_id, unvan, aylik_yakit_butcesi, aylik_bakim_butcesi FROM organizations ORDER BY org_id ASC'
-    );
-
-    let dispatched = 0;
-    for (const org of orgs) {
-      const recipients = await getOrgFinanceRecipients(org.org_id);
-      if (!recipients.length) continue;
-
-      const spendRes = await pool.query(
-        `SELECT
-           COALESCE((SELECT SUM(y.tutar) FROM yakitlar y INNER JOIN araclar a ON a.arac_id = y.arac_id WHERE a.org_id = $1 AND y.tarih >= $2::date AND y.tarih <= $3::date), 0)::numeric AS hafta_yakit,
-           COALESCE((SELECT SUM(b.maliyet) FROM bakimlar b INNER JOIN araclar a ON a.arac_id = b.arac_id WHERE a.org_id = $1 AND b.tarih >= $2::date AND b.tarih <= $3::date), 0)::numeric AS hafta_bakim,
-           COALESCE((SELECT SUM(y.tutar) FROM yakitlar y INNER JOIN araclar a ON a.arac_id = y.arac_id WHERE a.org_id = $1 AND y.tarih >= $4::date AND y.tarih <= $3::date), 0)::numeric AS ay_yakit,
-           COALESCE((SELECT SUM(b.maliyet) FROM bakimlar b INNER JOIN araclar a ON a.arac_id = b.arac_id WHERE a.org_id = $1 AND b.tarih >= $4::date AND b.tarih <= $3::date), 0)::numeric AS ay_bakim`,
-        [org.org_id, haftaBaslangic, bugun, ayBaslangic]
+    const lockRes = await withAdvisoryLock(CRON_LOCKS.weekly, async () => {
+      const { rows: orgs } = await pool.query(
+        'SELECT org_id, unvan, aylik_yakit_butcesi, aylik_bakim_butcesi FROM organizations ORDER BY org_id ASC'
       );
 
-      const s = spendRes.rows[0] || {};
-      const haftaToplam = Number(s.hafta_yakit || 0) + Number(s.hafta_bakim || 0);
-      const ayToplam = Number(s.ay_yakit || 0) + Number(s.ay_bakim || 0);
-      const toplamButce = Number(org.aylik_yakit_butcesi ?? 50000) + Number(org.aylik_bakim_butcesi ?? 25000);
-      const kullanimYuzdesi = toplamButce > 0 ? Math.round((ayToplam / toplamButce) * 100) : (ayToplam > 0 ? 101 : 0);
-      const seviye = ayToplam > toplamButce ? 'kritik' : (kullanimYuzdesi >= 80 ? 'uyari' : 'bilgi');
+      let dispatched = 0;
+      for (const org of orgs) {
+        const recipients = await getOrgFinanceRecipients(org.org_id);
+        if (!recipients.length) continue;
 
-      dispatched += await dispatchToMany(recipients, {
-        org_id: org.org_id,
-        arac_id: null,
-        kategori: 'maliyet_ozeti',
-        seviye,
-        referans_anahtar: `maliyet_ozeti:org:${org.org_id}:${haftaAnahtar}`,
-        baslik: `${org.unvan ? `${org.unvan} — ` : ''}Haftalık Filo Maliyet Özeti (${haftaAnahtar})`,
-        mesaj: `Son 7 gün toplam harcama: ${haftaToplam.toLocaleString('tr-TR')} ₺. Aylık bütçe kullanımı: %${kullanimYuzdesi} (${ayToplam.toLocaleString('tr-TR')} / ${toplamButce.toLocaleString('tr-TR')} ₺).`,
-        link_url: '/app',
-        meta_json: {
-          unvan: org.unvan || null,
-          hafta: haftaAnahtar,
-          hafta_toplam: haftaToplam,
-          ay_toplam: ayToplam,
-          toplam_butce: toplamButce,
-          kullanim_yuzdesi: kullanimYuzdesi,
-        },
-      }, { skipEmail });
-    }
+        const spendRes = await pool.query(
+          `SELECT
+             COALESCE((SELECT SUM(y.tutar) FROM yakitlar y INNER JOIN araclar a ON a.arac_id = y.arac_id WHERE a.org_id = $1 AND y.tarih >= $2::date AND y.tarih <= $3::date), 0)::numeric AS hafta_yakit,
+             COALESCE((SELECT SUM(b.maliyet) FROM bakimlar b INNER JOIN araclar a ON a.arac_id = b.arac_id WHERE a.org_id = $1 AND b.tarih >= $2::date AND b.tarih <= $3::date), 0)::numeric AS hafta_bakim,
+             COALESCE((SELECT SUM(y.tutar) FROM yakitlar y INNER JOIN araclar a ON a.arac_id = y.arac_id WHERE a.org_id = $1 AND y.tarih >= $4::date AND y.tarih <= $3::date), 0)::numeric AS ay_yakit,
+             COALESCE((SELECT SUM(b.maliyet) FROM bakimlar b INNER JOIN araclar a ON a.arac_id = b.arac_id WHERE a.org_id = $1 AND b.tarih >= $4::date AND b.tarih <= $3::date), 0)::numeric AS ay_bakim`,
+          [org.org_id, haftaBaslangic, bugun, ayBaslangic]
+        );
 
-    return { organizations: orgs.length, dispatched };
+        const s = spendRes.rows[0] || {};
+        const haftaToplam = Number(s.hafta_yakit || 0) + Number(s.hafta_bakim || 0);
+        const ayToplam = Number(s.ay_yakit || 0) + Number(s.ay_bakim || 0);
+        const toplamButce = Number(org.aylik_yakit_butcesi ?? 50000) + Number(org.aylik_bakim_butcesi ?? 25000);
+        const kullanimYuzdesi = toplamButce > 0 ? Math.round((ayToplam / toplamButce) * 100) : (ayToplam > 0 ? 101 : 0);
+        const seviye = ayToplam > toplamButce ? 'kritik' : (kullanimYuzdesi >= 80 ? 'uyari' : 'bilgi');
+
+        dispatched += await dispatchToMany(recipients, {
+          org_id: org.org_id,
+          arac_id: null,
+          kategori: 'maliyet_ozeti',
+          seviye,
+          referans_anahtar: `maliyet_ozeti:org:${org.org_id}:${haftaAnahtar}`,
+          baslik: `${org.unvan ? `${org.unvan} — ` : ''}Haftalık Filo Maliyet Özeti (${haftaAnahtar})`,
+          mesaj: `Son 7 gün toplam harcama: ${haftaToplam.toLocaleString('tr-TR')} ₺. Aylık bütçe kullanımı: %${kullanimYuzdesi} (${ayToplam.toLocaleString('tr-TR')} / ${toplamButce.toLocaleString('tr-TR')} ₺).`,
+          link_url: '/app',
+          meta_json: {
+            unvan: org.unvan || null,
+            hafta: haftaAnahtar,
+            hafta_toplam: haftaToplam,
+            ay_toplam: ayToplam,
+            toplam_butce: toplamButce,
+            kullanim_yuzdesi: kullanimYuzdesi,
+          },
+        }, { skipEmail });
+      }
+
+      return { organizations: orgs.length, dispatched };
+    });
+    if (lockRes.skipped) return { organizations: 0, dispatched: 0, skipped: true };
+    return lockRes.result;
   } catch (error) {
     console.error('[Cron] Haftalık maliyet özeti hatası:', error.message);
     return { organizations: 0, dispatched: 0, error: error.message };
@@ -236,6 +272,8 @@ const startNotificationCron = () => {
 };
 
 module.exports = {
+  CRON_LOCKS,
+  withAdvisoryLock,
   startNotificationCron,
   runNotificationChecks,
   runWeeklySummaryCheck,

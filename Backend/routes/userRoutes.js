@@ -344,7 +344,7 @@ router.put('/settings/password', authMiddleware, async (req, res) => {
     }
 
     const hashed = await bcrypt.hash(value.yeni_sifre, 10);
-    await pool.query('UPDATE users SET sifre = $1 WHERE user_id = $2', [
+    await pool.query('UPDATE users SET sifre = $1, token_version = token_version + 1 WHERE user_id = $2', [
       hashed,
       req.user.user_id,
     ]);

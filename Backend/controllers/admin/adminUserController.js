@@ -138,7 +138,10 @@ const updateUserRole = async (req, res) => {
     }
 
     const result = await client.query(
-      `UPDATE users SET role = $1::user_role_type
+      `UPDATE users
+       SET role = $1::user_role_type,
+           yetkiler = CASE WHEN $1::user_role_type = 'DRIVER' THEN '{}'::jsonb ELSE yetkiler END,
+           token_version = token_version + 1
        WHERE user_id = $2 AND org_id = $3
        RETURNING user_id, ad_soyad, email, telefon, role, org_id, yetkiler`,
       [value.role, targetId, ctx.orgId]
@@ -254,7 +257,7 @@ const resetUserPassword = async (req, res) => {
 
     const hashed = await bcrypt.hash(value.yeni_sifre, 10);
     const result = await pool.query(
-      `UPDATE users SET sifre = $1 WHERE user_id = $2 AND org_id = $3
+      `UPDATE users SET sifre = $1, token_version = token_version + 1 WHERE user_id = $2 AND org_id = $3
        RETURNING user_id, ad_soyad, email, role`,
       [hashed, targetId, ctx.orgId]
     );

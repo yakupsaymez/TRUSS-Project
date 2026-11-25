@@ -5,9 +5,12 @@ const { startNotificationCron } = require('./services/notificationScheduler');
 
 const PORT = process.env.PORT || 5001;
 
-app.listen(PORT, () => {
-  console.log(`Sunucu http://localhost:${PORT} adresinde calisiyor.`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Sunucu http://localhost:${PORT} adresinde calisiyor.`);
+  });
 
-startNotificationCron();
+  startNotificationCron();
+}
 
+module.exports = app;

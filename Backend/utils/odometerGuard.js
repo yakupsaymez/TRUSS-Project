@@ -24,13 +24,15 @@ const araclariKilitle = async (client, aracIdler) => {
   return result.rows;
 };
 
-// Arşivlenmiş araca yeni yakıt/bakım eklenmesini veya taşınmasını engeller (409)
-const arsivliAracEngelle = async (client, res, arac, tur = 'kayıt') => {
-  if (!arac?.arsivlendi_mi) return false;
+// Arşivlenmiş araca mutasyon yapılmasını engeller (409)
+const arsivliAracEngelle = async (client, res, aracOrList, tur = 'kayıt', islem = 'eklenemez') => {
+  const list = Array.isArray(aracOrList) ? aracOrList : [aracOrList];
+  const arsivli = list.find((a) => a?.arsivlendi_mi);
+  if (!arsivli) return false;
   await client.query('ROLLBACK');
   res.status(409).json({
     code: 'VEHICLE_ARCHIVED',
-    message: `Arşivlenmiş araca yeni ${tur} eklenemez.`,
+    message: `Arşivlenmiş araca ${tur} ${islem}.`,
   });
   return true;
 };

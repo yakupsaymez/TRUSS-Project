@@ -3,6 +3,7 @@ const pool = require('../db');
 const { buildVehicleAccessFilter } = require('../middlewares/rbacMiddleware');
 const { tarihStr, ileriTarihMi } = require('../utils/dateUtils');
 const { araclariKilitle, arsivliAracEngelle } = require('../utils/odometerGuard');
+const { logAuditEvent } = require('../services/auditService');
 
 const parcaEkleSchema = Joi.object({
   arac_id: Joi.number().integer().required(),
@@ -333,30 +334,59 @@ const updateParca = async (req, res) => {
 // PARÇA TAKİP KAYDINI SİL
 const deleteParca = async (req, res) => {
   const parcaId = Number(req.params.parca_id);
-  if (!Number.isInteger(parcaId)) {
+  if (!Number.isInteger(parcaId) || parcaId <= 0) {
     return res.status(400).json({ message: 'Gecersiz parca id' });
   }
 
+  let client = null;
+  let settled = false;
   try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
-    const result = await pool.query(
-      `DELETE FROM parca_takip p
-       USING araclar a
-       WHERE p.arac_id = a.arac_id
-         AND p.parca_id = $1
-         AND (${clause})
-       RETURNING p.parca_id`,
+    const parcaCheck = await client.query(
+      `SELECT p.parca_id, p.arac_id, p.parca_adi, p.maliyet, a.plaka, a.org_id
+       FROM parca_takip p
+       INNER JOIN araclar a ON a.arac_id = p.arac_id
+       WHERE p.parca_id = $1 AND (${clause})
+       FOR UPDATE OF p`,
       [parcaId, ...params]
     );
 
-    if (result.rowCount === 0) {
+    if (parcaCheck.rowCount === 0) {
       return res.status(404).json({ message: 'Parca bulunamadi' });
     }
+
+    const row = parcaCheck.rows[0];
+    const [hedefArac] = await araclariKilitle(client, [row.arac_id]);
+    if (await arsivliAracEngelle(client, res, hedefArac, 'parça kaydı', 'silinemez')) {
+      settled = true;
+      return;
+    }
+
+    await client.query('DELETE FROM parca_takip WHERE parca_id = $1', [parcaId]);
+    await client.query('COMMIT');
+    settled = true;
+
+    await logAuditEvent(req, {
+      eylem: 'PARCA_SILINDI',
+      varlik_tipi: 'parca',
+      varlik_id: parcaId,
+      org_id: row.org_id,
+      ozet: `${row.plaka} plakalı aracın ${row.parca_adi} parça kaydı silindi.`,
+      detay: { plaka: row.plaka, parca_adi: row.parca_adi, maliyet: row.maliyet },
+    });
 
     return res.status(200).json({ message: 'Parca kaydi silindi' });
   } catch (err) {
     console.error('Parça silme hatası:', err);
     return res.status(500).json({ message: 'Parca silinemedi' });
+  } finally {
+    if (client) {
+      if (!settled) await client.query('ROLLBACK').catch(() => null);
+      client.release();
+    }
   }
 };
 

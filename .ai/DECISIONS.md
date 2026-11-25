@@ -96,3 +96,7 @@
 ### ADR-24: FORGE Topolojisi & Fonksiyonel Çekirdek / İnce Kabuk Standardı
 - **2026-11-25 (`FORGE-M0`) · Kök Neden:** Eski 5'li Swarm rol sızıntıları, `req/res` kelepçeli servisler, doğrudan API import eden yaprak UI'lar ve `11.5K` tok bağlam şişmesi regresyon ve hız kaybı yaratıyordu.
 - **Kalıcı Kural:** `FORGE` 5 uzmanı (`keystone`, `core-smith`, `shell-crafter`, `sentinel`, `radar`) zorunlu **Frozen Contract** + yeni şema/iş kuralında ardışık `core-smith -> shell-crafter` uygular; BE `<= 90`L controller + `req/res`-bağımsız `fn(client, actor, input)` + `AppError`, FE `Sayfa <= 180`L + `use*Controller <= 200`L + `Saf Görünüm <= 200`L (yaprakta API importu yasak) + merkezi `utils/dataEvents.js` kullanır.
+
+### ADR-25: `schema_migrations`, `token_version`, Cron Kilidi, Tam Arşiv Koruması & `test:core`
+- **2026-11-25 (`FORGE-M1`) · Kök Neden:** Tekil `migrate*.js` scriptleri checksum/kilit taşımıyordu, `denetim_kayitlari.org_id` `CASCADE` riski vardı, şifre/rol değişimi eski JWT'yi iptal etmiyordu, `deleteParca` ve `update/delete` arşiv kontrolü eksikti ve runtime test yoktu.
+- **Kalıcı Kural:** `db:migrate` (`pg_advisory_lock` + SHA-256 `schema_migrations`), `fk_denetim_kayitlari_org ON DELETE SET NULL`, `token_version` (`401 TOKEN_REVOKED`), `pg_try_advisory_lock` cron kilidi, `arsivliAracEngelle` tam `POST/PUT/DELETE` `409 VEHICLE_ARCHIVED` kilidi ve `node:test` `npm run test:core` kalıcı zırhtır.

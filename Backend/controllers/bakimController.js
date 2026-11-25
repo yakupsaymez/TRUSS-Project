@@ -314,7 +314,7 @@ const updateBakim = async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(403).json({ message: 'Hedef araca erişim yetkiniz yoktur.' });
     }
-    if (kaynakAracId !== hedefAracId && await arsivliAracEngelle(client, res, hedefArac, 'bakım kaydı')) return;
+    if (await arsivliAracEngelle(client, res, kilitler, 'bakım kaydı', 'güncellenemez')) return;
 
     if (kaynakAracId !== hedefAracId && kaynakArac && kaynakArac.sayac_tipi !== hedefArac.sayac_tipi) {
       await client.query('ROLLBACK');
@@ -405,7 +405,8 @@ const deleteBakim = async (req, res) => {
     const aracId = Number(row.arac_id);
     const eskiKm = row.km;
 
-    await araclariKilitle(client, [aracId]);
+    const [hedefArac] = await araclariKilitle(client, [aracId]);
+    if (await arsivliAracEngelle(client, res, hedefArac, 'bakım kaydı', 'silinemez')) return;
     await client.query('DELETE FROM bakimlar WHERE bakim_id = $1', [bakimId]);
     await aracSayaciniSenkronizeEt(client, { aracId, eskiKm });
 

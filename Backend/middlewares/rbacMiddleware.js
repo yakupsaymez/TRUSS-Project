@@ -29,6 +29,15 @@ const requirePermission = (key) => {
     if (req.user.role === 'SYSTEM_ADMIN' || req.user.role === 'FLEET_MANAGER') {
       return next();
     }
+    if (req.user.yetkiler && typeof req.user.yetkiler === 'object' && !Array.isArray(req.user.yetkiler)) {
+      if (req.user.yetkiler[key] === true) {
+        return next();
+      }
+      return res.status(403).json({
+        code: 'FORBIDDEN_PERMISSION',
+        message: `Bu işlem için '${key}' yetkiniz bulunmamaktadır.`,
+      });
+    }
     try {
       const userRes = await pool.query(
         'SELECT role, yetkiler FROM users WHERE user_id = $1 LIMIT 1',

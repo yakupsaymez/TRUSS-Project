@@ -5,6 +5,8 @@
     "context:pack": "node scripts/context-pack.mjs",
     "context:audit": "node scripts/context-audit.mjs",
     "gate": "node scripts/ai-gate.mjs",
-    "gate:fast": "node scripts/ai-gate.mjs --fast"
+    "gate:fast": "node scripts/ai-gate.mjs --fast",
+    "db:migrate": "node Backend/scripts/migrate.js",
+    "test:core": "node --test --test-concurrency=1 Backend/tests/*.test.js"
   }
 }

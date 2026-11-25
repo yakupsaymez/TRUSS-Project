@@ -8,7 +8,7 @@ const { getJwtSecret } = require('../utils/jwtSecret');
 const register = async (req, res) => {
   const schema = Joi.object({
     ad_soyad: Joi.string().min(3).required(),
-    email: Joi.string().email().required(),
+    email: Joi.string().email({ tlds: { allow: false } }).required(),
     sifre: Joi.string().min(6).required(),
   });
 
@@ -18,9 +18,11 @@ const register = async (req, res) => {
   }
 
   const { ad_soyad, email, sifre } = value;
-  const client = await pool.connect();
+  let client = null;
+  let settled = false;
 
   try {
+    client = await pool.connect();
     await client.query('BEGIN');
 
     const hashedPassword = await bcrypt.hash(sifre, 10);
@@ -45,6 +47,7 @@ const register = async (req, res) => {
     );
 
     await client.query('COMMIT');
+    settled = true;
 
     return res.status(201).json({
       message: 'Kullanıcı ve filo başarıyla kaydedildi.',
@@ -52,21 +55,27 @@ const register = async (req, res) => {
       organization: orgResult.rows[0],
     });
   } catch (err) {
-    await client.query('ROLLBACK');
+    if (client && !settled) {
+      await client.query('ROLLBACK').catch(() => null);
+      settled = true;
+    }
     if (err.code === '23505') {
       return res.status(409).json({ message: 'Bu email zaten kayıtlı.' });
     }
     console.error('Kayıt hatası:', err);
     return res.status(500).json({ message: 'Sunucu hatası oluştu.' });
   } finally {
-    client.release();
+    if (client) {
+      if (!settled) await client.query('ROLLBACK').catch(() => null);
+      client.release();
+    }
   }
 };
 
 // GİRİŞ METODU (Login - RBAC JWT Payload)
 const login = async (req, res) => {
   const schema = Joi.object({
-    email: Joi.string().email().required(),
+    email: Joi.string().email({ tlds: { allow: false } }).required(),
     sifre: Joi.string().required(),
   });
 
@@ -97,6 +106,7 @@ const login = async (req, res) => {
       email: user.email,
       org_id: user.org_id || null,
       role: user.role || 'FLEET_MANAGER',
+      tv: Number(user.token_version ?? 0),
     };
     const secret = getJwtSecret();
     const token = jwt.sign(payload, secret, { expiresIn: process.env.JWT_EXPIRES_IN || '1h' });

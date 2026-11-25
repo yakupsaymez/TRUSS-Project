@@ -7,7 +7,9 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "seed:katalog": "node scripts/seedKatalog.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "db:migrate": "node scripts/migrate.js",
+    "test:core": "node --test --test-concurrency=1 tests/*.test.js",
+    "test": "npm run test:core"
   },
   "keywords": [],
   "author": "",
