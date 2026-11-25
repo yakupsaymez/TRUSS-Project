@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, ChevronUp, Gauge } from 'lucide-react';
 import raporService from '@/services/raporService';
+import { DATA_SCOPES, subscribeDataChanged } from '@/utils/dataEvents';
 import { formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -68,14 +69,10 @@ export default function FleetEfficiencyCard({
 
   useEffect(() => {
     if (!canViewAnalytics) return undefined;
-    const onDataChanged = (event) => {
-      const scope = event?.detail?.scope;
-      if (!scope || scope === 'movement' || scope === 'vehicle' || scope === 'component' || scope === 'part') {
-        fetchTco(donemGun);
-      }
-    };
-    window.addEventListener('truss:data-changed', onDataChanged);
-    return () => window.removeEventListener('truss:data-changed', onDataChanged);
+    return subscribeDataChanged(
+      [DATA_SCOPES.MOVEMENT, DATA_SCOPES.VEHICLE, DATA_SCOPES.COMPONENT],
+      () => fetchTco(donemGun)
+    );
   }, [canViewAnalytics, donemGun, fetchTco]);
 
   useEffect(() => { setExpanded(false); }, [seciliAracId, donemGun]);

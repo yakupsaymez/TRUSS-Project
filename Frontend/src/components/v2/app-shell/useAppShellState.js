@@ -6,6 +6,7 @@ import useAppStore from '@/store/useAppStore';
 import useVehicleStore from '@/store/useVehicleStore';
 import { canAccessChannel, resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { evrakRiskliMi, hesaplaBakimDurumu } from '@/utils/aracDurum';
+import { DATA_SCOPES, emitDataChanged } from '@/utils/dataEvents';
 import { navConfig } from '@/components/v2/navConfig';
 import {
   ALL_VEHICLES_VALUE,
@@ -147,10 +148,10 @@ export function useAppShellState() {
 
   const notifyDataChanged = useCallback(
     (scope) => {
-      if (scope !== 'vehicle') {
+      if (scope !== DATA_SCOPES.VEHICLE) {
         fetchAraclar();
       }
-      window.dispatchEvent(new CustomEvent('truss:data-changed', { detail: { scope } }));
+      emitDataChanged(scope);
     },
     [fetchAraclar]
   );

@@ -18,8 +18,8 @@
 - **Çekirdek (`components/v2/`):** `AppShell`, `AppSheet`, `AuthFrame`, `ChannelGuard`, `CommandPalette`, `ConfirmDialog`, `EmptyState`, `SayacFieldError`, `channelAccess.js`, `navConfig.js`, `AssignVehicleSheet`, `CreateMemberSheet`, `PermissionsSheet`, `ResetPasswordSheet`, `NotificationBell`, `ActionCenterCard`, `FleetEfficiencyCard`, `FuelAnomalyPanel`, `FuelImportSheet`, `OverviewKpiStrip`, `CostTrendChart`, `BudgetVarianceCard`, `FleetHealthWidget`, `DocumentComplianceCard`, `SegmentedDistributionCard`, `CrewRoleSummaryStrip`.
 - **Feature-Module Alt Klasörleri (`<= 300`L):**
   - `pages/home/*`, `pages/v2/ayarlar/*` (`GenelTab`, `ProfilTab`, `OrganizasyonTab`, `BildirimlerTab`, `GuvenlikTab`, `DenetimTab`, `PasswordChangeForm`, `useAyarlarData`, `ayarlarConstants`, `denetimConstants`)
-  - `components/v2/{app-shell,command-palette,vehicle-sheet,movement-sheet,component-sheet,fleet-data-table,ledger-data-table,component-data-table,crew-data-table,fleet-live-map,fleet-calendar,fuel-anomaly,fuel-import}/*`
-- **`components/ui/`:** `truss-date-picker.jsx`, `chart.jsx`, Radix/Shadcn temel atomlar.
+  - `components/v2/{app-shell,command-palette,vehicle-sheet,movement-sheet,component-sheet,fleet-data-table,ledger-data-table,component-data-table,crew-data-table,fleet-live-map,fleet-calendar,fuel-anomaly,fuel-import,budget-variance}/*` (`ledger-data-table/useHareketlerController.js`, `budget-variance/{useBudgetVariance,BudgetTargetSection}.js*`)
+- **`components/ui/` & `utils/`:** `truss-date-picker.jsx`, `chart.jsx`, Radix/Shadcn temel atomlar; `utils/dataEvents.js`.
 - **`store/`:** `useAuthStore.js`, `useVehicleStore.js`, `useAppStore.js`.
 - **`services/`:** `api.js`, `authService.js`, `aracService.js`, `yakitService.js`, `bakimService.js`, `parcaService.js`, `raporService.js`, `katalogService.js`, `adminService.js`, `bildirimService.js`, `denetimService.js`.
 
@@ -27,8 +27,8 @@
 - **Giriş & DB:** `index.js` (`require.main` + `app` export), `server.js`, `db.js` (`OID 1082`), `database.sql`, `scripts/{migrate,migrations}.js` (`pg_advisory_lock` + `schema_migrations`).
 - **Routes (`routes/`):** `userRoutes.js`, `adminRoutes.js`, `aracRoutes.js` + `arac/{aracHelpers,aracHandlers,aracMutationHandlers,aracArchiveHandlers}.js`, `yakitRoutes.js`, `bakimRoutes.js`, `parcaRoutes.js`, `raporRoutes.js`, `katalogRoutes.js`, `bildirimRoutes.js`, `denetimRoutes.js` (`/api/araclar/:id/{arsiv,geri-yukle}`, `/api/denetim-kayitlari`, `/api/bildirimler`, `/api/yakitlar/anomaliler*`, `/api/yakitlar/toplu-{onizleme,aktar}` `1mb` parser).
 - **Controllers (`controllers/`):** `userController.js`, `adminController.js` + `admin/{adminHelpers,adminUserController,adminOrgAssignmentController}.js`, `yakitController.js`, `yakitAnomalyController.js`, `yakitImportController.js`, `bakimController.js`, `parcaController.js`, `raporController.js`, `tcoController.js`, `katalogController.js`, `bildirimController.js`, `denetimController.js`.
-- **Middlewares & Utils:** `middlewares/{authMiddleware,rbacMiddleware}.js` (`token_version`, 0-DB `requirePermission`), `utils/{odometerGuard,dateUtils,csvFuelParser,jwtSecret}.js` (`FOR UPDATE`, `arsivliAracEngelle` `409`, `422 SAYAC_KRONOLOJI_IHLALI`, `aracSayaciniSenkronizeEt`).
-- **Services & Tests:** `services/{notificationScheduler,notificationService,predictiveService,alertEvaluators,tcoService,fuelAnomalyService,fuelAnomalyRules,fuelImportService,auditService,emailService,smsService}.js` (`CRON_LOCKS`, `UNNEST`, `logAuditEvent`); `tests/{corePure,coreDbIntegrity}.test.js`, `tests/helpers/pgTestHarness.js`.
+- **Middlewares & Utils:** `middlewares/{authMiddleware,rbacMiddleware}.js` (`token_version`, 0-DB `requirePermission`), `utils/{odometerGuard,dateUtils,csvFuelParser,jwtSecret,AppError,withTransaction}.js` (`FOR UPDATE`, `arsivliAracEngelle` `409`, `422 SAYAC_KRONOLOJI_IHLALI`, `aracSayaciniSenkronizeEt`).
+- **Services & Tests:** `services/{yakitWriteService,bakimWriteService,notificationScheduler,notificationService,predictiveService,alertEvaluators,tcoService,fuelAnomalyService,fuelAnomalyRules,fuelImportService,auditService,emailService,smsService}.js` (`CRON_LOCKS`, `UNNEST`, `logAuditEvent`); `tests/{corePure,coreDbIntegrity,writeServices}.test.js`, `tests/helpers/pgTestHarness.js`.
 
 ## 4. PostgreSQL Tabloları (`16` Tablo) & İndeksler
 1. `organizations` (`org_id`, `unvan`, `vergi_no`, `plan_tipi`, `aktif`, `olusturulma_tarihi`, `aylik_yakit_butcesi`, `aylik_bakim_butcesi`)
@@ -46,7 +46,7 @@
 - **İndeksler:** `idx_araclar_org_id`, `idx_araclar_org_aktif`, `idx_yakitlar_arac_tarih_km`, `idx_bakimlar_arac_tarih_km`, `idx_parca_takip_arac_id`, `idx_atamalar_aktif_arac`, `uq_bildirim_user_kat_ref`, `idx_bildirim_user_okundu`, `uq_yakit_anomali_kayit_tip`, `idx_yakit_anomalileri_org_durum`, `idx_yakit_anomalileri_arac`, `idx_denetim_org_tarih`, `idx_denetim_varlik`.
 
 ## 5. AI-OS & FORGE Katmanı (`.ai/` & `.agent/`)
-- **Kanonik Hafıza (`.ai/` — 6 dosya):** `PROGRESS.md`, `SWARM_PLAYBOOK.md`, `ENGINEERING_GUARDRAILS.md`, `ARCHITECTURE_MAP.md`, `DECISIONS.md` (`ADR-01..25`), `HANDOFF_TEMPLATE.md` (+ `gate-baseline.json`, `scripts/{ai-gate,context-pack,context-audit}.mjs`).
+- **Kanonik Hafıza (`.ai/` — 6 dosya):** `PROGRESS.md`, `SWARM_PLAYBOOK.md`, `ENGINEERING_GUARDRAILS.md`, `ARCHITECTURE_MAP.md`, `DECISIONS.md` (`ADR-01..26`), `HANDOFF_TEMPLATE.md` (+ `gate-baseline.json`, `scripts/{ai-gate,context-pack,context-audit}.mjs`).
 - **4 Native Rule (`.agent/rules/`):** `00-truss-core.md`, `10-frontend-luma.md`, `20-backend-sql.md`, `30-ops-gate.md`.
 - **5 Derin Skill (`.agent/skills/*/SKILL.md`):** `forge`, `critic`, `forge-seal`, `forge-qa-browser`, `forge-xray` (`references/postgres-mcp-readonly.md`).
 - **5 Uzman (`.agent/agents/`):** `keystone.md` (`pro`), `core-smith.md` (`inherit`), `shell-crafter.md` (`inherit`), `sentinel.md` (`pro`), `radar.md` (`flash`).

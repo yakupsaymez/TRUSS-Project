@@ -10,6 +10,9 @@ const {
   evalHighConsumptionRule,
 } = require('../services/fuelAnomalyRules');
 const { buildVehicleAccessFilter, requirePermission } = require('../middlewares/rbacMiddleware');
+const AppError = require('../utils/AppError');
+const withTransaction = require('../utils/withTransaction');
+const { assertNotArchived } = require('../utils/odometerGuard');
 
 describe('FORGE Core Pure Tests (0-DB)', () => {
   it('csvFuelParser: plaka TR harfleri, birim sonekleri ve ADR-02 TR tarih', () => {
@@ -124,5 +127,55 @@ describe('FORGE Core Pure Tests (0-DB)', () => {
     } finally {
       pool.query = origQuery;
     }
+  });
+
+  it('AppError.toBody ve assertNotArchived (409 VEHICLE_ARCHIVED)', () => {
+    const err = new AppError(422, 'SAYAC_KRONOLOJI_IHLALI', 'Hata', { alt_sinir: 100, birim: 'km' });
+    assert.deepEqual(err.toBody(), {
+      code: 'SAYAC_KRONOLOJI_IHLALI',
+      message: 'Hata',
+      alt_sinir: 100,
+      birim: 'km',
+    });
+    const noCode = new AppError(404, null, 'Yok');
+    assert.deepEqual(noCode.toBody(), { message: 'Yok' });
+
+    assert.doesNotThrow(() => assertNotArchived([{ arsivlendi_mi: false }]));
+    assert.throws(
+      () => assertNotArchived([{ arsivlendi_mi: false }, { arsivlendi_mi: true }], 'bakım kaydı', 'güncellenemez'),
+      (e) => e instanceof AppError && e.statusCode === 409 && e.code === 'VEHICLE_ARCHIVED'
+    );
+  });
+
+  it('withTransaction: normal AppError -> ROLLBACK + release() 0 arg; kirik ROLLBACK -> release(true) + orijinal hata', async () => {
+    const makeMockPool = (failRollback) => {
+      const calls = [];
+      const mockClient = {
+        async query(sql) {
+          calls.push(`q:${sql}`);
+          if (sql === 'ROLLBACK' && failRollback) throw new Error('ROLLBACK_BROKEN');
+        },
+        release(...args) {
+          calls.push({ releaseArgs: args });
+        },
+      };
+      return { calls, dbPool: { async connect() { return mockClient; } } };
+    };
+
+    const m1 = makeMockPool(false);
+    const appErr = new AppError(422, 'TEST_ERR', 'Gecersiz');
+    await assert.rejects(
+      () => withTransaction(async () => { throw appErr; }, m1.dbPool),
+      (e) => e === appErr
+    );
+    assert.deepEqual(m1.calls, ['q:BEGIN', 'q:ROLLBACK', { releaseArgs: [] }]);
+
+    const m2 = makeMockPool(true);
+    const origErr = new Error('ORIGINAL_FAILURE');
+    await assert.rejects(
+      () => withTransaction(async () => { throw origErr; }, m2.dbPool),
+      (e) => e === origErr
+    );
+    assert.deepEqual(m2.calls, ['q:BEGIN', 'q:ROLLBACK', { releaseArgs: [true] }]);
   });
 });

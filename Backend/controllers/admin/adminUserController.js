@@ -51,7 +51,7 @@ const getOrgUsers = async (req, res) => {
 const createDriver = async (req, res) => {
   const schema = Joi.object({
     ad_soyad: Joi.string().min(3).required(),
-    email: Joi.string().email().required(),
+    email: Joi.string().email({ tlds: { allow: false } }).required(),
     sifre: Joi.string().min(6).required(),
     telefon: Joi.string().max(20).allow('', null).optional(),
   });

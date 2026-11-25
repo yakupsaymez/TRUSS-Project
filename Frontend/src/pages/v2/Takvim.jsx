@@ -6,6 +6,7 @@ import useVehicleStore from '@/store/useVehicleStore';
 import bakimService from '@/services/bakimService';
 import { canAccessChannel, resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { notifyApiError } from '@/utils/apiError';
+import { DATA_SCOPES, subscribeDataChanged } from '@/utils/dataEvents';
 import { getTodayIso, toLocalIsoDate } from '@/utils/dateUtils';
 import { formatTurkishPlate } from '@/utils/formatters';
 import FleetCalendar, { getEventUrgencyMeta } from '@/components/v2/FleetCalendar';
@@ -127,15 +128,9 @@ export default function Takvim() {
   }, [canViewLedger]);
 
   useEffect(() => {
-    const handleDataChanged = (event) => {
-      if (!canViewLedger) return;
-      const scope = event?.detail?.scope;
-      if (scope === 'movement') {
-        fetchBakimList();
-      }
-    };
-    window.addEventListener('truss:data-changed', handleDataChanged);
-    return () => window.removeEventListener('truss:data-changed', handleDataChanged);
+    return subscribeDataChanged([DATA_SCOPES.MOVEMENT], () => {
+      if (canViewLedger) fetchBakimList();
+    });
   }, [canViewLedger, fetchBakimList]);
 
   const isSingleVehicle = Boolean(seciliAracId && seciliAracId !== 'tum');

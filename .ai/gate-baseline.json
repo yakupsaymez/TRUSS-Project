@@ -2,7 +2,7 @@
   "maxNewFileLines": 600,
   "warnFileLines": 300,
   "targetChunkKb": 450,
-  "maxChunkKb": 352,
+  "maxChunkKb": 228,
   "exemptPaths": [
     "Backend/scripts/seedKatalog.js",
     "Frontend/src/components/ui/**"

@@ -100,3 +100,7 @@
 ### ADR-25: `schema_migrations`, `token_version`, Cron Kilidi, Tam Arşiv Koruması & `test:core`
 - **2026-11-25 (`FORGE-M1`) · Kök Neden:** Tekil `migrate*.js` scriptleri checksum/kilit taşımıyordu, `denetim_kayitlari.org_id` `CASCADE` riski vardı, şifre/rol değişimi eski JWT'yi iptal etmiyordu, `deleteParca` ve `update/delete` arşiv kontrolü eksikti ve runtime test yoktu.
 - **Kalıcı Kural:** `db:migrate` (`pg_advisory_lock` + SHA-256 `schema_migrations`), `fk_denetim_kayitlari_org ON DELETE SET NULL`, `token_version` (`401 TOKEN_REVOKED`), `pg_try_advisory_lock` cron kilidi, `arsivliAracEngelle` tam `POST/PUT/DELETE` `409 VEHICLE_ARCHIVED` kilidi ve `node:test` `npm run test:core` kalıcı zırhtır.
+
+### ADR-26: Fonksiyonel Çekirdek (`AppError`/`withTransaction`), Sıkı `dataEvents` & Recharts Chunk Ayrımı
+- **2026-11-25 (`FORGE-M2`) · Kök Neden:** Controller-içi DB TX ve `res.status` yazımları çekirdek testini kilitliyor, `chart.jsx` wildcard Recharts importu (`Legend`) ve gevşek `dataEvents` dinleyicileri vendor chunk'ını `351.3 KB` üzerine taşıyıp gereksiz fetch üretiyordu.
+- **Kalıcı Kural:** BE mutasyonları `req/res`-bağımsız `*WriteService` (`fn(client, actor, input)`) + `AppError` + `withTransaction` (`ROLLBACK` hatasında `release(true)`) kullanır; FE `chart.jsx` named import (`Legend` kaldırıldı) + `vendor-charts`/`vendor-charts-core` ayrımı, sıkı `dataEvents.js` ve 3 katmanlı `Hareketler`/`BudgetVarianceCard` uygular.

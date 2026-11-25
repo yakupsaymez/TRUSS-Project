@@ -2,6 +2,7 @@ import React, { lazy, Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { DATA_SCOPES } from '@/utils/dataEvents';
 import { ContentFallback } from './app-shell/appShellHelpers';
 import { useAppShellState } from './app-shell/useAppShellState';
 import AppShellSidebar from './app-shell/AppShellSidebar';
@@ -133,7 +134,7 @@ export default function AppShell() {
             defaultAracId={seciliAracId}
             canAddFuel={canAddFuel}
             canAddMaintenance={canAddMaintenance}
-            onSuccess={() => notifyDataChanged('movement')}
+            onSuccess={() => notifyDataChanged(DATA_SCOPES.MOVEMENT)}
           />
         )}
         {canManage && vehicleSheetOpen && (
@@ -156,7 +157,7 @@ export default function AppShell() {
             prefill={componentSheetState.prefill}
             araclar={araclar}
             defaultAracId={seciliAracId}
-            onSuccess={() => notifyDataChanged('component')}
+            onSuccess={() => notifyDataChanged(DATA_SCOPES.COMPONENT)}
           />
         )}
       </Suspense>

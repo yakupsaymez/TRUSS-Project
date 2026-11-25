@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import aracService from '@/services/aracService';
 import { notifyApiError } from '@/utils/apiError';
+import { DATA_SCOPES, emitDataChanged, subscribeDataChanged } from '@/utils/dataEvents';
 
 export default function useFleetArchive({ fetchAraclar, canManage }) {
   const [viewMode, setViewMode] = useState('aktif');
@@ -46,16 +47,11 @@ export default function useFleetArchive({ fetchAraclar, canManage }) {
   }, [viewMode, fetchArchivedAraclar]);
 
   useEffect(() => {
-    const handleDataChanged = (event) => {
-      const scope = event?.detail?.scope;
-      if ((!scope || scope === 'vehicle') && viewMode === 'arsiv') {
+    return subscribeDataChanged([DATA_SCOPES.VEHICLE], () => {
+      if (viewMode === 'arsiv') {
         fetchArchivedAraclar();
       }
-    };
-    window.addEventListener('truss:data-changed', handleDataChanged);
-    return () => {
-      window.removeEventListener('truss:data-changed', handleDataChanged);
-    };
+    });
   }, [viewMode, fetchArchivedAraclar]);
 
   const handleRestoreArac = useCallback(
@@ -71,7 +67,7 @@ export default function useFleetArchive({ fetchAraclar, canManage }) {
           );
         }
         await fetchAraclar?.();
-        window.dispatchEvent(new CustomEvent('truss:data-changed', { detail: { scope: 'vehicle' } }));
+        emitDataChanged(DATA_SCOPES.VEHICLE);
       } catch (err) {
         notifyApiError(err, 'Araç geri yüklenemedi.');
       } finally {

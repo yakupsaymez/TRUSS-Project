@@ -142,15 +142,27 @@ const createParca = async (req, res) => {
     client = await pool.connect();
     await client.query('BEGIN');
 
-    const arac = await getAracSayacBilgisi(value.arac_id, req.user, client);
-    if (!arac) {
+    const { clause, params } = buildVehicleAccessFilter(req.user, 2);
+    const erisim = await client.query(
+      `SELECT a.arac_id FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
+      [value.arac_id, ...params]
+    );
+    if (erisim.rowCount === 0) {
       return res.status(404).json({ message: 'Arac bulunamadi' });
     }
 
     const [hedefArac] = await araclariKilitle(client, [value.arac_id]);
+    if (!hedefArac) {
+      return res.status(404).json({ message: 'Arac bulunamadi' });
+    }
     if (await arsivliAracEngelle(client, res, hedefArac, 'parça kaydı')) {
       settled = true;
       return;
+    }
+
+    const arac = await getAracSayacBilgisi(value.arac_id, req.user, client);
+    if (!arac) {
+      return res.status(404).json({ message: 'Arac bulunamadi' });
     }
 
     if (value.son_degisim_km > arac.guncel_sayac) {

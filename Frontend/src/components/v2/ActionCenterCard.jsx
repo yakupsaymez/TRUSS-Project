@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, ChevronUp, Cog, FileText, Info, RefreshCw, Wallet, Wrench } from 'lucide-react';
 import bildirimService from '@/services/bildirimService';
 import { notifyApiError } from '@/utils/apiError';
+import { subscribeDataChanged } from '@/utils/dataEvents';
 import { formatCurrency, formatTurkishPlate } from '@/utils/formatters';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -58,9 +59,7 @@ export default function ActionCenterCard({ seciliAracId = 'tum', canViewAnalytic
 
   useEffect(() => {
     fetchAksiyonMerkezi();
-    const onDataChanged = () => fetchAksiyonMerkezi();
-    window.addEventListener('truss:data-changed', onDataChanged);
-    return () => window.removeEventListener('truss:data-changed', onDataChanged);
+    return subscribeDataChanged(null, () => fetchAksiyonMerkezi());
   }, [fetchAksiyonMerkezi, canViewAnalytics]);
 
   const showFinance = Boolean(canViewAnalytics && data?.finans_yetkisi === true);

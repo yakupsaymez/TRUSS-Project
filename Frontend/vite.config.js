@@ -7,12 +7,22 @@ function manualChunks(id) {
   if (!id.includes('node_modules')) return undefined;
   const norm = id.replace(/\\/g, '/');
 
-  if (
-    norm.includes('/node_modules/recharts/') ||
-    norm.includes('/node_modules/d3-') ||
-    norm.includes('/node_modules/victory-vendor/')
-  ) {
+  if (norm.includes('/node_modules/recharts/')) {
     return 'vendor-charts';
+  }
+  if (
+    norm.includes('/node_modules/d3-') ||
+    norm.includes('/node_modules/victory-vendor/') ||
+    norm.includes('/node_modules/internmap/') ||
+    norm.includes('/node_modules/decimal.js-light/') ||
+    norm.includes('/node_modules/es-toolkit/') ||
+    norm.includes('/node_modules/@reduxjs/') ||
+    norm.includes('/node_modules/redux') ||
+    norm.includes('/node_modules/reselect/') ||
+    norm.includes('/node_modules/react-redux/') ||
+    norm.includes('/node_modules/immer/')
+  ) {
+    return 'vendor-charts-core';
   }
   if (norm.includes('/node_modules/@tanstack/')) {
     return 'vendor-table';

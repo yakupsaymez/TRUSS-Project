@@ -4,6 +4,7 @@ import aracService from '@/services/aracService';
 import useVehicleStore from '@/store/useVehicleStore';
 import { getErrorStatus, notifyApiError } from '@/utils/apiError';
 import { isSmhArac } from '@/utils/aracDurum';
+import { DATA_SCOPES, emitDataChanged } from '@/utils/dataEvents';
 import useVehicleKatalog from './useVehicleKatalog';
 import {
   buildInitialForm,
@@ -127,7 +128,7 @@ export default function useVehicleSheetForm({ open, arac, onOpenChange, onSucces
       }
 
       await fetchAraclar();
-      window.dispatchEvent(new CustomEvent('truss:data-changed', { detail: { scope: 'vehicle' } }));
+      emitDataChanged(DATA_SCOPES.VEHICLE);
       toast.success(isEditMode ? 'Araç güncellendi.' : 'Araç eklendi.');
       onOpenChange?.(false);
       onSuccess?.();

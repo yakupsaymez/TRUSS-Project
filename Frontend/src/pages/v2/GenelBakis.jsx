@@ -6,6 +6,7 @@ import useVehicleStore from '@/store/useVehicleStore';
 import raporService from '@/services/raporService';
 import { canAccessChannel, resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { notifyApiError } from '@/utils/apiError';
+import { DATA_SCOPES, emitDataChanged, subscribeDataChanged } from '@/utils/dataEvents';
 import { formatTurkishPlate } from '@/utils/formatters';
 import OverviewKpiStrip from '@/components/v2/OverviewKpiStrip';
 import ActionCenterCard from '@/components/v2/ActionCenterCard';
@@ -93,15 +94,9 @@ export default function GenelBakis() {
   }, [fetchFinanceData]);
 
   useEffect(() => {
-    const handleDataChanged = (event) => {
-      if (!canViewAnalytics) return;
-      const scope = event?.detail?.scope;
-      if (!scope || scope === 'movement') {
-        fetchFinanceData();
-      }
-    };
-    window.addEventListener('truss:data-changed', handleDataChanged);
-    return () => window.removeEventListener('truss:data-changed', handleDataChanged);
+    return subscribeDataChanged([DATA_SCOPES.MOVEMENT], () => {
+      if (canViewAnalytics) fetchFinanceData();
+    });
   }, [canViewAnalytics, fetchFinanceData]);
 
   const isSingleVehicle = Boolean(seciliAracId && seciliAracId !== 'tum');
@@ -237,7 +232,7 @@ export default function GenelBakis() {
                   loading={loadingFinance}
                   onBudgetUpdated={() => {
                     fetchFinanceData();
-                    window.dispatchEvent(new CustomEvent('truss:data-changed', { detail: { scope: 'budget' } }));
+                    emitDataChanged(DATA_SCOPES.BUDGET);
                   }}
                   className="lg:col-span-6"
                 />

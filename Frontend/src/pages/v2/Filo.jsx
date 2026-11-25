@@ -5,6 +5,7 @@ import useAuthStore from '@/store/useAuthStore';
 import useVehicleStore from '@/store/useVehicleStore';
 import raporService from '@/services/raporService';
 import { canAccessChannel, resolveRole, ROLES } from '@/components/v2/channelAccess';
+import { DATA_SCOPES, emitDataChanged, subscribeDataChanged } from '@/utils/dataEvents';
 import { formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import FleetDataTable from '@/components/v2/FleetDataTable';
 import VehicleArchiveDialog from '@/components/v2/fleet-data-table/VehicleArchiveDialog';
@@ -89,14 +90,13 @@ export default function Filo() {
     };
 
     loadTco();
-    const handleDataChanged = (event) => {
-      const scope = event?.detail?.scope;
-      if (!scope || ['movement', 'vehicle', 'component', 'part'].includes(scope)) loadTco();
-    };
-    window.addEventListener('truss:data-changed', handleDataChanged);
+    const unsubscribe = subscribeDataChanged(
+      [DATA_SCOPES.MOVEMENT, DATA_SCOPES.VEHICLE, DATA_SCOPES.COMPONENT],
+      loadTco
+    );
     return () => {
       cancelled = true;
-      window.removeEventListener('truss:data-changed', handleDataChanged);
+      unsubscribe();
     };
   }, [canViewAnalytics]);
 
@@ -174,7 +174,7 @@ export default function Filo() {
         if (String(seciliAracId) === String(target.arac_id)) {
           setSeciliAracId(null);
         }
-        window.dispatchEvent(new CustomEvent('truss:data-changed', { detail: { scope: 'vehicle' } }));
+        emitDataChanged(DATA_SCOPES.VEHICLE);
         if (res?.islem === 'arsivlendi' && hasLoadedArchived) {
           fetchArchivedAraclar();
         }

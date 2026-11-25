@@ -1,5 +1,6 @@
 // Sayaç kronoloji koruması: yalnızca çağıranın transaction client'ı ile çalışır (pool import edilmez)
 const { bugunTR } = require('./dateUtils');
+const AppError = require('./AppError');
 
 // Tablo ve kolon adları YALNIZCA bu whitelist'ten gelir, request'ten asla
 const SAYAC_KAYNAKLARI = { bakimlar: 'bakim_id', yakitlar: 'yakit_id' };
@@ -24,17 +25,27 @@ const araclariKilitle = async (client, aracIdler) => {
   return result.rows;
 };
 
-// Arşivlenmiş araca mutasyon yapılmasını engeller (409)
-const arsivliAracEngelle = async (client, res, aracOrList, tur = 'kayıt', islem = 'eklenemez') => {
+// Arşivlenmiş araca mutasyon yapılmasını engeller (saf AppError 409)
+const assertNotArchived = (aracOrList, tur = 'kayıt', islem = 'eklenemez') => {
   const list = Array.isArray(aracOrList) ? aracOrList : [aracOrList];
-  const arsivli = list.find((a) => a?.arsivlendi_mi);
-  if (!arsivli) return false;
-  await client.query('ROLLBACK');
-  res.status(409).json({
-    code: 'VEHICLE_ARCHIVED',
-    message: `Arşivlenmiş araca ${tur} ${islem}.`,
-  });
-  return true;
+  if (list.some((a) => a?.arsivlendi_mi)) {
+    throw new AppError(409, 'VEHICLE_ARCHIVED', `Arşivlenmiş araca ${tur} ${islem}.`);
+  }
+};
+
+// Arşivlenmiş araca mutasyon yapılmasını engeller (409 — uyumluluk sarmalayıcısı)
+const arsivliAracEngelle = async (client, res, aracOrList, tur = 'kayıt', islem = 'eklenemez') => {
+  try {
+    assertNotArchived(aracOrList, tur, islem);
+    return false;
+  } catch (err) {
+    if (err instanceof AppError && err.statusCode === 409) {
+      await client.query('ROLLBACK');
+      res.status(err.statusCode).json(err.toBody());
+      return true;
+    }
+    throw err;
+  }
 };
 
 // İzin verilen sayaç aralığı: alt = tarih ve öncesindeki en yüksek km, üst = tarihten sonraki en düşük km
@@ -168,11 +179,48 @@ const aracSayaciniSenkronizeEt = async (client, { aracId, eskiKm = null }) => {
   }
 };
 
+// Saf sayaç kronoloji doğrulaması (ihlalse 422 AppError fırlatır)
+const assertOdometerChronology = async (
+  client,
+  { aracId, tarih, deger, sayacTipi, haricTablo = null, haricId = null }
+) => {
+  if (deger === null || deger === undefined) return;
+  const sinirlar = await sayacSinirlari(client, { aracId, tarih, haricTablo, haricId });
+  if (sayacIhlaliMi(deger, sinirlar)) {
+    const body = sayac422Govdesi(deger, sinirlar, sayacTipi);
+    throw new AppError(422, body.code, body.message, {
+      alt_sinir: body.alt_sinir,
+      ust_sinir: body.ust_sinir,
+      sayac_tipi: body.sayac_tipi,
+      birim: body.birim,
+    });
+  }
+};
+
+// Tekil kayıt ekleme sonrası araç sayacını ileri taşır
+const syncVehicleOdometer = async (client, { aracId, sayacTipi, km }) => {
+  if (km === null || km === undefined) return;
+  if (sayacTipi === 'SMH') {
+    await client.query(
+      'UPDATE araclar SET guncel_calisma_saati = GREATEST(COALESCE(guncel_calisma_saati, 0), $1) WHERE arac_id = $2',
+      [km, aracId]
+    );
+  } else {
+    await client.query(
+      'UPDATE araclar SET guncel_km = GREATEST(COALESCE(guncel_km, 0), $1) WHERE arac_id = $2',
+      [km, aracId]
+    );
+  }
+};
+
 module.exports = {
   SAYAC_KAYNAKLARI,
   sayacBirimi,
   araclariKilitle,
+  assertNotArchived,
   arsivliAracEngelle,
+  assertOdometerChronology,
+  syncVehicleOdometer,
   aracSayaciniSenkronizeEt,
   sayacSinirlari,
   sayacIhlaliMi,

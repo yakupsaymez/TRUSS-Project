@@ -1,5 +1,5 @@
 import * as React from "react"
-import * as RechartsPrimitive from "recharts"
+import { ResponsiveContainer, Tooltip } from "recharts"
 
 import { cn } from "@/lib/utils"
 
@@ -48,9 +48,9 @@ function ChartContainer({
         )}
         {...props}>
         <ChartStyle id={chartId} config={config} />
-        <RechartsPrimitive.ResponsiveContainer initialDimension={initialDimension}>
+        <ResponsiveContainer initialDimension={initialDimension}>
           {children}
-        </RechartsPrimitive.ResponsiveContainer>
+        </ResponsiveContainer>
       </div>
     </ChartContext.Provider>
   );
@@ -88,7 +88,7 @@ return color ? `  --color-${key}: ${color};` : null
   );
 }
 
-const ChartTooltip = RechartsPrimitive.Tooltip
+const ChartTooltip = Tooltip
 
 function ChartTooltipContent({
   active,
@@ -224,8 +224,6 @@ function ChartTooltipContent({
   );
 }
 
-const ChartLegend = RechartsPrimitive.Legend
-
 function ChartLegendContent({
   className,
   hideIcon = false,
@@ -313,16 +311,6 @@ export {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-  ChartLegend,
   ChartLegendContent,
   ChartStyle,
 }
-
-// Re-export recharts primitives so pages import from here, not directly from recharts
-export const {
-  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell,
-  Label, Legend, Line, LineChart, Pie, PieChart,
-  PolarAngleAxis, PolarGrid, PolarRadiusAxis,
-  Radar, RadarChart, ReferenceLine, ResponsiveContainer,
-  Tooltip, XAxis, YAxis,
-} = RechartsPrimitive

@@ -6,6 +6,7 @@ import useVehicleStore from '@/store/useVehicleStore';
 import parcaService from '@/services/parcaService';
 import { canAccessChannel, resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { notifyApiError } from '@/utils/apiError';
+import { DATA_SCOPES, emitDataChanged, subscribeDataChanged } from '@/utils/dataEvents';
 import { formatCurrency, formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import ComponentDataTable, { hesaplaParcaOmru } from '@/components/v2/ComponentDataTable';
 import ComponentSheet from '@/components/v2/ComponentSheet';
@@ -81,15 +82,11 @@ export default function Parcalar() {
   }, [verileriYukle]);
 
   useEffect(() => {
-    const handleDataChanged = (event) => {
-      if (event?.detail?.source === 'parcalar-page') return;
-      const scope = event?.detail?.scope;
-      if (!scope || scope === 'component' || scope === 'movement' || scope === 'vehicle') {
-        verileriYukle();
-      }
-    };
-    window.addEventListener('truss:data-changed', handleDataChanged);
-    return () => window.removeEventListener('truss:data-changed', handleDataChanged);
+    return subscribeDataChanged(
+      [DATA_SCOPES.COMPONENT, DATA_SCOPES.MOVEMENT, DATA_SCOPES.VEHICLE],
+      verileriYukle,
+      { ignoreSource: 'parcalar-page' }
+    );
   }, [verileriYukle]);
 
   const aracMap = useMemo(() => {
@@ -195,9 +192,7 @@ export default function Parcalar() {
 
   const handleSheetSuccess = useCallback(async () => {
     await verileriYukle();
-    window.dispatchEvent(
-      new CustomEvent('truss:data-changed', { detail: { scope: 'component', source: 'parcalar-page' } })
-    );
+    emitDataChanged(DATA_SCOPES.COMPONENT, { source: 'parcalar-page' });
   }, [verileriYukle]);
 
   const handleDeleteRequest = useCallback(
@@ -216,9 +211,7 @@ export default function Parcalar() {
       toast.success('Parça takip kaydı silindi.');
       setDeleteTarget(null);
       await verileriYukle();
-      window.dispatchEvent(
-        new CustomEvent('truss:data-changed', { detail: { scope: 'component', source: 'parcalar-page' } })
-      );
+      emitDataChanged(DATA_SCOPES.COMPONENT, { source: 'parcalar-page' });
     } catch (err) {
       notifyApiError(err, 'Parça silinemedi.');
     } finally {

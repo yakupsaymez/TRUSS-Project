@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCheck, ChevronRight, Cog, FileText, Info, Wallet, Wrench } from 'lucide-react';
 import bildirimService from '@/services/bildirimService';
 import { notifyApiError } from '@/utils/apiError';
+import { subscribeDataChanged } from '@/utils/dataEvents';
 import { formatTurkishPlate } from '@/utils/formatters';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -65,9 +66,7 @@ export default function NotificationBell() {
 
   useEffect(() => {
     fetchBildirimler();
-    const onDataChanged = () => fetchBildirimler({ silent: true });
-    window.addEventListener('truss:data-changed', onDataChanged);
-    return () => window.removeEventListener('truss:data-changed', onDataChanged);
+    return subscribeDataChanged(null, () => fetchBildirimler({ silent: true }));
   }, [fetchBildirimler]);
 
   const handleOpenChange = (nextOpen) => {

@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, ScanSearch } from 'lucide-react';
 import yakitService from '@/services/yakitService';
 import { notifyApiError } from '@/utils/apiError';
+import { DATA_SCOPES, subscribeDataChanged } from '@/utils/dataEvents';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -70,14 +71,10 @@ export default function FuelAnomalyPanel({ seciliAracId = null, canManage = fals
   }, [fetchAnomaliler]);
 
   useEffect(() => {
-    const onDataChanged = (event) => {
-      const scope = event?.detail?.scope;
-      if (!scope || ['movement', 'fuel-anomaly', 'vehicle'].includes(scope)) {
-        fetchAnomaliler({ silent: true });
-      }
-    };
-    window.addEventListener('truss:data-changed', onDataChanged);
-    return () => window.removeEventListener('truss:data-changed', onDataChanged);
+    return subscribeDataChanged(
+      [DATA_SCOPES.MOVEMENT, DATA_SCOPES.FUEL_ANOMALY, DATA_SCOPES.VEHICLE],
+      () => fetchAnomaliler({ silent: true })
+    );
   }, [fetchAnomaliler]);
 
   const handleScan = async () => {

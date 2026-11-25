@@ -140,7 +140,7 @@ export default function DenetimTab() {
 
       <div className="flex flex-wrap items-center gap-2">
         <Select value={eylem} onValueChange={(v) => { setEylem(v); setOffset(0); }}>
-          <SelectTrigger aria-label="Eylem filtresi" className="h-9 w-52 rounded-lg border-border bg-background text-xs">
+          <SelectTrigger aria-label="Eylem filtresi" className="h-9 w-44 rounded-lg border-border bg-background text-xs">
             <SelectValue placeholder="Eylem" />
           </SelectTrigger>
           <SelectContent>
@@ -149,7 +149,7 @@ export default function DenetimTab() {
         </Select>
 
         <Select value={varlikTipi} onValueChange={(v) => { setVarlikTipi(v); setOffset(0); }}>
-          <SelectTrigger aria-label="Varlık tipi filtresi" className="h-9 w-40 rounded-lg border-border bg-background text-xs">
+          <SelectTrigger aria-label="Varlık tipi filtresi" className="h-9 w-36 rounded-lg border-border bg-background text-xs">
             <SelectValue placeholder="Varlık Tipi" />
           </SelectTrigger>
           <SelectContent>
@@ -157,8 +157,12 @@ export default function DenetimTab() {
           </SelectContent>
         </Select>
 
-        <TrussDatePicker id="denetim-baslangic" name="baslangic" value={baslangic} onChange={(e) => { setBaslangic(e?.target?.value ?? ''); setOffset(0); }} placeholder="Başlangıç tarihi" className="h-9 w-40 text-xs" />
-        <TrussDatePicker id="denetim-bitis" name="bitis" value={bitis} onChange={(e) => { setBitis(e?.target?.value ?? ''); setOffset(0); }} placeholder="Bitiş tarihi" className="h-9 w-40 text-xs" />
+        <div className="w-36 shrink-0">
+          <TrussDatePicker id="denetim-baslangic" name="baslangic" value={baslangic} onChange={(e) => { setBaslangic(e?.target?.value ?? ''); setOffset(0); }} placeholder="Başlangıç tarihi" className="h-9 w-full text-xs" />
+        </div>
+        <div className="w-36 shrink-0">
+          <TrussDatePicker id="denetim-bitis" name="bitis" value={bitis} onChange={(e) => { setBitis(e?.target?.value ?? ''); setOffset(0); }} placeholder="Bitiş tarihi" className="h-9 w-full text-xs" />
+        </div>
 
         {hasActiveFilters && (
           <Button type="button" variant="ghost" size="sm" onClick={handleClear} className="h-9 gap-1.5 text-xs text-muted-foreground hover:text-foreground">
