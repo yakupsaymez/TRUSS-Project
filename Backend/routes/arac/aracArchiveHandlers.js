@@ -38,6 +38,16 @@ const closeActiveAssignments = async (client, aracId) => {
   return r.rowCount || 0;
 };
 
+const closeOpenWorkOrders = async (client, aracId) => {
+  const r = await client.query(
+    `UPDATE is_emirleri
+     SET durum = 'iptal', red_iptal_nedeni = 'Araç arşivlendi', kapanis_tarihi = NOW(), guncelleme_tarihi = NOW()
+     WHERE arac_id = $1 AND durum IN ('acik', 'serviste')`,
+    [aracId]
+  );
+  return r.rowCount || 0;
+};
+
 const withTx = async (req, res, label, handler) => {
   const aracId = parseAracId(req, res);
   if (!aracId) return;
@@ -72,6 +82,7 @@ const deleteArac = (req, res) => {
     );
     if (histRes.rows[0]?.has_history) {
       const kapatilan = await closeActiveAssignments(client, aracId);
+      const kapatilanIsEmri = await closeOpenWorkOrders(client, aracId);
       const updRes = await client.query(
         `UPDATE araclar
          SET arsivlendi_mi = TRUE, arsiv_tarihi = COALESCE(arsiv_tarihi, NOW()),
@@ -85,12 +96,12 @@ const deleteArac = (req, res) => {
         await logAuditEvent(req, {
           eylem: 'ARAC_ARSIVLENDI', varlik_tipi: 'arac', varlik_id: aracId, org_id: arac.org_id,
           ozet: `${arac.plaka} plakalı araç geçmiş hareket nedeniyle arşivlendi.`,
-          detay: { plaka: arac.plaka, arsiv_nedeni: arac.arsiv_nedeni, kapatilan_zimmet_sayisi: kapatilan },
+          detay: { plaka: arac.plaka, arsiv_nedeni: arac.arsiv_nedeni, kapatilan_zimmet_sayisi: kapatilan, kapatilan_is_emri_sayisi: kapatilanIsEmri },
         });
       }
       return res.status(200).json({
         message: 'Geçmiş hareket kaydı bulunduğu için araç silinmedi, arşivlendi.',
-        islem: 'arsivlendi', arac, kapatilan_zimmet_sayisi: kapatilan,
+        islem: 'arsivlendi', arac, kapatilan_zimmet_sayisi: kapatilan, kapatilan_is_emri_sayisi: kapatilanIsEmri,
       });
     }
 
@@ -111,6 +122,7 @@ const archiveArac = (req, res) => {
   if (error) return res.status(400).json({ message: error.details[0].message });
   return withTx(req, res, 'Araç Arşivleme Hatası', async (client, aracId, mevcut) => {
     const kapatilan = await closeActiveAssignments(client, aracId);
+    const kapatilanIsEmri = await closeOpenWorkOrders(client, aracId);
     const updRes = await client.query(
       `UPDATE araclar
        SET arsivlendi_mi = TRUE, arsiv_tarihi = COALESCE(arsiv_tarihi, NOW()), arsiv_nedeni = COALESCE($2, arsiv_nedeni)
@@ -123,10 +135,10 @@ const archiveArac = (req, res) => {
       await logAuditEvent(req, {
         eylem: 'ARAC_ARSIVLENDI', varlik_tipi: 'arac', varlik_id: aracId, org_id: arac.org_id,
         ozet: `${arac.plaka} plakalı araç arşivlendi.`,
-        detay: { plaka: arac.plaka, arsiv_nedeni: arac.arsiv_nedeni, kapatilan_zimmet_sayisi: kapatilan },
+        detay: { plaka: arac.plaka, arsiv_nedeni: arac.arsiv_nedeni, kapatilan_zimmet_sayisi: kapatilan, kapatilan_is_emri_sayisi: kapatilanIsEmri },
       });
     }
-    return res.status(200).json({ message: 'Araç arşivlendi', arac, kapatilan_zimmet_sayisi: kapatilan });
+    return res.status(200).json({ message: 'Araç arşivlendi', arac, kapatilan_zimmet_sayisi: kapatilan, kapatilan_is_emri_sayisi: kapatilanIsEmri });
   });
 };
 

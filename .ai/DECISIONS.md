@@ -104,3 +104,7 @@
 ### ADR-26: Fonksiyonel Çekirdek (`AppError`/`withTransaction`), Sıkı `dataEvents` & Recharts Chunk Ayrımı
 - **2026-11-25 (`FORGE-M2`) · Kök Neden:** Controller-içi DB TX ve `res.status` yazımları çekirdek testini kilitliyor, `chart.jsx` wildcard Recharts importu (`Legend`) ve gevşek `dataEvents` dinleyicileri vendor chunk'ını `351.3 KB` üzerine taşıyıp gereksiz fetch üretiyordu.
 - **Kalıcı Kural:** BE mutasyonları `req/res`-bağımsız `*WriteService` (`fn(client, actor, input)`) + `AppError` + `withTransaction` (`ROLLBACK` hatasında `release(true)`) kullanır; FE `chart.jsx` named import (`Legend` kaldırıldı) + `vendor-charts`/`vendor-charts-core` ayrımı, sıkı `dataEvents.js` ve 3 katmanlı `Hareketler`/`BudgetVarianceCard` uygular.
+
+### ADR-27: İş Emri Kilit Sırası, Tek-TX Bakım Kapanışı, `SMH`/`KM` & `DATA_SCOPES`
+- **2026-11-25 (`FORGE-M3A`) · Kök Neden:** Çift tamamlama/arşiv yarışları (`AB-BA`), `SMH` ondalığının `bakimlar.km INT` uyumu, `DATE` kayması ve M3B event sapması tek sözleşmede kilitlenmeliydi.
+- **Kalıcı Kural:** İş emri mutasyonları kilit-öncesi kiracı (`404`/`403`) + `araclar -> is_emirleri` sırası ve `planlanan_tarih::text` (`ADR-01/02`) uygular; `completeWorkOrderTx` `SMH` ondalığını `assertOdometerChronology` + `Math.round` ile tek TX `createBakimTx`'e bağlar; M3B `DATA_SCOPES` anahtarları `WORK_ORDER: 'work-order'`, `'movement'`, `'vehicle'`, `'component'` olur.

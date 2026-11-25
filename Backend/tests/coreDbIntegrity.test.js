@@ -1,6 +1,7 @@
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { runMigrations } = require('../scripts/migrate');
+const { MIGRATIONS } = require('../scripts/migrations');
 const { CRON_LOCKS, withAdvisoryLock, runNotificationChecks } = require('../services/notificationScheduler');
 const {
   pool, startTestServer, requestJson, createTestOrg, createTestUser,
@@ -31,7 +32,7 @@ describe('FORGE Core DB & API Integrity Tests', () => {
     assert.equal(r1.ok, true);
     assert.equal(r2.ok, true);
     assert.equal(r2.applied.length, 0);
-    assert.equal(r2.skipped.length, 7);
+    assert.equal(r2.skipped.length, MIGRATIONS.length);
 
     const fk = await pool.query(
       `SELECT conname, confdeltype::text AS dt FROM pg_constraint

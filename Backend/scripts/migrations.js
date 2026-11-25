@@ -190,6 +190,40 @@ const MIGRATIONS = [
       ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
     `,
   },
+  {
+    version: '008_v22_work_orders',
+    sql: `
+      CREATE TABLE IF NOT EXISTS is_emirleri (
+        is_emri_id SERIAL PRIMARY KEY,
+        org_id INTEGER NOT NULL REFERENCES organizations(org_id) ON DELETE CASCADE,
+        arac_id INTEGER NOT NULL REFERENCES araclar(arac_id) ON DELETE CASCADE,
+        acan_user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
+        onaylayan_user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
+        olusulan_bakim_id INTEGER REFERENCES bakimlar(bakim_id) ON DELETE SET NULL,
+        baslik VARCHAR(160) NOT NULL,
+        aciklama TEXT,
+        kategori VARCHAR(40) NOT NULL DEFAULT 'ariza' CHECK (kategori IN ('ariza', 'periyodik_bakim', 'lastik', 'hasar', 'diger')),
+        oncelik VARCHAR(20) NOT NULL DEFAULT 'normal' CHECK (oncelik IN ('dusuk', 'normal', 'yuksek', 'kritik')),
+        durum VARCHAR(20) NOT NULL DEFAULT 'acik' CHECK (durum IN ('acik', 'serviste', 'tamamlandi', 'iptal')),
+        bildirilen_sayac NUMERIC(12, 1) CHECK (bildirilen_sayac IS NULL OR bildirilen_sayac >= 0),
+        servis_adi VARCHAR(120),
+        tahmini_maliyet NUMERIC(12, 2) CHECK (tahmini_maliyet IS NULL OR (tahmini_maliyet >= 0 AND tahmini_maliyet <= 999999999.99)),
+        gerceklesen_maliyet NUMERIC(12, 2) CHECK (gerceklesen_maliyet IS NULL OR (gerceklesen_maliyet >= 0 AND gerceklesen_maliyet <= 999999999.99)),
+        planlanan_tarih DATE,
+        red_iptal_nedeni VARCHAR(240),
+        kapanis_tarihi TIMESTAMPTZ,
+        olusturma_tarihi TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        guncelleme_tarihi TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_is_emirleri_org_durum
+        ON is_emirleri (org_id, durum, olusturma_tarihi DESC);
+      CREATE INDEX IF NOT EXISTS idx_is_emirleri_arac_durum
+        ON is_emirleri (arac_id, durum);
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_is_emirleri_bakim
+        ON is_emirleri (olusulan_bakim_id)
+        WHERE olusulan_bakim_id IS NOT NULL;
+    `,
+  },
 ];
 
 module.exports = { MIGRATIONS };

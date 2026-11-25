@@ -74,6 +74,7 @@ async function takeExternalSnapshot() {
   const testOrgSub = `SELECT org_id FROM organizations WHERE unvan LIKE '${TEST_ORG_PREFIX}%'`;
   const testUserSub = `SELECT user_id FROM users WHERE email LIKE '%${TEST_EMAIL_SUFFIX}'`;
   const testAracSub = `SELECT arac_id FROM araclar WHERE org_id IN (${testOrgSub}) OR kullanici_id IN (${testUserSub})`;
+  const hasWorkOrders = Boolean((await pool.query(`SELECT to_regclass('public.is_emirleri') AS t`)).rows[0]?.t);
   return {
     organizations: await q(`SELECT COUNT(*)::int AS c FROM organizations WHERE unvan NOT LIKE '${TEST_ORG_PREFIX}%'`),
     users: await q(`SELECT COUNT(*)::int AS c FROM users WHERE email NOT LIKE '%${TEST_EMAIL_SUFFIX}'`),
@@ -82,6 +83,7 @@ async function takeExternalSnapshot() {
     yakitlar_ext: await q(`SELECT COUNT(*)::int AS c FROM yakitlar WHERE arac_id NOT IN (${testAracSub})`),
     bakimlar_ext: await q(`SELECT COUNT(*)::int AS c FROM bakimlar WHERE arac_id NOT IN (${testAracSub})`),
     parca_ext: await q(`SELECT COUNT(*)::int AS c FROM parca_takip WHERE arac_id NOT IN (${testAracSub})`),
+    is_emirleri_ext: hasWorkOrders ? await q(`SELECT COUNT(*)::int AS c FROM is_emirleri WHERE arac_id NOT IN (${testAracSub})`) : 0,
     denetim_ext: await q(`SELECT COUNT(*)::int AS c FROM denetim_kayitlari WHERE COALESCE(kullanici_eposta, '') NOT LIKE '%${TEST_EMAIL_SUFFIX}'`),
   };
 }
@@ -105,6 +107,10 @@ async function cleanupTestSuite() {
     await client.query(`DELETE FROM bildirim_olaylari WHERE user_id = ANY($1::int[]) OR org_id = ANY($2::int[])`, [userIds, orgIds]);
     await client.query(`DELETE FROM yakit_anomalileri WHERE arac_id = ANY($1::int[])`, [aracIds]);
     await client.query(`DELETE FROM arac_sofor_atamalari WHERE arac_id = ANY($1::int[]) OR sofor_user_id = ANY($2::int[])`, [aracIds, userIds]);
+    const hasWo = Boolean((await client.query(`SELECT to_regclass('public.is_emirleri') AS t`)).rows[0]?.t);
+    if (hasWo) {
+      await client.query(`DELETE FROM is_emirleri WHERE arac_id = ANY($1::int[]) OR org_id = ANY($2::int[])`, [aracIds, orgIds]);
+    }
     await client.query(`DELETE FROM parca_takip WHERE arac_id = ANY($1::int[])`, [aracIds]);
     await client.query(`DELETE FROM yakitlar WHERE arac_id = ANY($1::int[])`, [aracIds]);
     await client.query(`DELETE FROM bakimlar WHERE arac_id = ANY($1::int[])`, [aracIds]);

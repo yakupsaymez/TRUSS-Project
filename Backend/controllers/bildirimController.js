@@ -5,6 +5,7 @@ const { bugunTR, gunEkleTR } = require('../utils/dateUtils');
 const { fetchPredictiveCandidates, computePredictiveSummaryFromRow } = require('../services/predictiveService');
 const { NOTIFY_DAY_THRESHOLD, PREDICTIVE_NOTIFY_DAY_THRESHOLD, evaluateEvrakAlerts, evaluateParcaAlerts } = require('../services/alertEvaluators');
 const { hasFinanceAccess } = require('../services/notificationService');
+const { fetchOpenWorkOrderActionItems } = require('../services/workOrderQueryService');
 
 const SEVIYE_SIRASI = { kritik: 0, uyari: 1, bilgi: 2 };
 const VISIBLE_COND = "COALESCE((meta_json->>'uygulama_gizli')::boolean, FALSE) = FALSE";
@@ -173,7 +174,7 @@ const getAksiyonMerkezi = async (req, res) => {
     const accessFilter = buildVehicleAccessFilter(req.user);
     const finansYetkisi = hasFinanceAccess(req.user);
 
-    const [evrakRes, parcaRes, predictiveRows, budgetResult] = await Promise.all([
+    const [evrakRes, parcaRes, predictiveRows, budgetResult, workOrderItems] = await Promise.all([
       pool.query(
         `SELECT a.arac_id, a.plaka, a.muayene_tarihi, a.kasko_tarihi, a.sigorta_tarihi
          FROM araclar a
@@ -201,6 +202,7 @@ const getAksiyonMerkezi = async (req, res) => {
       ),
       fetchPredictiveCandidates({ accessFilter }),
       finansYetkisi ? buildBudgetActionItems(req.user.org_id, bugun) : Promise.resolve({ butce: [], items: [] }),
+      fetchOpenWorkOrderActionItems(req.user, accessFilter),
     ]);
 
     const ogeler = [];
@@ -258,7 +260,7 @@ const getAksiyonMerkezi = async (req, res) => {
       }
     }
 
-    ogeler.push(...budgetResult.items);
+    ogeler.push(...budgetResult.items, ...workOrderItems);
     ogeler.sort((a, b) => (SEVIYE_SIRASI[a.seviye] ?? 9) - (SEVIYE_SIRASI[b.seviye] ?? 9));
 
     return res.status(200).json({
@@ -272,6 +274,7 @@ const getAksiyonMerkezi = async (req, res) => {
         bakim_sayisi: bakimSayisi,
         parca_sayisi: parcaSayisi,
         butce_sayisi: budgetResult.items.length,
+        is_emri_sayisi: workOrderItems.length,
       },
       ogeler,
       butce: budgetResult.butce,
