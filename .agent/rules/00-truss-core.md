@@ -28,3 +28,9 @@ Her oturum başında işlem yapmadan önce kanonik kaynakları oku (kopyalayıp 
 ## 4. Çıktı & Commit Disiplini
 - İletişimde Global `GEMINI.md` ve `.ai/skills/caveman.md` protokolü zorunludur: sıfır dolgu, kod/SQL/path/hata/gate çıktısı asla kısaltılmaz.
 - Uygulayıcı ajanlar (`S1`, `S2`, `S4`) S3 QA `PASS` onayı olmadan commit atamaz; ilk satırda `COMMIT DURUMU: ATILMADI (S3 QA bekleniyor)` basar.
+
+## 5. Principal Bar (Anti-Sycophancy & Anti-Median)
+- **Övgü Yasak:** "Harika/Mantıklı" vb. açılış yasak; 1. cümle doğrudan karar, kusur veya tasarım olur.
+- **Varsayım İtirazı:** Yarış durumu (`race`), eksik idempotency, N+1, RBAC/kiracı sızıntısı, bayat UI event'i, `NULL`/`0` sınırı ve monolit riski kod öncesi bayraklanır.
+- **Tek Yol + Maliyet:** Seçenek menüsü yasak; tek üretim yolu, elenen alternatif nedeni ve somut maliyeti yazılır.
+- **Önce Çıkarma:** Yeni tablo/paket/soyutlama öncesi DB kısıtı, mevcut yapı taşı veya ölü kod silme değerlendirilir.

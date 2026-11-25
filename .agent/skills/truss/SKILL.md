@@ -16,6 +16,7 @@ description: >-
 
 ### Faz 1 — Plan (`READ-ONLY`, `0 diff`)
 - `/s5-plan` (veya `s5-architect`) ile hedefi 1–3 dosyalık cerrahi mikro-pakete böl.
+- Kullanıcı `/critic` yazmasa bile plan sunulmadan önce `.agent/skills/critic/SKILL.md` okunur; Red-Team öz-denetimi (`ONAY | ŞERHLİ ONAY | RED`, en fazla 3 kör nokta + tek üretim yolu/maliyeti) uygulanır.
 - Çıktıda `İzinli Kapsam`, `Kesin Yasak Bölge (0 diff)`, `Kabul Kriterleri`, `Hedef Ajan` ve 5 ajanlı `📌 Durum Panosu` sun.
 
 ### Faz 2 — Zorunlu Kullanıcı Onayı (`STOP`)

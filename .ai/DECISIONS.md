@@ -102,3 +102,8 @@
 - **Kök Neden:** `uygulama: false, email: true` tercihinde dedup `INSERT`'i atlanıyor, TCO CTE'leri tüm tabloyu tarıyor, toplu anomali taraması N+1 sorgu + kural ayrışması riski taşıyor ve `VehicleSheet`/`Parcalar`/`BudgetVarianceCard` mutasyonları `truss:data-changed` eksikliği/çift fetch üretiyordu.
 - **Kalıcı Kural:** E-posta bildirimleri `meta_json.uygulama_gizli = true` + `okundu_mu = TRUE` ile `bildirim_olaylari` dedup kilidine yazılır ve controller `GET`/`PATCH` uçlarında gizli satırlara `404` döner; `fuelAnomalyRules.js` saf kural yardımcılarını tekil ve toplu (`UNNEST ... RETURNING anomali_id`) tarama paylaşır; FE mutasyonları tekil `truss:data-changed` (`component`, `vehicle`, `budget`) ve `requestIdRef` ile çift fetch olmadan senkronize edilir.
 
+### ADR-21: Principal Bar, `/critic` Red-Team Skilli & Zorunlu Faz 1 Öz-Denetimi
+- **Tarih:** 2026-11-25 (`OPS-5b`)
+- **Kök Neden:** Onaylayıcı (sycophantic) açılışlar, seçenek menüsü sunma ve yüzeysel happy-path planlama/QA pratikleri yarış durumu, kiracı sızıntısı ve dikiş (`seam`) hatalarını tasarım aşamasında gizleyebiliyordu.
+- **Kalıcı Kural:** `.agent/rules/00-truss-core.md` §5 always-on Principal Bar ile övgü/seçenek menüsü yasaklanır; `.agent/skills/critic/SKILL.md` (`/critic`) ve `truss/SKILL.md` Faz 1 zorunlu okumasıyla plan/QA öncesi seam/stres öz-denetimi uygulanır (`.agent/*` `<= 55` satır, Always-On artış `<= 180` tok).
+
