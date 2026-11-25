@@ -1,25 +1,26 @@
 # TRUSS — Canlı İlerleme & Durum (`PROGRESS.md`)
 
-## 1. Aktif Durum (`main` — `FORGE-M3A` Mühürleniyor, Önceki HEAD `51ae544`)
+## 1. Aktif Durum (`main` — `FORGE-M3B`, Önceki `7bdae0e`)
 - **Mühürlenen Epoklar:**
-  - `V2.1..V2.2` (`cbca5d0..980cc98`): `radix-luma` v2 UI, `OPS-1..5b`, `REFACTOR-1`, `HOTFIX-W1..W3`, `araclar.org_id` (`ADR-17`), bildirim/TCO/anomali (`ADR-18..20`), CSV (`ADR-22`), soft-archive + `denetim_kayitlari` (`ADR-23`) — **QA PASS**.
-  - `FORGE-M0..M2` (`d07405b..51ae544`): 5 uzman topoloji (`ADR-24`), `schema_migrations`, `token_version`, `CRON_LOCKS`, tam arşiv (`ADR-25`), `AppError`/`withTransaction`, `*WriteService`, Recharts split (`227.9 KB`), `dataEvents` (`ADR-26`) — **QA PASS**.
-  - `FORGE-M3A (WORKORDER-BE)`: `is_emirleri` + `008`, `workOrderWriteService`/`QueryService`, `isEmriController`/`Routes`, arşiv/aksiyon dikişleri, `test:core 19/19 PASS` (`ADR-27`) — **QA PASS**.
+  - `V2.1..V2.2` (`cbca5d0..980cc98`): `radix-luma`, `OPS-1..5b`, `REFACTOR-1`, `HOTFIX-W1..W3`, `org_id`, TCO/anomali/CSV, arşiv+denetim (`ADR-17..23`) — **QA PASS**.
+  - `FORGE-M0..M2` (`d07405b..51ae544`): 5 uzman (`ADR-24`), `schema_migrations`, `token_version`, `CRON_LOCKS`, arşiv (`ADR-25`), `*WriteService`, Recharts `227.9KB`, `dataEvents` (`ADR-26`) — **QA PASS**.
+  - `FORGE-M3A` (`7bdae0e`): `is_emirleri`+`008`, `workOrder{Write,Query}Service`, `isEmri{Controller,Routes}`, `test:core 19/19` (`ADR-27`) — **QA PASS**.
+  - `FORGE-M3B (WORKORDER-UI)`: `/app/is-emirleri` 3 katmanlı UI (`work-orders/*`, `isEmriService.js`), sürücü/yönetici akışı, aksiyon/denetim dikişi — **TAMAMLANDI — QA PASS**.
 
 ## 2. Master Yol Haritası (`FORGE-M0..M4`)
-- **`FORGE-M0..M2` (TAMAMLANDI):** Topoloji (`d07405b`), DB/Auth (`a7c68d6`), çekirdek/bundle (`51ae544`).
-- **`FORGE-M3A` (TAMAMLANDI — Mühürleniyor):** İş emri şeması, fonksiyonel çekirdek, arşiv/aksiyon dikişleri (`ADR-27`).
-- **`FORGE-M3B` (SONRAKİ — `WORKORDER-UI`):** `shell-crafter` ile 3 katmanlı İş Emri UI (`DATA_SCOPES`: `'work-order'`, `'movement'`, `'vehicle'`, `'component'`).
-- **`FORGE-M4` (RELEASE-SEAL):** Son `radar` röntgeni, `gate-baseline.json` daraltması ve `V2.2` mührü.
+- **`FORGE-M0..M2` (TAMAM):** Topoloji (`d07405b`), DB/Auth (`a7c68d6`), çekirdek/bundle (`51ae544`).
+- **`FORGE-M3A` (TAMAM — `7bdae0e`):** İş emri şeması, çekirdek, arşiv/aksiyon (`ADR-27`).
+- **`FORGE-M3B (WORKORDER-UI)` (TAMAMLANDI — QA PASS):** İş Emri UI (`work-orders/*`, `DATA_SCOPES`: `'work-order'`).
+- **`FORGE-M4` (SONRAKİ — `RELEASE-SEAL`):** `radar` röntgeni, `gate-baseline.json` daraltması, `V2.2` mührü.
 
 ## 3. Teknik Risk & Ratchet Durumu
-- **Bundle & Monolit:** `maxChunkKb: 228` (`227.9 KB`), Gate 1 `14 warn` (`0` fail, `0` monolit), `test:core 19/19 PASS`.
+- **Bundle & Monolit:** `maxChunkKb: 228` (`227.9 KB`), Gate 1 `<= 14 warn` (`0` fail, `0` monolit), `test:core 19/19 PASS`.
 
 ## 4. 📌 Durum Panosu
-| Uzman | Model / Güç | Şu An Ne Yapıyor | Hemen Şimdi Ne Yapmalı | İleride Ne Yapacak |
-| :--- | :--- | :--- | :--- | :--- |
-| **Keystone** | `pro` | `FORGE-M3A` mühürlendi | `FORGE-M3B (WORKORDER-UI)` sözleşmesi | `FORGE-M4` plan & `/critic` |
-| **Core-Smith** | `inherit` | `FORGE-M3A` `/forge-seal` | `commit` + `push` sonrası bekle | `FORGE-M4` final mührü |
-| **Shell-Crafter** | `inherit` | `FORGE-M3B` bekliyor | `/app/is-emirleri` 3 katmanlı UI | `FORGE-M4` son rötuşlar |
-| **Sentinel** | `pro` | `FORGE-M3A` **QA PASS** (`0 P0/P1`) | `FORGE-M3B` E2E QA için bekle | `FORGE-M3B..M4` QA |
-| **Radar** | `flash` | `980cc98` röntgeni tamam | Beklemede kal | `FORGE-M4` final röntgeni |
+| Uzman | Güç | Şu An | Hemen Şimdi | İleride |
+|:---|:---|:---|:---|:---|
+| **Keystone** | `pro` | `FORGE-M3B` mühürlendi | `FORGE-M4` sözleşmesi | `V2.2` `/critic` |
+| **Core-Smith** | `inherit` | `FORGE-M3B` `/forge-seal` | `commit`+`push` sonrası bekle | `FORGE-M4` mühür |
+| **Shell-Crafter** | `inherit` | `FORGE-M3B` tamam | `FORGE-M4` hazır ol | `FORGE-M4` UI temizlik |
+| **Sentinel** | `pro` | `FORGE-M3B` **QA PASS** | `FORGE-M4` QA bekle | `FORGE-M4` E2E onay |
+| **Radar** | `flash` | `980cc98` röntgeni tamam | `FORGE-M4` röntgene hazırlan | `FORGE-M4` final röntgen |

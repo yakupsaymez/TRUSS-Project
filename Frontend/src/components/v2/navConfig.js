@@ -1,4 +1,4 @@
-import { LayoutDashboard, Truck, MapPin, Receipt, Cog, CalendarDays, Users } from 'lucide-react';
+import { LayoutDashboard, Truck, MapPin, Receipt, Cog, ClipboardList, CalendarDays, Users } from 'lucide-react';
 
 export const navConfig = [
   {
@@ -30,6 +30,12 @@ export const navConfig = [
     path: '/app/parcalar',
     icon: Cog,
     channel: 'components',
+  },
+  {
+    label: 'İş Emirleri',
+    path: '/app/is-emirleri',
+    icon: ClipboardList,
+    channel: 'horizon',
   },
   {
     label: 'Takvim',

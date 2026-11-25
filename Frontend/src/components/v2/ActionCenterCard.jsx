@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, ChevronUp, Cog, FileText, Info, RefreshCw, Wallet, Wrench } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, ChevronUp, ClipboardList, Cog, FileText, Info, RefreshCw, Wallet, Wrench } from 'lucide-react';
 import bildirimService from '@/services/bildirimService';
 import { notifyApiError } from '@/utils/apiError';
 import { subscribeDataChanged } from '@/utils/dataEvents';
@@ -23,6 +23,7 @@ const KATEGORI_META = {
   belge: { label: 'Belge', icon: FileText },
   bakim: { label: 'Bakım', icon: Wrench },
   parca: { label: 'Parça', icon: Cog },
+  is_emri: { label: 'İş Emri', icon: ClipboardList },
   maliyet_ozeti: { label: 'Bütçe', icon: Wallet },
 };
 
@@ -80,7 +81,7 @@ export default function ActionCenterCard({ seciliAracId = 'tum', canViewAnalytic
   }, [data, showFinance, isSingleVehicle, seciliAracId]);
 
   const counts = useMemo(() => {
-    const acc = { tum: visibleItems.length, belge: 0, bakim: 0, parca: 0, maliyet_ozeti: 0, kritik: 0, uyari: 0 };
+    const acc = { tum: visibleItems.length, belge: 0, bakim: 0, parca: 0, is_emri: 0, maliyet_ozeti: 0, kritik: 0, uyari: 0 };
     for (const item of visibleItems) {
       if (item.kategori in acc) acc[item.kategori] += 1;
       if (item.seviye === 'kritik') acc.kritik += 1;
@@ -89,6 +90,11 @@ export default function ActionCenterCard({ seciliAracId = 'tum', canViewAnalytic
     return acc;
   }, [visibleItems]);
 
+  const showIsEmriTab = counts.is_emri > 0 || Number(data?.ozet?.is_emri_sayisi || 0) > 0;
+  useEffect(() => {
+    if (activeCategory === 'is_emri' && !showIsEmriTab) setActiveCategory('tum');
+  }, [activeCategory, showIsEmriTab]);
+
   const categoryTabs = useMemo(() => {
     const tabs = [
       { id: 'tum', label: 'Tümü', count: counts.tum },
@@ -96,9 +102,10 @@ export default function ActionCenterCard({ seciliAracId = 'tum', canViewAnalytic
       { id: 'bakim', label: 'Bakım', count: counts.bakim },
       { id: 'parca', label: 'Parça', count: counts.parca },
     ];
+    if (showIsEmriTab) tabs.push({ id: 'is_emri', label: 'İş Emri', count: counts.is_emri });
     if (showFinance && !isSingleVehicle) tabs.push({ id: 'maliyet_ozeti', label: 'Bütçe', count: counts.maliyet_ozeti });
     return tabs;
-  }, [counts, showFinance, isSingleVehicle]);
+  }, [counts, showIsEmriTab, showFinance, isSingleVehicle]);
 
   const filteredItems = useMemo(
     () => (activeCategory === 'tum' ? visibleItems : visibleItems.filter((item) => item.kategori === activeCategory)),
@@ -192,7 +199,7 @@ export default function ActionCenterCard({ seciliAracId = 'tum', canViewAnalytic
                       const clickable = isSafeInternalPath(item.link_url);
                       return (
                         <button
-                          key={`${item.kategori}-${item.arac_id ?? 'org'}-${idx}`}
+                          key={`${item.kategori}-${item.arac_id ?? 'org'}-${item.meta?.is_emri_id ?? idx}`}
                           type="button"
                           disabled={!clickable}
                           onClick={() => clickable && navigate(item.link_url)}

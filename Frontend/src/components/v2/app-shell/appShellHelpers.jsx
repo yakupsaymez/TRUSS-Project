@@ -12,6 +12,7 @@ export const ROUTE_LABELS = {
   '/app/harita': 'Harita',
   '/app/hareketler': 'Hareketler',
   '/app/parcalar': 'Parçalar',
+  '/app/is-emirleri': 'İş Emirleri',
   '/app/takvim': 'Takvim',
   '/app/ekip': 'Ekip',
   '/app/ayarlar': 'Ayarlar',

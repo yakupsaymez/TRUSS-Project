@@ -13,6 +13,7 @@ const Filo = lazy(() => import('@/pages/v2/Filo'));
 const Harita = lazy(() => import('@/pages/v2/Harita'));
 const Hareketler = lazy(() => import('@/pages/v2/Hareketler'));
 const Parcalar = lazy(() => import('@/pages/v2/Parcalar'));
+const IsEmirleri = lazy(() => import('@/pages/v2/IsEmirleri'));
 const Takvim = lazy(() => import('@/pages/v2/Takvim'));
 const Ekip = lazy(() => import('@/pages/v2/Ekip'));
 const Ayarlar = lazy(() => import('@/pages/v2/Ayarlar'));
@@ -126,6 +127,7 @@ function App() {
                   </ChannelGuard>
                 }
               />
+              <Route path="is-emirleri" element={<IsEmirleri />} />
               <Route
                 path="takvim"
                 element={
