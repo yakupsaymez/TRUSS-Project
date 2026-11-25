@@ -20,4 +20,4 @@
 
 ## 5. Dosya Boyutu & Bundle Bütçesi
 - **Satır Limiti:** `<= 300`L ideal, `301-600`L uyarı, `> 600`L **sert ret** (`ai-gate`).
-- **Entry Chunk Bütçesi:** Hedef `<= 350 KB`, sert sınır `450 KB` (vendor ratchet `maxChunkKb: 352 KB`).
+- **Entry Chunk Bütçesi:** Hedef `<= 350 KB`, sert sınır `450 KB` (vendor ratchet `maxChunkKb: 228 KB`).

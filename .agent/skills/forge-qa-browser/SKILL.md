@@ -9,7 +9,7 @@ description: sentinel canlı v2 E2E protokolü; Light/Dark OKLCH, 422 inline, RB
 
 ## 1. Gerçek v2 Rota Kapsamı
 - **Genel & Auth:** `/`, `/login`, `/register`, `/forgot-password`
-- **Uygulama (`/app/*`):** `/app`, `/app/filo`, `/app/harita`, `/app/hareketler`, `/app/parcalar`, `/app/takvim`, `/app/ekip`, `/app/ayarlar`
+- **Uygulama (`/app/*`):** `/app`, `/app/filo`, `/app/harita`, `/app/hareketler`, `/app/parcalar`, `/app/is-emirleri`, `/app/takvim`, `/app/ekip`, `/app/ayarlar`
 
 ## 2. Zorunlu Kırılma & E2E Kontrol Listesi
 1. **Light / Dark Tema (`ADR-06`, `ADR-07`):**

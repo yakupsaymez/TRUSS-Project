@@ -65,7 +65,7 @@ const getAllParcalar = async (req, res) => {
         ) AS guncel_km
       FROM parca_takip p
       INNER JOIN araclar a ON a.arac_id = p.arac_id
-      WHERE ${clause}
+      WHERE (${clause}) AND a.arsivlendi_mi = FALSE
       ORDER BY a.plaka ASC, p.parca_adi ASC
     `;
     const result = await pool.query(query, params);

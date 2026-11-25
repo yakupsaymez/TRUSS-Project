@@ -9,7 +9,7 @@ description: radar %100 READ-ONLY sistemik sapma röntgeni; context:audit, gate:
 
 ## 1. Salt-Okunur Tarama Komutları
 1. `npm run context:audit` (makine özeti: `node scripts/context-audit.mjs --json`)
-2. `npm run gate:fast` (`301-600` uyarı bandı, `> 600` ret, `maxChunkKb: 352`)
+2. `npm run gate:fast` (`301-600` uyarı bandı, `> 600` ret, `maxChunkKb: 228`)
 
 ## 2. Kod & Mimari Sapma Avı (`dosya:satır` Kanıtlı)
 - **Backend Çekirdek:** `> 90`L controllerlar, `req/res`-bağımlı servisler, `try/finally` eksik `client.release()`, eksik `a.org_id = $N` / `FOR UPDATE` / `pg_try_advisory_lock`, UTC tarih, çift sorgu / N+1.

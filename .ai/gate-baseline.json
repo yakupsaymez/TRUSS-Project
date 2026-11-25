@@ -7,5 +7,20 @@
     "Backend/scripts/seedKatalog.js",
     "Frontend/src/components/ui/**"
   ],
-  "files": {}
+  "files": {
+    "Backend/controllers/parcaController.js": 411,
+    "Backend/controllers/raporController.js": 334,
+    "Backend/routes/userRoutes.js": 359,
+    "Backend/scripts/qaSeed.js": 396,
+    "Frontend/src/components/v2/AssignVehicleSheet.jsx": 420,
+    "Frontend/src/components/v2/CostTrendChart.jsx": 345,
+    "Frontend/src/components/v2/CreateMemberSheet.jsx": 464,
+    "Frontend/src/components/v2/FleetHealthWidget.jsx": 378,
+    "Frontend/src/components/v2/component-data-table/componentTableColumns.jsx": 303,
+    "Frontend/src/components/v2/crew-data-table/crewTableColumns.jsx": 301,
+    "Frontend/src/pages/v2/Ekip.jsx": 363,
+    "Frontend/src/pages/v2/Harita.jsx": 483,
+    "Frontend/src/pages/v2/Parcalar.jsx": 326,
+    "Frontend/src/pages/v2/Takvim.jsx": 418
+  }
 }

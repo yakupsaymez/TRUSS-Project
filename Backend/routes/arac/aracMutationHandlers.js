@@ -1,6 +1,7 @@
 const pool = require('../../db');
 const { buildVehicleAccessFilter } = require('../../middlewares/rbacMiddleware.js');
 const { tarihStr } = require('../../utils/dateUtils');
+const { arsivliAracEngelle } = require('../../utils/odometerGuard');
 const { aracSchema, cozumleVaryantBilgileri, dogrulaKategoriId } = require('./aracHelpers');
 
 // PUT /api/araclar/:arac_id — ARAÇ GÜNCELLE (Sadece SYSTEM_ADMIN ve FLEET_MANAGER)
@@ -50,6 +51,7 @@ const updateArac = async (req, res) => {
       return res.status(404).json({ message: 'Araç bulunamadı' });
     }
     const mevcut = mevcutRes.rows[0];
+    if (await arsivliAracEngelle(client, res, mevcut, 'araç bilgisi', 'güncellenemez')) return;
 
     const nextKategoriId =
       kategori_id !== undefined ? (kategori_id ? Number(kategori_id) : null) : mevcut.kategori_id;

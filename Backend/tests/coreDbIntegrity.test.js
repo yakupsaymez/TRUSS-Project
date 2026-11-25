@@ -137,6 +137,44 @@ describe('FORGE Core DB & API Integrity Tests', () => {
       assert.equal(r.body.code, 'VEHICLE_ARCHIVED');
     }
 
+    const parcalarRes = await requestJson(srv.baseUrl, '/api/parcalar', { token: tok });
+    assert.equal(parcalarRes.status, 200);
+    assert.equal(parcalarRes.body.parcalar.some((p) => p.arac_id === aracId), false);
+
+    await pool.query(
+      `INSERT INTO yakit_anomalileri (org_id, arac_id, yakit_id, tip, seviye, aciklama, durum)
+       VALUES ($1, $2, $3, 'depo_asimi', 'kritik', 'QA arsiv dislama', 'acik')`,
+      [org.org_id, aracId, yakitId]
+    );
+    const anomRes = await requestJson(srv.baseUrl, '/api/yakitlar/anomaliler?durum=acik', { token: tok });
+    assert.equal(anomRes.status, 200);
+    assert.equal(anomRes.body.ozet.acik, 0);
+    assert.equal(anomRes.body.anomaliler.some((a) => a.arac_id === aracId), false);
+
+    const konumSelf = await requestJson(srv.baseUrl, `/api/araclar/${aracId}/konum`, {
+      method: 'PUT', token: tok, body: { enlem: 41.01, boylam: 28.97 },
+    });
+    assert.equal(konumSelf.status, 409);
+    assert.equal(konumSelf.body.code, 'VEHICLE_ARCHIVED');
+
+    const updSelf = await requestJson(srv.baseUrl, `/api/araclar/${aracId}`, {
+      method: 'PUT', token: tok, body: { plaka: '34FRG003', marka: 'Renault', model: 'Megane', yil: 2024 },
+    });
+    assert.equal(updSelf.status, 409);
+    assert.equal(updSelf.body.code, 'VEHICLE_ARCHIVED');
+
+    const orgB = await createTestOrg('arcB');
+    const mgrB = await createTestUser({ orgId: orgB.org_id, role: 'FLEET_MANAGER', tag: 'arcMgrB' });
+    const tokB = (await loginUser(srv.baseUrl, mgrB.email)).body.token;
+    const konumOther = await requestJson(srv.baseUrl, `/api/araclar/${aracId}/konum`, {
+      method: 'PUT', token: tokB, body: { enlem: 41.01, boylam: 28.97 },
+    });
+    assert.equal(konumOther.status, 404);
+    const updOther = await requestJson(srv.baseUrl, `/api/araclar/${aracId}`, {
+      method: 'PUT', token: tokB, body: { plaka: '34FRG003', marka: 'Renault', model: 'Megane', yil: 2024 },
+    });
+    assert.equal(updOther.status, 404);
+
     assert.equal((await requestJson(srv.baseUrl, `/api/araclar/${aracId}/geri-yukle`, { method: 'PATCH', token: tok })).status, 200);
     assert.equal((await requestJson(srv.baseUrl, `/api/parcalar/${parcaId}`, { method: 'DELETE', token: tok })).status, 200);
 

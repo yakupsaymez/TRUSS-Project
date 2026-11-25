@@ -30,7 +30,7 @@ const getYakitAnomalileri = async (req, res) => {
 
   try {
     const { clause, params } = buildVehicleAccessFilter(req.user, 1);
-    const baseConditions = [`(${clause})`];
+    const baseConditions = [`(${clause})`, 'a.arsivlendi_mi = FALSE'];
     const baseParams = [...params];
 
     if (value.arac_id) {

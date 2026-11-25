@@ -178,4 +178,37 @@ describe('FORGE Core Pure Tests (0-DB)', () => {
     );
     assert.deepEqual(m2.calls, ['q:BEGIN', 'q:ROLLBACK', { releaseArgs: [true] }]);
   });
+
+  it('ai-gate: ESM izolasyonu + 301-600 ratchet (411->412 FAIL, 405 shrinkable) + computeNextBaseline', async () => {
+    const { evaluateLineRatchet, computeNextBaseline } = await import('../../scripts/ai-gate.mjs');
+    assert.equal(typeof evaluateLineRatchet, 'function');
+    assert.equal(typeof computeNextBaseline, 'function');
+
+    const base = { 'Backend/controllers/parcaController.js': 411 };
+    const rFail = evaluateLineRatchet({ 'Backend/controllers/parcaController.js': 412 }, base);
+    assert.equal(rFail.status, 'FAIL');
+    assert.equal(rFail.failures.length, 1);
+
+    const rPass = evaluateLineRatchet({ 'Backend/controllers/parcaController.js': 411 }, base);
+    assert.equal(rPass.status, 'PASS');
+    assert.equal(rPass.failures.length, 0);
+
+    const rShrink = evaluateLineRatchet({ 'Backend/controllers/parcaController.js': 405 }, base);
+    assert.equal(rShrink.status, 'PASS');
+    assert.equal(rShrink.shrinkHints.length, 1);
+
+    const next1 = computeNextBaseline(
+      { maxNewFileLines: 600, warnFileLines: 300, targetChunkKb: 450, maxChunkKb: 228, files: base },
+      { 'Backend/controllers/parcaController.js': 415, 'Backend/foo.js': 350 }
+    );
+    assert.equal(next1.files['Backend/controllers/parcaController.js'], 411);
+    assert.equal(next1.files['Backend/foo.js'], 350);
+
+    const next2 = computeNextBaseline(next1, {
+      'Backend/controllers/parcaController.js': 411,
+      'Backend/foo.js': 300,
+    });
+    assert.equal(Object.prototype.hasOwnProperty.call(next2.files, 'Backend/foo.js'), false);
+    assert.equal(next2.files['Backend/controllers/parcaController.js'], 411);
+  });
 });

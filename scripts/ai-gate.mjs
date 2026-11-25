@@ -228,7 +228,7 @@ export function computeNextBaseline(currentBaseline, fileLineMap, measuredMaxChu
   if (isInitial) {
     for (const [relPath, lines] of currentMap.entries()) {
       if (isExemptPath(relPath, exemptPaths)) continue;
-      if (lines > maxNewFileLines) {
+      if (lines > warnFileLines) {
         nextFilesUnsorted[relPath] = lines;
       }
     }
@@ -238,8 +238,15 @@ export function computeNextBaseline(currentBaseline, fileLineMap, measuredMaxChu
       if (!currentMap.has(relPath)) continue;
       const measuredLines = currentMap.get(relPath);
       const tightened = Math.min(prevLimit, measuredLines);
-      if (tightened > maxNewFileLines) {
+      if (tightened > warnFileLines) {
         nextFilesUnsorted[relPath] = tightened;
+      }
+    }
+    for (const [relPath, lines] of currentMap.entries()) {
+      if (isExemptPath(relPath, exemptPaths)) continue;
+      if (Object.prototype.hasOwnProperty.call(nextFilesUnsorted, relPath)) continue;
+      if (lines > warnFileLines && !Object.prototype.hasOwnProperty.call(prevFiles, relPath)) {
+        nextFilesUnsorted[relPath] = lines;
       }
     }
   }
@@ -580,6 +587,5 @@ function runCli() {
   process.exit(failCount > 0 ? 1 : 0);
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
-  runCli();
-}
+const isMain = Boolean(process.argv[1]) && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) runCli();

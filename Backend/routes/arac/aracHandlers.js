@@ -253,28 +253,28 @@ const updateAracKonum = async (req, res) => {
   try {
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
     const accessCheck = await pool.query(
-      `SELECT arac_id, plaka FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
+      `SELECT arac_id, plaka, arsivlendi_mi FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
       [aracId, ...params]
     );
 
     if (accessCheck.rowCount === 0) {
-      return res.status(403).json({
-        code: 'FORBIDDEN_VEHICLE_ACCESS',
-        message: 'Bu aracın konumunu güncelleme yetkiniz yok.',
-      });
+      return res.status(404).json({ code: 'VEHICLE_NOT_FOUND', message: 'Araç bulunamadı.' });
+    }
+    if (accessCheck.rows[0].arsivlendi_mi) {
+      return res.status(409).json({ code: 'VEHICLE_ARCHIVED', message: 'Arşivlenmiş aracın konumu güncellenemez.' });
     }
 
     const konumAdi = value.konum_adi ? value.konum_adi.trim() : null;
     const result = await pool.query(
       `UPDATE araclar
-       SET son_enlem = $1,
-           son_boylam = $2,
-           son_konum_adi = $3,
-           son_konum_zamani = NOW()
-       WHERE arac_id = $4
+       SET son_enlem = $1, son_boylam = $2, son_konum_adi = $3, son_konum_zamani = NOW()
+       WHERE arac_id = $4 AND arsivlendi_mi = FALSE
        RETURNING arac_id, plaka, son_enlem, son_boylam, son_konum_adi, son_konum_zamani`,
       [value.enlem, value.boylam, konumAdi, aracId]
     );
+    if (result.rowCount === 0) {
+      return res.status(409).json({ code: 'VEHICLE_ARCHIVED', message: 'Arşivlenmiş aracın konumu güncellenemez.' });
+    }
 
     return res.status(200).json({
       message: 'Araç konumu güncellendi.',

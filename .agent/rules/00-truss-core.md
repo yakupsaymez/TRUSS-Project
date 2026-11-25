@@ -1,12 +1,12 @@
 ---
 trigger: always_on
-description: TRUSS FORGE 5 uzman sınırı, sentinel QA kilidi, Principal Bar, Caveman ve ADR-01..24
+description: TRUSS FORGE 5 uzman sınırı, sentinel QA kilidi, Principal Bar, Caveman ve ADR-01..27
 ---
 
 # TRUSS — Çekirdek İşletim Kuralı (`00-truss-core`)
 
 ## 1. Tek Doğruluk Kaynağı & Kimlik
-- Kanonik kaynaklar: `AGENTS.md`, `.ai/PROGRESS.md`, `.ai/SWARM_PLAYBOOK.md`, `.ai/ENGINEERING_GUARDRAILS.md`, `.ai/DECISIONS.md` (`ADR-01..24`).
+- Kanonik kaynaklar: `AGENTS.md`, `.ai/PROGRESS.md`, `.ai/SWARM_PLAYBOOK.md`, `.ai/ENGINEERING_GUARDRAILS.md`, `.ai/DECISIONS.md` (`ADR-01..27`).
 - Ürün adı **TRUSS** (eski `ABTS` yasak); tema: `radix-luma` OKLCH (`bg-background`, `bg-card`, `text-foreground`, `border-border`, `bg-primary`).
 
 ## 2. FORGE 5 Uzman Sınırı & `0-diff` Yasak Bölgeler

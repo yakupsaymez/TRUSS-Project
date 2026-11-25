@@ -79,28 +79,17 @@ async function ensureUser(client, userDef, orgId, passwordHash) {
 }
 
 async function ensureVehicle(client, v) {
-  const existing = await client.query(
-    'SELECT arac_id FROM araclar WHERE plaka = $1 LIMIT 1',
-    [v.plaka]
-  );
+  const existing = await client.query('SELECT arac_id FROM araclar WHERE plaka = $1 LIMIT 1', [v.plaka]);
   if (existing.rowCount > 0) {
+    if (v.org_id) {
+      await client.query('UPDATE araclar SET org_id = $2 WHERE arac_id = $1 AND org_id IS NULL', [existing.rows[0].arac_id, v.org_id]);
+    }
     return existing.rows[0].arac_id;
   }
   const inserted = await client.query(
-    `INSERT INTO araclar (plaka, marka, model, yil, kullanici_id, kategori, sayac_tipi, guncel_km, guncel_calisma_saati)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-     RETURNING arac_id`,
-    [
-      v.plaka,
-      v.marka,
-      v.model,
-      v.yil,
-      v.kullanici_id,
-      v.kategori,
-      v.sayac_tipi,
-      v.guncel_km,
-      v.guncel_calisma_saati,
-    ]
+    `INSERT INTO araclar (plaka, marka, model, yil, kullanici_id, org_id, kategori, sayac_tipi, guncel_km, guncel_calisma_saati)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING arac_id`,
+    [v.plaka, v.marka, v.model, v.yil, v.kullanici_id, v.org_id ?? null, v.kategori, v.sayac_tipi, v.guncel_km, v.guncel_calisma_saati]
   );
   return inserted.rows[0].arac_id;
 }
@@ -193,6 +182,7 @@ async function seed() {
       model: 'Transit',
       yil: 2023,
       kullanici_id: ids.users.MANAGER,
+      org_id: ids.orgs.ORG_A,
       kategori: 'Ticari / Hafif Ticari',
       sayac_tipi: 'KM',
       guncel_km: 11000,
@@ -231,6 +221,7 @@ async function seed() {
       model: '320 GC',
       yil: 2022,
       kullanici_id: ids.users.MANAGER,
+      org_id: ids.orgs.ORG_A,
       kategori: 'İş Makinesi',
       sayac_tipi: 'SMH',
       guncel_km: 0,
@@ -243,6 +234,7 @@ async function seed() {
       model: 'Clio',
       yil: 2024,
       kullanici_id: ids.users.MANAGER,
+      org_id: ids.orgs.ORG_A,
       kategori: 'Otomobil',
       sayac_tipi: 'KM',
       guncel_km: 5000,
@@ -266,6 +258,7 @@ async function seed() {
       model: 'Doblo',
       yil: 2023,
       kullanici_id: ids.users.OUTSIDER,
+      org_id: ids.orgs.ORG_B,
       kategori: 'Ticari / Hafif Ticari',
       sayac_tipi: 'KM',
       guncel_km: 3000,
@@ -329,19 +322,13 @@ async function cleanup() {
     const qaOrgIds = qaOrgsRes.rows.map((r) => r.org_id);
 
     const qaVehiclesRes = await client.query(
-      'SELECT arac_id FROM araclar WHERE plaka = ANY($1::text[]) OR kullanici_id = ANY($2::int[])',
-      [QA_PLATES, qaUserIds.length > 0 ? qaUserIds : [-1]]
+      'SELECT arac_id FROM araclar WHERE plaka = ANY($1::text[]) OR kullanici_id = ANY($2::int[]) OR org_id = ANY($3::int[])',
+      [QA_PLATES, qaUserIds.length > 0 ? qaUserIds : [-1], qaOrgIds.length > 0 ? qaOrgIds : [-1]]
     );
     const qaVehicleIds = qaVehiclesRes.rows.map((r) => r.arac_id);
 
     const deleted = {
-      atamalar: 0,
-      yakitlar: 0,
-      bakimlar: 0,
-      parcalar: 0,
-      araclar: 0,
-      users: 0,
-      organizations: 0,
+      atamalar: 0, yakitlar: 0, bakimlar: 0, parcalar: 0, araclar: 0, denetim: 0, users: 0, organizations: 0,
     };
 
     if (qaVehicleIds.length > 0 || qaUserIds.length > 0) {
@@ -358,6 +345,11 @@ async function cleanup() {
       deleted.parcalar = (await client.query('DELETE FROM parca_takip WHERE arac_id = ANY($1::int[])', [qaVehicleIds])).rowCount;
       deleted.araclar = (await client.query('DELETE FROM araclar WHERE arac_id = ANY($1::int[])', [qaVehicleIds])).rowCount;
     }
+
+    deleted.denetim = (await client.query(
+      'DELETE FROM denetim_kayitlari WHERE org_id = ANY($1::int[]) OR user_id = ANY($2::int[]) OR kullanici_eposta LIKE $3',
+      [qaOrgIds.length > 0 ? qaOrgIds : [-1], qaUserIds.length > 0 ? qaUserIds : [-1], emailPattern]
+    )).rowCount;
 
     if (qaUserIds.length > 0) {
       deleted.users = (
