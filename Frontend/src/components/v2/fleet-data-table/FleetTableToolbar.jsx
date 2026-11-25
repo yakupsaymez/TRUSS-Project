@@ -22,6 +22,7 @@ export default function FleetTableToolbar({
   kategoriler,
   hasActiveFilters,
   onClearFilters,
+  isArchivedView = false,
 }) {
   return (
     <div className="flex flex-col gap-3 border-b border-border p-4 lg:flex-row lg:items-center lg:justify-between">
@@ -65,21 +66,23 @@ export default function FleetTableToolbar({
           </SelectContent>
         </Select>
 
-        <Select value={durumFilter} onValueChange={onDurumFilterChange}>
-          <SelectTrigger
-            aria-label="Durum filtresi"
-            className="h-9 w-40 rounded-lg border-border bg-background text-xs"
-          >
-            <SelectValue placeholder="Durum" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Durum: Tümü</SelectItem>
-            <SelectItem value="kritik_bakim">Kritik Bakım</SelectItem>
-            <SelectItem value="riskli_evrak">Riskli Evrak</SelectItem>
-            <SelectItem value="eksik_evrak">Eksik Evrak</SelectItem>
-            <SelectItem value="sorunsuz">Sorunsuz</SelectItem>
-          </SelectContent>
-        </Select>
+        {!isArchivedView && (
+          <Select value={durumFilter} onValueChange={onDurumFilterChange}>
+            <SelectTrigger
+              aria-label="Durum filtresi"
+              className="h-9 w-40 rounded-lg border-border bg-background text-xs"
+            >
+              <SelectValue placeholder="Durum" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Durum: Tümü</SelectItem>
+              <SelectItem value="kritik_bakim">Kritik Bakım</SelectItem>
+              <SelectItem value="riskli_evrak">Riskli Evrak</SelectItem>
+              <SelectItem value="eksik_evrak">Eksik Evrak</SelectItem>
+              <SelectItem value="sorunsuz">Sorunsuz</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
 
         <Select value={kategoriFilter} onValueChange={onKategoriFilterChange}>
           <SelectTrigger

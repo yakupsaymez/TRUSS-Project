@@ -2,6 +2,7 @@ const Joi = require('joi');
 const pool = require('../db');
 const { buildVehicleAccessFilter } = require('../middlewares/rbacMiddleware');
 const { tarihStr, ileriTarihMi } = require('../utils/dateUtils');
+const { araclariKilitle, arsivliAracEngelle } = require('../utils/odometerGuard');
 
 const parcaEkleSchema = Joi.object({
   arac_id: Joi.number().integer().required(),
@@ -27,9 +28,9 @@ const parcaGuncelleSchema = Joi.object({
 const sayacBirimi = (sayacTipi) => (sayacTipi === 'SMH' ? 'saat' : 'km');
 
 // Erişim yetkisi + aracın güncel sayacı (araç sayacı, bakım ve yakıt kayıtlarının maksimumu) — tek sorgu
-const getAracSayacBilgisi = async (aracId, user) => {
+const getAracSayacBilgisi = async (aracId, user, db = pool) => {
   const { clause, params } = buildVehicleAccessFilter(user, 2);
-  const res = await pool.query(
+  const res = await db.query(
     `SELECT
        a.arac_id,
        a.sayac_tipi,
@@ -134,10 +135,21 @@ const createParca = async (req, res) => {
     return res.status(400).json({ message: 'Geçersiz tarih.' });
   }
 
+  let client = null;
+  let settled = false;
   try {
-    const arac = await getAracSayacBilgisi(value.arac_id, req.user);
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    const arac = await getAracSayacBilgisi(value.arac_id, req.user, client);
     if (!arac) {
       return res.status(404).json({ message: 'Arac bulunamadi' });
+    }
+
+    const [hedefArac] = await araclariKilitle(client, [value.arac_id]);
+    if (await arsivliAracEngelle(client, res, hedefArac, 'parça kaydı')) {
+      settled = true;
+      return;
     }
 
     if (value.son_degisim_km > arac.guncel_sayac) {
@@ -157,7 +169,7 @@ const createParca = async (req, res) => {
     const maliyet = value.maliyet === undefined || value.maliyet === null ? 0 : value.maliyet;
     const notlar = value.notlar === undefined || value.notlar === '' ? null : value.notlar;
 
-    const result = await pool.query(
+    const result = await client.query(
       `INSERT INTO parca_takip (arac_id, parca_adi, son_degisim_km, degisim_araligi_km, son_degisim_tarihi, maliyet, notlar)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
@@ -172,6 +184,8 @@ const createParca = async (req, res) => {
       ]
     );
 
+    await client.query('COMMIT');
+    settled = true;
     return res.status(201).json({ message: 'Parca takibe alindi', parca: result.rows[0] });
   } catch (err) {
     if (err.code === '23505') {
@@ -179,6 +193,11 @@ const createParca = async (req, res) => {
     }
     console.error('Parça ekleme hatası:', err);
     return res.status(500).json({ message: 'Parca eklenemedi' });
+  } finally {
+    if (client) {
+      if (!settled) await client.query('ROLLBACK').catch(() => null);
+      client.release();
+    }
   }
 };
 
@@ -206,17 +225,25 @@ const updateParca = async (req, res) => {
     }
   }
 
+  let client = null;
+  let settled = false;
   try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+
     const { clause, params } = buildVehicleAccessFilter(req.user, 2);
-    const mevcutRes = await pool.query(
+    const mevcutRes = await client.query(
       `SELECT p.*
        FROM parca_takip p
        INNER JOIN araclar a ON a.arac_id = p.arac_id
-       WHERE p.parca_id = $1 AND (${clause})`,
+       WHERE p.parca_id = $1 AND (${clause})
+       FOR UPDATE OF p`,
       [parcaId, ...params]
     );
 
     if (mevcutRes.rowCount === 0) {
+      await client.query('ROLLBACK');
+      settled = true;
       return res.status(404).json({ message: 'Parca bulunamadi' });
     }
 
@@ -228,8 +255,14 @@ const updateParca = async (req, res) => {
       });
     }
 
+    const [hedefArac] = await araclariKilitle(client, [mevcut.arac_id]);
+    if (await arsivliAracEngelle(client, res, hedefArac, 'parça kaydı')) {
+      settled = true;
+      return;
+    }
+
     // Araç değişmez (ADR-09); mevcut aracın yetki + güncel sayacı tek sorguda doğrulanır
-    const arac = await getAracSayacBilgisi(mevcut.arac_id, req.user);
+    const arac = await getAracSayacBilgisi(mevcut.arac_id, req.user, client);
     if (!arac) {
       return res.status(404).json({ message: 'Arac bulunamadi' });
     }
@@ -259,7 +292,7 @@ const updateParca = async (req, res) => {
     const yeniNotlar =
       value.notlar === undefined ? mevcut.notlar : value.notlar === '' ? null : value.notlar;
 
-    const result = await pool.query(
+    const result = await client.query(
       `UPDATE parca_takip
        SET parca_adi = $1,
            son_degisim_km = COALESCE($2::int, son_degisim_km),
@@ -280,6 +313,8 @@ const updateParca = async (req, res) => {
       ]
     );
 
+    await client.query('COMMIT');
+    settled = true;
     return res.status(200).json({ message: 'Parca kaydi guncellendi', parca: result.rows[0] });
   } catch (err) {
     if (err.code === '23505') {
@@ -287,6 +322,11 @@ const updateParca = async (req, res) => {
     }
     console.error('Parça güncelleme hatası:', err);
     return res.status(500).json({ message: 'Parca guncellenemedi' });
+  } finally {
+    if (client) {
+      if (!settled) await client.query('ROLLBACK').catch(() => null);
+      client.release();
+    }
   }
 };
 

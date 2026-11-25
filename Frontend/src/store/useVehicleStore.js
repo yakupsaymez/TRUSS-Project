@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import toast from 'react-hot-toast';
-import api from '@/services/api';
 import aracService from '@/services/aracService';
 import { notifyApiError } from '@/utils/apiError';
 import { formatTurkishPlate } from '@/utils/formatters';
@@ -206,29 +205,31 @@ const useVehicleStore = create((set, get) => ({
     }
   },
 
-  deleteVehicle: async (id) => {
+  deleteVehicle: async (id, { arsiv_nedeni } = {}) => {
     try {
-      await api.delete(`/araclar/${id}`);
+      const data = await aracService.deleteArac(id, { arsiv_nedeni });
       set((state) => ({
-        vehicles: state.vehicles.filter((v) => v.arac_id !== id && v.id !== id),
-        araclar: state.araclar.filter((a) => a.arac_id !== id && a.id !== id),
+        vehicles: state.vehicles.filter((v) => String(v.arac_id ?? v.id) !== String(id)),
+        araclar: state.araclar.filter((a) => String(a.arac_id ?? a.id) !== String(id)),
         riskliAracIdler: {
-          tehlike: state.riskliAracIdler.tehlike.filter((rid) => rid !== id),
-          evrak: state.riskliAracIdler.evrak.filter((rid) => rid !== id),
+          tehlike: state.riskliAracIdler.tehlike.filter((rid) => String(rid) !== String(id)),
+          evrak: state.riskliAracIdler.evrak.filter((rid) => String(rid) !== String(id)),
         },
         seciliAracId: String(state.seciliAracId) === String(id) ? 'tum' : state.seciliAracId,
       }));
-      toast.success('Araç silindi.');
-      return true;
+      if (data?.islem === 'arsivlendi') {
+        toast.success(data?.message || 'Araç arşivlendi.');
+      } else {
+        toast.success(data?.message || 'Araç silindi.');
+      }
+      return data;
     } catch (err) {
       notifyApiError(err, 'Araç silinemedi.');
-      return false;
+      return null;
     }
   },
 
-  deleteArac: async (aracId) => {
-    return get().deleteVehicle(aracId);
-  },
+  deleteArac: (aracId, opts) => get().deleteVehicle(aracId, opts),
 
   // Çıkışta bir önceki kullanıcının araçları bellekte kalmasın.
   reset: () => {

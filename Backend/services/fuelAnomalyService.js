@@ -259,7 +259,7 @@ const fetchWindowedFuelRows = async (vehicleClause, vehicleParams, historyStart)
 const scanAccessibleFuelAnomalies = async (user, { gun = 90 } = {}) => {
   const { clause, params } = buildVehicleAccessFilter(user, 2);
   const baslangic = gunEkleTR(bugunTR(), -gun);
-  const rows = await fetchWindowedFuelRows(clause, params, gunEkleTR(baslangic, -90));
+  const rows = await fetchWindowedFuelRows(`(${clause}) AND a.arsivlendi_mi = FALSE`, params, gunEkleTR(baslangic, -90));
   const { byVehicle, orgIdSet, tarananKayit } = buildVehicleFuelMap(rows, baslangic);
   if (tarananKayit === 0) return { taranan_kayit: 0, yeni_anomali: 0 };
 

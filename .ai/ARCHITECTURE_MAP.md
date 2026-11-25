@@ -12,19 +12,19 @@
 | `/app/parcalar` | `pages/v2/Parcalar.jsx` | `components` | Parça ömrü ve değişim takibi (`ComponentDataTable`, `ComponentSheet`) |
 | `/app/takvim` | `pages/v2/Takvim.jsx` | `horizon` | Belge vadesi ve periyodik bakım takvimi (`FleetCalendar`) |
 | `/app/ekip` | `pages/v2/Ekip.jsx` | `crew` | Üye/sürücü yönetimi (`CrewDataTable`, `PermissionsSheet`, `ResetPasswordSheet`) |
-| `/app/ayarlar` | `pages/v2/Ayarlar.jsx` (`pages/v2/ayarlar/*`) | Korumalı (`ProtectedRoute`) | Profil, şifre, bildirim matrisi ve organizasyon ayarları |
+| `/app/ayarlar` | `pages/v2/Ayarlar.jsx` (`pages/v2/ayarlar/*`) | Korumalı (`ProtectedRoute`) | Profil, şifre, bildirim matrisi, organizasyon ayarları ve denetim izi (`?tab=denetim`) |
 
 ## 2. Frontend Modül Yapısı (`Frontend/src/`)
 - **Çekirdek & Kabuk (`components/v2/`):** `AppShell.jsx`, `AppSheet.jsx`, `AuthFrame.jsx`, `ChannelGuard.jsx`, `CommandPalette.jsx`, `ConfirmDialog.jsx`, `EmptyState.jsx`, `SayacFieldError.jsx`, `channelAccess.js`, `navConfig.js`, `AssignVehicleSheet.jsx`, `CreateMemberSheet.jsx`, `PermissionsSheet.jsx`, `ResetPasswordSheet.jsx`, `NotificationBell.jsx`, `ActionCenterCard.jsx`, `FleetEfficiencyCard.jsx`, `FuelAnomalyPanel.jsx`, `FuelImportSheet.jsx`, analitik kartlar (`OverviewKpiStrip`, `CostTrendChart`, `BudgetVarianceCard`, `FleetHealthWidget`, `DocumentComplianceCard`, `SegmentedDistributionCard`, `CrewRoleSummaryStrip`).
 - **`REFACTOR-1` & `V2.1-FE4` Feature-Module Klasör Ağacı (`<= 300` satır Unix modüler mimari):**
   - `pages/home/`: `HomeNavbar.jsx`, `HomeHero.jsx`, `HomePreviewShowcase.jsx`, `HomeModulesSection.jsx`, `HomeArchitectureSection.jsx`, `HomeFooterCta.jsx`, `homeContent.js`
-  - `pages/v2/ayarlar/`: `GenelTab.jsx`, `ProfilTab.jsx`, `OrganizasyonTab.jsx`, `BildirimlerTab.jsx`, `GuvenlikTab.jsx`, `PasswordChangeForm.jsx`, `useAyarlarData.js`, `ayarlarConstants.js`
+  - `pages/v2/ayarlar/`: `GenelTab.jsx`, `ProfilTab.jsx`, `OrganizasyonTab.jsx`, `BildirimlerTab.jsx`, `GuvenlikTab.jsx`, `DenetimTab.jsx`, `PasswordChangeForm.jsx`, `useAyarlarData.js`, `ayarlarConstants.js`, `denetimConstants.js`
   - `components/v2/app-shell/`: `AppShellSidebar.jsx`, `AppShellHeader.jsx`, `useAppShellState.js`, `appShellHelpers.jsx`
   - `components/v2/command-palette/`: `CommandPaletteResults.jsx`, `useCommandPaletteState.js`, `commandPaletteGroups.js`, `commandPaletteParsers.js`
   - `components/v2/vehicle-sheet/`: `VehicleCatalogSection.jsx`, `VehicleCalibrationSection.jsx`, `VehicleDocumentsSection.jsx`, `useVehicleSheetForm.js`, `useVehicleKatalog.js`, `hydrateVehicleKatalog.js`, `vehicleSheetHelpers.js`
   - `components/v2/movement-sheet/`: `MovementIdentitySection.jsx`, `MovementCostSection.jsx`, `MovementNotesSection.jsx`, `useMovementSheetForm.js`, `movementSheetHelpers.js`
   - `components/v2/component-sheet/`: `ComponentIdentitySection.jsx`, `ComponentLifecycleSection.jsx`, `useComponentSheetForm.js`, `componentSheetHelpers.js`
-  - `components/v2/fleet-data-table/`: `FleetTableToolbar.jsx`, `FleetTableCells.jsx`, `FleetEfficiencyCell.jsx`, `FleetTablePagination.jsx`, `fleetTableColumns.jsx`, `fleetTableHelpers.js`
+  - `components/v2/fleet-data-table/`: `FleetTableToolbar.jsx`, `FleetTableCells.jsx`, `FleetEfficiencyCell.jsx`, `FleetTablePagination.jsx`, `VehicleArchiveDialog.jsx`, `useFleetArchive.js`, `fleetTableColumns.jsx`, `fleetTableHelpers.js`
   - `components/v2/ledger-data-table/`: `LedgerTableHeader.jsx`, `LedgerTableToolbar.jsx`, `LedgerTablePagination.jsx`, `ledgerTableColumns.jsx`, `useLedgerTableState.js`, `ledgerTableHelpers.js`
   - `components/v2/component-data-table/`: `ComponentTableSummary.jsx`, `ComponentTableToolbar.jsx`, `ComponentTablePagination.jsx`, `componentTableColumns.jsx`, `componentTableHelpers.js`
   - `components/v2/crew-data-table/`: `CrewTableToolbar.jsx`, `CrewRowActions.jsx`, `CrewTablePagination.jsx`, `crewTableColumns.jsx`, `crewTableHelpers.js`
@@ -34,7 +34,7 @@
   - `components/v2/fuel-import/`: `FuelImportPreviewTable.jsx`, `fuelImportHelpers.js`
 - **`components/ui/`:** `truss-date-picker.jsx` ve Radix/Shadcn temel UI atomları.
 - **`store/`:** `useAuthStore.js` (JWT, kullanıcı, rol, kanal izinleri), `useVehicleStore.js` (aktif araç seçimi ve filo önbelleği), `useAppStore.js` (kabuk/UI durumu).
-- **`services/`:** `api.js` (Axios + JWT interceptor), `authService.js`, `aracService.js`, `yakitService.js` (+ anomali ve toplu CSV import uçları), `bakimService.js`, `parcaService.js`, `raporService.js`, `katalogService.js`, `adminService.js`, `bildirimService.js`.
+- **`services/`:** `api.js` (Axios + JWT interceptor), `authService.js`, `aracService.js`, `yakitService.js` (+ anomali ve toplu CSV import uçları), `bakimService.js`, `parcaService.js`, `raporService.js`, `katalogService.js`, `adminService.js`, `bildirimService.js`, `denetimService.js`.
 
 ## 3. Backend Mimari Haritası (`Backend/`)
 | Katman | Dosyalar | Sorumluluk |

@@ -18,6 +18,23 @@ export const UYARI_TIP_LABELS = {
   YUKSEK_TUKETIM: 'Yüksek Tüketim',
 };
 
+export const NEDEN_KODU_LABELS = {
+  ARAC_ARSIVLI: 'Arşivli Araç',
+  TANIMSIZ_PLAKA: 'Tanımsız Plaka',
+  MUKERRER_KAYIT: 'Mükerrer Kayıt',
+  SAYAC_TUTARSIZ: 'Sayaç Tutarsız',
+};
+
+export const getNedenKoduLabel = (kod) => {
+  const key = String(kod || '').toUpperCase();
+  return NEDEN_KODU_LABELS[key] || kod || '';
+};
+
+export const getNedenKoduBadgeClass = (kod) =>
+  String(kod || '').toUpperCase() === 'ARAC_ARSIVLI'
+    ? 'border-status-warning/30 bg-status-warning/10 text-status-warning'
+    : 'border-destructive/30 bg-destructive/10 text-destructive';
+
 export const getUyariTipLabel = (tip) =>
   UYARI_TIP_LABELS[String(tip || '').toUpperCase()] || tip || 'Uyarı';
 

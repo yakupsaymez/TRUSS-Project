@@ -14,6 +14,8 @@ import {
 import {
   DURUM_BADGES,
   formatImportDate,
+  getNedenKoduBadgeClass,
+  getNedenKoduLabel,
   getUyariTipLabel,
   UYARI_SEVIYE_BADGES,
 } from './fuelImportHelpers';
@@ -131,11 +133,24 @@ export default function FuelImportPreviewTable({ rows = [], ozet = null }) {
                       <TableCell className="align-top text-right font-mono text-xs text-foreground tabular-nums">
                         {row.km !== null && row.km !== undefined ? formatLocaleNumber(row.km, 0) : '—'}
                       </TableCell>
-                      <TableCell className="align-top">
+                      <TableCell className="align-top whitespace-normal break-words">
                         <div className="space-y-1">
-                          <Badge variant="outline" className={cn('h-5 px-1.5 text-[10px] font-medium', statusMeta.className)}>
-                            {statusMeta.label}
-                          </Badge>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Badge variant="outline" className={cn('h-5 px-1.5 text-[10px] font-medium', statusMeta.className)}>
+                              {statusMeta.label}
+                            </Badge>
+                            {row.neden_kodu && (
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  'h-5 px-1.5 text-[10px] font-medium',
+                                  getNedenKoduBadgeClass(row.neden_kodu)
+                                )}
+                              >
+                                {getNedenKoduLabel(row.neden_kodu)}
+                              </Badge>
+                            )}
+                          </div>
                           {row.neden_mesaj && (
                             <p className="text-xs leading-snug text-muted-foreground">{row.neden_mesaj}</p>
                           )}

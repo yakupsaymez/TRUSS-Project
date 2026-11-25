@@ -36,6 +36,8 @@ export default function FleetDataTable({
   canViewAnalytics = false,
   tcoByAracId = null,
   loadingTco = false,
+  isArchivedView = false,
+  restoringId = null,
   globalVehicleActive = false,
   initialDurumFilter = 'all',
   onDurumFilterChange,
@@ -44,6 +46,7 @@ export default function FleetDataTable({
   onCreateClick,
   onEditClick,
   onDeleteRequest,
+  onRestoreClick,
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sayacFilter, setSayacFilter] = useState('all');
@@ -74,20 +77,22 @@ export default function FleetDataTable({
     [araclar, tcoByAracId]
   );
 
+  const effectiveDurumFilter = isArchivedView ? 'all' : durumFilter;
+
   const filteredData = useMemo(
     () =>
       filterFleetRows(enrichedRows, {
         searchQuery,
         sayacFilter,
         kategoriFilter,
-        durumFilter,
+        durumFilter: effectiveDurumFilter,
       }),
-    [enrichedRows, searchQuery, sayacFilter, kategoriFilter, durumFilter]
+    [enrichedRows, searchQuery, sayacFilter, kategoriFilter, effectiveDurumFilter]
   );
 
   useEffect(() => {
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-  }, [searchQuery, sayacFilter, durumFilter, kategoriFilter]);
+  }, [searchQuery, sayacFilter, effectiveDurumFilter, kategoriFilter, isArchivedView]);
 
   useEffect(() => {
     const maxPage = Math.max(0, Math.ceil(filteredData.length / pagination.pageSize) - 1);
@@ -97,7 +102,7 @@ export default function FleetDataTable({
   const hasActiveFilters =
     searchQuery.trim().length > 0 ||
     sayacFilter !== 'all' ||
-    durumFilter !== 'all' ||
+    effectiveDurumFilter !== 'all' ||
     kategoriFilter !== 'all';
 
   const handleClearFilters = () => {
@@ -117,11 +122,24 @@ export default function FleetDataTable({
         canManage,
         canViewAnalytics,
         loadingTco,
+        isArchivedView,
+        restoringId,
         onDetail,
         onEditClick,
         onDeleteRequest,
+        onRestoreClick,
       }),
-    [canManage, canViewAnalytics, loadingTco, onDetail, onEditClick, onDeleteRequest]
+    [
+      canManage,
+      canViewAnalytics,
+      loadingTco,
+      isArchivedView,
+      restoringId,
+      onDetail,
+      onEditClick,
+      onDeleteRequest,
+      onRestoreClick,
+    ]
   );
 
   const table = useReactTable({
@@ -154,6 +172,7 @@ export default function FleetDataTable({
         kategoriler={kategoriler}
         hasActiveFilters={hasActiveFilters}
         onClearFilters={handleClearFilters}
+        isArchivedView={isArchivedView}
       />
 
       <Table>
@@ -220,14 +239,22 @@ export default function FleetDataTable({
                   <EmptyState
                     compact
                     icon={Truck}
-                    title={canManage ? 'Henüz kayıtlı araç yok' : 'Henüz zimmetli aracınız yok'}
-                    description={
-                      canManage
-                        ? 'Filonuza ilk aracınızı ekleyerek sayaç, bakım ve evrak takibini başlatın.'
-                        : 'Filo yöneticiniz size bir araç zimmetlediğinde araçlarınız burada listelenecektir.'
+                    title={
+                      isArchivedView
+                        ? 'Arşivlenmiş araç bulunmuyor'
+                        : canManage
+                          ? 'Henüz kayıtlı araç yok'
+                          : 'Henüz zimmetli aracınız yok'
                     }
-                    actionLabel={canManage ? 'Araç Ekle' : undefined}
-                    onAction={canManage ? onCreateClick : undefined}
+                    description={
+                      isArchivedView
+                        ? 'Geçmiş hareketi veya maliyeti nedeniyle arşivlenen araçlar burada listelenir.'
+                        : canManage
+                          ? 'Filonuza ilk aracınızı ekleyerek sayaç, bakım ve evrak takibini başlatın.'
+                          : 'Filo yöneticiniz size bir araç zimmetlediğinde araçlarınız burada listelenecektir.'
+                    }
+                    actionLabel={!isArchivedView && canManage ? 'Araç Ekle' : undefined}
+                    onAction={!isArchivedView && canManage ? onCreateClick : undefined}
                   />
                 ) : (
                   <EmptyState

@@ -58,8 +58,10 @@ const withTx = async (req, res, label, handler) => {
 };
 
 // DELETE /api/araclar/:arac_id — Geçmiş kaydı yoksa siler; varsa soft-archive yapar
-const deleteArac = (req, res) =>
-  withTx(req, res, 'Araç Silme/Arşivleme Hatası', async (client, aracId, mevcut) => {
+const deleteArac = (req, res) => {
+  const { error, value } = archiveBodySchema.validate(req.body || {}, { convert: true, stripUnknown: true });
+  if (error) return res.status(400).json({ message: error.details[0].message });
+  return withTx(req, res, 'Araç Silme/Arşivleme Hatası', async (client, aracId, mevcut) => {
     const histRes = await client.query(
       `SELECT (
          EXISTS (SELECT 1 FROM yakitlar WHERE arac_id = $1) OR
@@ -70,13 +72,12 @@ const deleteArac = (req, res) =>
     );
     if (histRes.rows[0]?.has_history) {
       const kapatilan = await closeActiveAssignments(client, aracId);
-      const rawNeden = req.body?.arsiv_nedeni ? String(req.body.arsiv_nedeni).trim().slice(0, 240) : null;
       const updRes = await client.query(
         `UPDATE araclar
          SET arsivlendi_mi = TRUE, arsiv_tarihi = COALESCE(arsiv_tarihi, NOW()),
              arsiv_nedeni = COALESCE($2, arsiv_nedeni, 'Geçmiş hareket nedeniyle otomatik arşivlendi')
          WHERE arac_id = $1 RETURNING *`,
-        [aracId, rawNeden]
+        [aracId, value.arsiv_nedeni || null]
       );
       const arac = updRes.rows[0];
       await client.query('COMMIT');
@@ -102,12 +103,13 @@ const deleteArac = (req, res) =>
     });
     return res.status(200).json({ message: 'Araç başarıyla silindi', islem: 'silindi' });
   });
+};
 
 // PATCH /api/araclar/:arac_id/arsiv — Aracı manuel arşivle ve aktif zimmetleri kapat
 const archiveArac = (req, res) => {
   const { error, value } = archiveBodySchema.validate(req.body || {}, { convert: true, stripUnknown: true });
   if (error) return res.status(400).json({ message: error.details[0].message });
-  return withTx(req, res, 'Araç Arşivleme Hatası', async (client, aracId) => {
+  return withTx(req, res, 'Araç Arşivleme Hatası', async (client, aracId, mevcut) => {
     const kapatilan = await closeActiveAssignments(client, aracId);
     const updRes = await client.query(
       `UPDATE araclar
@@ -117,11 +119,13 @@ const archiveArac = (req, res) => {
     );
     const arac = updRes.rows[0];
     await client.query('COMMIT');
-    await logAuditEvent(req, {
-      eylem: 'ARAC_ARSIVLENDI', varlik_tipi: 'arac', varlik_id: aracId, org_id: arac.org_id,
-      ozet: `${arac.plaka} plakalı araç arşivlendi.`,
-      detay: { plaka: arac.plaka, arsiv_nedeni: arac.arsiv_nedeni, kapatilan_zimmet_sayisi: kapatilan },
-    });
+    if (!mevcut.arsivlendi_mi) {
+      await logAuditEvent(req, {
+        eylem: 'ARAC_ARSIVLENDI', varlik_tipi: 'arac', varlik_id: aracId, org_id: arac.org_id,
+        ozet: `${arac.plaka} plakalı araç arşivlendi.`,
+        detay: { plaka: arac.plaka, arsiv_nedeni: arac.arsiv_nedeni, kapatilan_zimmet_sayisi: kapatilan },
+      });
+    }
     return res.status(200).json({ message: 'Araç arşivlendi', arac, kapatilan_zimmet_sayisi: kapatilan });
   });
 };

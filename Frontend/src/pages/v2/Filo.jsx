@@ -7,17 +7,19 @@ import raporService from '@/services/raporService';
 import { canAccessChannel, resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import FleetDataTable from '@/components/v2/FleetDataTable';
-import ConfirmDialog from '@/components/v2/ConfirmDialog';
+import VehicleArchiveDialog from '@/components/v2/fleet-data-table/VehicleArchiveDialog';
+import useFleetArchive from '@/components/v2/fleet-data-table/useFleetArchive';
 import VehicleSheet from '@/components/v2/VehicleSheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
-const VALID_DURUM_FILTERS = new Set([
-  'kritik_bakim',
-  'riskli_evrak',
-  'eksik_evrak',
-  'sorunsuz',
-]);
+const VALID_DURUM_FILTERS = new Set(['kritik_bakim', 'riskli_evrak', 'eksik_evrak', 'sorunsuz']);
+
+const VIEW_MODES = [
+  { id: 'aktif', label: 'Aktif' },
+  { id: 'arsiv', label: 'Arşivlenenler' },
+];
 
 export default function Filo() {
   const navigate = useNavigate();
@@ -45,6 +47,12 @@ export default function Filo() {
   const canManage = [ROLES.SYSTEM_ADMIN, ROLES.FLEET_MANAGER].includes(role);
   const canViewAnalytics = canAccessChannel(user, 'analytics');
 
+  const {
+    viewMode, setViewMode, archivedAraclar, loadingArchived,
+    hasLoadedArchived, restoringId, fetchArchivedAraclar, handleRestoreArac,
+  } = useFleetArchive({ fetchAraclar, canManage });
+  const isArchivedView = viewMode === 'arsiv';
+
   useEffect(() => {
     if (!hasLoaded && !loading && !fetchAttemptedRef.current) {
       fetchAttemptedRef.current = true;
@@ -67,16 +75,10 @@ export default function Filo() {
       try {
         const res = await raporService.getTcoAnalizi(90);
         if (cancelled || reqId !== tcoRequestIdRef.current) return;
-        const list = Array.isArray(res?.araclar)
-          ? res.araclar
-          : Array.isArray(res?.ogeler)
-            ? res.ogeler
-            : [];
+        const list = Array.isArray(res?.araclar) ? res.araclar : Array.isArray(res?.ogeler) ? res.ogeler : [];
         const map = {};
         for (const item of list) {
-          if (item?.arac_id != null) {
-            map[String(item.arac_id)] = item;
-          }
+          if (item?.arac_id != null) map[String(item.arac_id)] = item;
         }
         setTcoByAracId(map);
       } catch {
@@ -89,9 +91,7 @@ export default function Filo() {
     loadTco();
     const handleDataChanged = (event) => {
       const scope = event?.detail?.scope;
-      if (!scope || scope === 'movement' || scope === 'vehicle' || scope === 'component' || scope === 'part') {
-        loadTco();
-      }
+      if (!scope || ['movement', 'vehicle', 'component', 'part'].includes(scope)) loadTco();
     };
     window.addEventListener('truss:data-changed', handleDataChanged);
     return () => {
@@ -100,12 +100,13 @@ export default function Filo() {
     };
   }, [canViewAnalytics]);
 
-  const globalVehicleActive = Boolean(seciliAracId && seciliAracId !== 'tum');
+  const globalVehicleActive = !isArchivedView && Boolean(seciliAracId && seciliAracId !== 'tum');
+  const activeAraclar = isArchivedView ? archivedAraclar : araclar;
 
   const visibleAraclar = useMemo(() => {
-    if (!globalVehicleActive) return araclar;
-    return araclar.filter((a) => String(a.arac_id) === String(seciliAracId));
-  }, [araclar, globalVehicleActive, seciliAracId]);
+    if (!globalVehicleActive) return activeAraclar;
+    return activeAraclar.filter((a) => String(a.arac_id) === String(seciliAracId));
+  }, [activeAraclar, globalVehicleActive, seciliAracId]);
 
   const selectedVehicle = useMemo(() => {
     if (!globalVehicleActive) return null;
@@ -131,9 +132,7 @@ export default function Filo() {
     [searchParams, setSearchParams]
   );
 
-  const handleClearGlobalVehicle = useCallback(() => {
-    setSeciliAracId(null);
-  }, [setSeciliAracId]);
+  const handleClearGlobalVehicle = useCallback(() => setSeciliAracId(null), [setSeciliAracId]);
 
   const handleDetail = useCallback(
     (arac) => {
@@ -149,38 +148,36 @@ export default function Filo() {
     setSheetOpen(true);
   }, [canManage]);
 
-  const handleEditClick = useCallback(
-    (arac) => {
-      if (!canManage) return;
-      setEditingVehicle(arac);
-      setSheetOpen(true);
-    },
-    [canManage]
-  );
+  const handleEditClick = useCallback((arac) => {
+    if (!canManage) return;
+    setEditingVehicle(arac);
+    setSheetOpen(true);
+  }, [canManage]);
 
   const handleSheetOpenChange = useCallback((nextOpen) => {
     setSheetOpen(nextOpen);
-    if (!nextOpen) {
-      setEditingVehicle(null);
-    }
+    if (!nextOpen) setEditingVehicle(null);
   }, []);
 
-  const handleDeleteRequest = useCallback(
-    (arac) => {
-      if (!canManage) return;
-      setDeleteTarget(arac);
-    },
-    [canManage]
-  );
+  const handleDeleteRequest = useCallback((arac) => {
+    if (canManage) setDeleteTarget(arac);
+  }, [canManage]);
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = async (arsiv_nedeni) => {
     if (!deleteTarget || !canManage) return;
+    const target = deleteTarget;
     setIsDeleting(true);
     try {
-      const ok = await deleteVehicle(deleteTarget.arac_id);
-      if (ok) {
+      const res = await deleteVehicle(target.arac_id, { arsiv_nedeni });
+      if (res) {
         setDeleteTarget(null);
+        if (String(seciliAracId) === String(target.arac_id)) {
+          setSeciliAracId(null);
+        }
         window.dispatchEvent(new CustomEvent('truss:data-changed', { detail: { scope: 'vehicle' } }));
+        if (res?.islem === 'arsivlendi' && hasLoadedArchived) {
+          fetchArchivedAraclar();
+        }
       }
     } finally {
       setIsDeleting(false);
@@ -194,7 +191,7 @@ export default function Filo() {
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold tracking-tight text-foreground">Filo</h1>
             <Badge variant="secondary" className="tabular-nums">
-              {formatLocaleNumber(araclar.length, 0)} araç
+              {formatLocaleNumber(activeAraclar.length, 0)} araç
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground">
@@ -202,17 +199,30 @@ export default function Filo() {
           </p>
         </div>
 
-        {canManage && (
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleCreateClick}
-            className="gap-1.5"
-          >
-            <Plus className="size-4" />
-            <span>Yeni Araç</span>
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex rounded-lg border border-border bg-muted/40 p-0.5" role="group" aria-label="Filo görünümü">
+            {VIEW_MODES.map((mode) => (
+              <button
+                key={mode.id}
+                type="button"
+                onClick={() => setViewMode(mode.id)}
+                className={cn(
+                  'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+                  viewMode === mode.id ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
+
+          {canManage && (
+            <Button type="button" size="sm" onClick={handleCreateClick} className="gap-1.5">
+              <Plus className="size-4" />
+              <span>Yeni Araç</span>
+            </Button>
+          )}
+        </div>
       </div>
 
       {globalVehicleActive && (
@@ -240,12 +250,14 @@ export default function Filo() {
 
       <FleetDataTable
         araclar={visibleAraclar}
-        loading={loading}
-        hasLoaded={hasLoaded}
+        loading={isArchivedView ? loadingArchived : loading}
+        hasLoaded={isArchivedView ? hasLoadedArchived : hasLoaded}
         canManage={canManage}
         canViewAnalytics={canViewAnalytics}
         tcoByAracId={tcoByAracId}
         loadingTco={loadingTco}
+        isArchivedView={isArchivedView}
+        restoringId={restoringId}
         globalVehicleActive={globalVehicleActive}
         initialDurumFilter={initialDurumFilter}
         onDurumFilterChange={handleDurumFilterChange}
@@ -254,31 +266,18 @@ export default function Filo() {
         onCreateClick={handleCreateClick}
         onEditClick={handleEditClick}
         onDeleteRequest={handleDeleteRequest}
+        onRestoreClick={handleRestoreArac}
       />
 
       {canManage && (
-        <VehicleSheet
-          open={sheetOpen}
-          onOpenChange={handleSheetOpenChange}
-          arac={editingVehicle}
-        />
+        <VehicleSheet open={sheetOpen} onOpenChange={handleSheetOpenChange} arac={editingVehicle} />
       )}
 
       {canManage && (
-        <ConfirmDialog
+        <VehicleArchiveDialog
           open={deleteTarget !== null}
-          onOpenChange={(open) => {
-            if (!open && !isDeleting) setDeleteTarget(null);
-          }}
-          title="Aracı filodan kaldır?"
-          description={
-            deleteTarget
-              ? `${formatTurkishPlate(deleteTarget.plaka)} plakalı araç ve ilişkili tüm kayıtlar kalıcı olarak silinecek. Bu işlem geri alınamaz.`
-              : ''
-          }
-          confirmLabel="Sil"
-          cancelLabel="Vazgeç"
-          variant="destructive"
+          onOpenChange={(open) => { if (!open && !isDeleting) setDeleteTarget(null); }}
+          arac={deleteTarget}
           loading={isDeleting}
           onConfirm={handleConfirmDelete}
         />

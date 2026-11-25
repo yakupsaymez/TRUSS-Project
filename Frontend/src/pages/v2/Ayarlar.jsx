@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Building2 } from 'lucide-react';
+import { Building2, History } from 'lucide-react';
 import useAuthStore from '@/store/useAuthStore';
 import { resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { Separator } from '@/components/ui/separator';
@@ -13,6 +13,7 @@ import ProfilTab from './ayarlar/ProfilTab';
 import GuvenlikTab from './ayarlar/GuvenlikTab';
 import BildirimlerTab from './ayarlar/BildirimlerTab';
 import OrganizasyonTab from './ayarlar/OrganizasyonTab';
+import DenetimTab from './ayarlar/DenetimTab';
 
 function SettingsSkeleton() {
   return (
@@ -51,18 +52,26 @@ export default function Ayarlar() {
   const role = resolveRole(user);
   const isManager = [ROLES.SYSTEM_ADMIN, ROLES.FLEET_MANAGER].includes(role);
   const isSystemAdmin = role === ROLES.SYSTEM_ADMIN;
+  const canViewAudit =
+    role === ROLES.SYSTEM_ADMIN || (role === ROLES.FLEET_MANAGER && Boolean(user?.org_id));
 
-  const settingsTabs = useMemo(
-    () =>
-      isManager
-        ? [...BASE_SETTINGS_TABS, { id: 'organizasyon', label: 'Organizasyon', icon: Building2 }]
-        : BASE_SETTINGS_TABS,
-    [isManager]
-  );
+  const settingsTabs = useMemo(() => {
+    const tabs = [...BASE_SETTINGS_TABS];
+    if (isManager) {
+      tabs.push({ id: 'organizasyon', label: 'Organizasyon', icon: Building2 });
+    }
+    if (canViewAudit) {
+      tabs.push({ id: 'denetim', label: 'Denetim İzi', icon: History });
+    }
+    return tabs;
+  }, [isManager, canViewAudit]);
 
   const urlTab = searchParams.get('tab');
   const resolvedUrlTab =
-    urlTab && settingsTabs.some((t) => t.id === urlTab) && (urlTab !== 'organizasyon' || isManager)
+    urlTab &&
+    settingsTabs.some((t) => t.id === urlTab) &&
+    (urlTab !== 'organizasyon' || isManager) &&
+    (urlTab !== 'denetim' || canViewAudit)
       ? urlTab
       : null;
 
@@ -71,14 +80,15 @@ export default function Ayarlar() {
   useEffect(() => {
     if (resolvedUrlTab) {
       setActiveTab((prev) => (prev === resolvedUrlTab ? prev : resolvedUrlTab));
-    } else if (!isManager && activeTab === 'organizasyon') {
+    } else if ((!isManager && activeTab === 'organizasyon') || (!canViewAudit && activeTab === 'denetim')) {
       setActiveTab('genel');
     }
-  }, [resolvedUrlTab, isManager, activeTab]);
+  }, [resolvedUrlTab, isManager, canViewAudit, activeTab]);
 
   const handleTabChange = (tabId) => {
     if (!settingsTabs.some((t) => t.id === tabId)) return;
     if (tabId === 'organizasyon' && !isManager) return;
+    if (tabId === 'denetim' && !canViewAudit) return;
     setActiveTab(tabId);
     const next = new URLSearchParams(searchParams);
     if (tabId === 'genel') {
@@ -218,6 +228,8 @@ export default function Ayarlar() {
                     pageMountedRef={data.pageMountedRef}
                   />
                 )}
+
+                {canViewAudit && activeTab === 'denetim' && <DenetimTab />}
               </>
             )}
           </div>

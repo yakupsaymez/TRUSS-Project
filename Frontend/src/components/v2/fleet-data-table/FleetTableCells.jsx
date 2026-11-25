@@ -4,8 +4,10 @@ import {
   ArrowUp,
   ArrowUpDown,
   ExternalLink,
+  Loader2,
   MoreVertical,
   Pencil,
+  RotateCcw,
   Trash2,
 } from 'lucide-react';
 import { EVRAK_UYARI_GUN } from '@/utils/aracDurum';
@@ -180,10 +182,39 @@ export function FleetRowActions({
   arac,
   formattedPlaka,
   canManage,
+  isArchivedView = false,
+  restoringId = null,
   onDetail,
   onEditClick,
   onDeleteRequest,
+  onRestoreClick,
 }) {
+  if (isArchivedView) {
+    if (!canManage) {
+      return <span className="block text-right text-xs text-muted-foreground">—</span>;
+    }
+    const isRestoring = restoringId !== null && String(restoringId) === String(arac.arac_id);
+    return (
+      <div className="flex items-center justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={restoringId !== null}
+          onClick={() => onRestoreClick?.(arac)}
+          className="h-8 gap-1.5 px-2.5 text-xs"
+        >
+          {isRestoring ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <RotateCcw className="size-3.5" />
+          )}
+          <span>Geri Yükle</span>
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center justify-end gap-1">
       <Button
@@ -223,7 +254,7 @@ export function FleetRowActions({
                 onSelect={() => onDeleteRequest?.(arac)}
               >
                 <Trash2 className="size-4" />
-                <span>Sil</span>
+                <span>Arşivle / Sil</span>
               </DropdownMenuItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>
