@@ -165,47 +165,12 @@ const evaluateFuelRecordAnomalies = async (yakitId, { mode = 'create', db = pool
   return inserted;
 };
 
-/**
- * Kullanıcının erişebildiği son N günlük yakıt kayıtlarını toplu sorgu + bellek içi pencereleme ile tarar.
- */
-const scanAccessibleFuelAnomalies = async (user, { gun = 90 } = {}) => {
-  const { clause, params } = buildVehicleAccessFilter(user, 2);
-  const baslangic = gunEkleTR(bugunTR(), -gun);
-  const historyStart = gunEkleTR(baslangic, -90);
-  const priceStart = gunEkleTR(baslangic, -30);
-
-  const fuelRes = await pool.query(
-    `WITH erisebilir AS (
-       SELECT a.arac_id, a.org_id, a.plaka, a.sayac_tipi, a.depo_kapasitesi_l, a.hedef_tuketim
-       FROM araclar a
-       WHERE (${clause})
-     ),
-     sonrasi AS (
-       SELECT y.yakit_id, y.arac_id, y.tarih, y.litre, y.tutar, y.km,
-              e.org_id, e.plaka, e.sayac_tipi, e.depo_kapasitesi_l, e.hedef_tuketim
-       FROM yakitlar y
-       INNER JOIN erisebilir e ON e.arac_id = y.arac_id
-       WHERE y.tarih >= $1::date
-     ),
-     oncesi AS (
-       SELECT DISTINCT ON (y.arac_id)
-              y.yakit_id, y.arac_id, y.tarih, y.litre, y.tutar, y.km,
-              e.org_id, e.plaka, e.sayac_tipi, e.depo_kapasitesi_l, e.hedef_tuketim
-       FROM yakitlar y
-       INNER JOIN erisebilir e ON e.arac_id = y.arac_id
-       WHERE y.tarih < $1::date AND y.km IS NOT NULL AND y.km > 0
-       ORDER BY y.arac_id, y.tarih DESC, y.km DESC, y.yakit_id DESC
-     )
-     SELECT * FROM (SELECT * FROM oncesi UNION ALL SELECT * FROM sonrasi) birlesik
-     ORDER BY arac_id ASC, tarih ASC, km ASC NULLS LAST, yakit_id ASC`,
-    [historyStart, ...params]
-  );
-
+const buildVehicleFuelMap = (rows, baslangic, targetIdSet = null) => {
   const byVehicle = new Map();
   const orgIdSet = new Set();
   let tarananKayit = 0;
 
-  for (const row of fuelRes.rows) {
+  for (const row of rows) {
     const curTarih = tarihStr(row.tarih);
     const enriched = {
       ...row,
@@ -214,57 +179,108 @@ const scanAccessibleFuelAnomalies = async (user, { gun = 90 } = {}) => {
       tutarPos: toPosNum(row.tutar),
       kmPos: toPosNum(row.km),
     };
-    if (curTarih && curTarih >= baslangic) {
+    const isTarget = targetIdSet ? targetIdSet.has(row.yakit_id) : Boolean(curTarih && curTarih >= baslangic);
+    if (isTarget) {
       tarananKayit += 1;
       if (row.org_id !== null && row.org_id !== undefined) orgIdSet.add(Number(row.org_id));
     }
     if (!byVehicle.has(row.arac_id)) byVehicle.set(row.arac_id, []);
     byVehicle.get(row.arac_id).push(enriched);
   }
+  return { byVehicle, orgIdSet, tarananKayit };
+};
 
-  if (tarananKayit === 0) return { taranan_kayit: 0, yeni_anomali: 0 };
-
+const loadOrgUnitPrices = async (orgIds, priceStart) => {
   const pricesByOrg = new Map();
-  const orgIds = [...orgIdSet];
-  if (orgIds.length > 0) {
-    const priceRes = await pool.query(
-      `SELECT a.org_id, y.yakit_id, y.tarih, (y.tutar / y.litre)::numeric AS birim_fiyat
-       FROM yakitlar y
-       INNER JOIN araclar a ON a.arac_id = y.arac_id
-       WHERE a.org_id = ANY($1::int[]) AND y.litre > 0 AND y.tutar > 0 AND y.tarih >= $2::date
-       ORDER BY a.org_id ASC, y.tarih ASC, y.yakit_id ASC`,
-      [orgIds, priceStart]
-    );
-    for (const pr of priceRes.rows) {
-      const oid = Number(pr.org_id);
-      const birimFiyat = Number(pr.birim_fiyat);
-      if (!Number.isFinite(birimFiyat)) continue;
-      if (!pricesByOrg.has(oid)) pricesByOrg.set(oid, []);
-      pricesByOrg.get(oid).push({ yakit_id: pr.yakit_id, tarih: tarihStr(pr.tarih), birimFiyat });
-    }
+  if (!orgIds || orgIds.length === 0 || !priceStart) return pricesByOrg;
+
+  const priceRes = await pool.query(
+    `SELECT a.org_id, y.yakit_id, y.tarih, (y.tutar / y.litre)::numeric AS birim_fiyat
+     FROM yakitlar y INNER JOIN araclar a ON a.arac_id = y.arac_id
+     WHERE a.org_id = ANY($1::int[]) AND y.litre > 0 AND y.tutar > 0 AND y.tarih >= $2::date
+     ORDER BY a.org_id ASC, y.tarih ASC, y.yakit_id ASC`,
+    [orgIds, priceStart]
+  );
+  for (const pr of priceRes.rows) {
+    const oid = Number(pr.org_id);
+    const birimFiyat = Number(pr.birim_fiyat);
+    if (!Number.isFinite(birimFiyat)) continue;
+    if (!pricesByOrg.has(oid)) pricesByOrg.set(oid, []);
+    pricesByOrg.get(oid).push({ yakit_id: pr.yakit_id, tarih: tarihStr(pr.tarih), birimFiyat });
   }
+  return pricesByOrg;
+};
 
-  const allDetected = collectScanAnomalies(byVehicle, pricesByOrg, baslangic);
-  if (allDetected.length === 0) return { taranan_kayit: tarananKayit, yeni_anomali: 0 };
-
+const insertAnomaliesBatch = async (allDetected) => {
+  if (!allDetected || allDetected.length === 0) return 0;
   const insRes = await pool.query(
     `INSERT INTO yakit_anomalileri (org_id, arac_id, yakit_id, tip, seviye, olculen_deger, beklenen_esik, aciklama)
      SELECT * FROM UNNEST($1::int[], $2::int[], $3::int[], $4::text[], $5::text[], $6::numeric[], $7::numeric[], $8::text[])
      ON CONFLICT (yakit_id, tip) DO NOTHING
      RETURNING anomali_id`,
     [
-      allDetected.map((d) => d.org_id),
-      allDetected.map((d) => d.arac_id),
-      allDetected.map((d) => d.yakit_id),
-      allDetected.map((d) => d.tip),
-      allDetected.map((d) => d.seviye),
-      allDetected.map((d) => d.olculen_deger),
-      allDetected.map((d) => d.beklenen_esik),
-      allDetected.map((d) => d.aciklama),
+      allDetected.map((d) => d.org_id), allDetected.map((d) => d.arac_id),
+      allDetected.map((d) => d.yakit_id), allDetected.map((d) => d.tip),
+      allDetected.map((d) => d.seviye), allDetected.map((d) => d.olculen_deger),
+      allDetected.map((d) => d.beklenen_esik), allDetected.map((d) => d.aciklama),
     ]
   );
-
-  return { taranan_kayit: tarananKayit, yeni_anomali: insRes.rowCount || 0 };
+  return insRes.rowCount || 0;
 };
 
-module.exports = { evaluateFuelRecordAnomalies, scanAccessibleFuelAnomalies };
+const fetchWindowedFuelRows = async (vehicleClause, vehicleParams, historyStart) => {
+  const res = await pool.query(
+    `WITH erisebilir AS (
+       SELECT a.arac_id, a.org_id, a.plaka, a.sayac_tipi, a.depo_kapasitesi_l, a.hedef_tuketim
+       FROM araclar a WHERE (${vehicleClause})
+     ),
+     sonrasi AS (
+       SELECT y.yakit_id, y.arac_id, y.tarih, y.litre, y.tutar, y.km,
+              e.org_id, e.plaka, e.sayac_tipi, e.depo_kapasitesi_l, e.hedef_tuketim
+       FROM yakitlar y INNER JOIN erisebilir e ON e.arac_id = y.arac_id WHERE y.tarih >= $1::date
+     ),
+     oncesi AS (
+       SELECT DISTINCT ON (y.arac_id) y.yakit_id, y.arac_id, y.tarih, y.litre, y.tutar, y.km,
+              e.org_id, e.plaka, e.sayac_tipi, e.depo_kapasitesi_l, e.hedef_tuketim
+       FROM yakitlar y INNER JOIN erisebilir e ON e.arac_id = y.arac_id
+       WHERE y.tarih < $1::date AND y.km IS NOT NULL AND y.km > 0
+       ORDER BY y.arac_id, y.tarih DESC, y.km DESC, y.yakit_id DESC
+     )
+     SELECT * FROM (SELECT * FROM oncesi UNION ALL SELECT * FROM sonrasi) birlesik
+     ORDER BY arac_id ASC, tarih ASC, km ASC NULLS LAST, yakit_id ASC`,
+    [historyStart, ...vehicleParams]
+  );
+  return res.rows;
+};
+
+/**
+ * Kullanıcının erişebildiği son N günlük yakıt kayıtlarını toplu sorgu + bellek içi pencereleme ile tarar.
+ */
+const scanAccessibleFuelAnomalies = async (user, { gun = 90 } = {}) => {
+  const { clause, params } = buildVehicleAccessFilter(user, 2);
+  const baslangic = gunEkleTR(bugunTR(), -gun);
+  const rows = await fetchWindowedFuelRows(clause, params, gunEkleTR(baslangic, -90));
+  const { byVehicle, orgIdSet, tarananKayit } = buildVehicleFuelMap(rows, baslangic);
+  if (tarananKayit === 0) return { taranan_kayit: 0, yeni_anomali: 0 };
+
+  const pricesByOrg = await loadOrgUnitPrices([...orgIdSet], gunEkleTR(baslangic, -30));
+  const allDetected = collectScanAnomalies(byVehicle, pricesByOrg, baslangic);
+  return { taranan_kayit: tarananKayit, yeni_anomali: await insertAnomaliesBatch(allDetected) };
+};
+
+/**
+ * Toplu CSV aktarımı sonrası yalnızca eklenen kayıtlar için pencereleme ile anomali üretir.
+ */
+const evaluateBatchFuelAnomalies = async ({ aracIds, targetYakitIds, minTarih }) => {
+  const uniqueAracIds = [...new Set((aracIds || []).map(Number).filter((n) => Number.isInteger(n) && n > 0))];
+  const targetIdSet = new Set((targetYakitIds || []).map(Number).filter((n) => Number.isInteger(n) && n > 0));
+  if (uniqueAracIds.length === 0 || targetIdSet.size === 0 || !minTarih) return { yeni_anomali: 0 };
+
+  const rows = await fetchWindowedFuelRows('a.arac_id = ANY($2::int[])', [uniqueAracIds], gunEkleTR(minTarih, -90));
+  const { byVehicle, orgIdSet } = buildVehicleFuelMap(rows, minTarih, targetIdSet);
+  const pricesByOrg = await loadOrgUnitPrices([...orgIdSet], gunEkleTR(minTarih, -30));
+  const detected = collectScanAnomalies(byVehicle, pricesByOrg, minTarih).filter((d) => targetIdSet.has(d.yakit_id));
+  return { yeni_anomali: await insertAnomaliesBatch(detected) };
+};
+
+module.exports = { evaluateFuelRecordAnomalies, scanAccessibleFuelAnomalies, evaluateBatchFuelAnomalies };

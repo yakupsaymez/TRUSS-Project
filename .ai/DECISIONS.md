@@ -107,3 +107,8 @@
 - **Kök Neden:** Onaylayıcı (sycophantic) açılışlar, seçenek menüsü sunma ve yüzeysel happy-path planlama/QA pratikleri yarış durumu, kiracı sızıntısı ve dikiş (`seam`) hatalarını tasarım aşamasında gizleyebiliyordu.
 - **Kalıcı Kural:** `.agent/rules/00-truss-core.md` §5 always-on Principal Bar ile övgü/seçenek menüsü yasaklanır; `.agent/skills/critic/SKILL.md` (`/critic`) ve `truss/SKILL.md` Faz 1 zorunlu okumasıyla plan/QA öncesi seam/stres öz-denetimi uygulanır (`.agent/*` `<= 55` satır, Always-On artış `<= 180` tok).
 
+### ADR-22: Toplu Yakıt CSV İçe Aktarım İzolasyonu, Fiziksel İmza Dedup & Kronoloji Sıralaması
+- **Tarih:** 2026-11-25 (`V2.2-IMPORT-BE`)
+- **Kök Neden:** Global `100kb` JSON limiti büyük CSV gövdelerini kesebilir, tek başına `fatura_no` gerçek çift dolumları kaçırıp sahte çakışma üretebilir ve aynı gün ters-sıralı (`DESC`) CSV ekstreleri kronolojik sayaç doğrulamasında sahte `SAYAC_TUTARSIZ` reddine yol açabilirdi.
+- **Kalıcı Kural:** `/api/yakitlar/toplu-*` için global JSON parser atlanıp rota-lokal `1mb` `bulkJsonParser` uygulanır; `FOR UPDATE` kilidi altında `arac_id|tarih|litre|tutar|km` fiziksel dolum imzası (tek başına `fatura_no` yasak) ile dedup yapılır, adaylar `(tarih ASC, km ASC NULLS LAST, satir_no ASC)` sıralanıp tek `UNNEST` ile yazılır ve ardından `evaluateBatchFuelAnomalies` çalıştırılır.
+

@@ -24,7 +24,11 @@ app.use(cors({
   origin: corsOrigins.length > 0 ? corsOrigins : ['http://localhost:5173'],
   credentials: true
 }));
-app.use(express.json()); // JSON body verilerini okuyabilmek icin middleware ekler.
+const defaultJsonParser = express.json();
+app.use((req, res, next) => {
+  if (req.originalUrl && req.originalUrl.startsWith('/api/yakitlar/toplu-')) return next();
+  return defaultJsonParser(req, res, next);
+});
 
 app.get('/', (req, res) => { // Kök dizin test endpoint'i.
   res.send('TRUSS Backend Çalışıyor'); // Sunucunun aktif oldugunu belirten cevap döner.
