@@ -47,7 +47,17 @@ const yakitService = {
     taraYakitAnomalileri: async () => {
         const response = await api.post('/yakitlar/anomaliler/tara');
         return response.data;
-    }
+    },
+
+    previewYakitCsv: async (csvText) => {
+        const response = await api.post('/yakitlar/toplu-onizleme', { csv_text: csvText });
+        return response.data;
+    },
+
+    commitYakitCsv: async (csvText) => {
+        const response = await api.post('/yakitlar/toplu-aktar', { csv_text: csvText });
+        return response.data;
+    },
 };
 
 export default yakitService;

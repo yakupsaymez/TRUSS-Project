@@ -22,7 +22,11 @@ const REQUIRED_HEADERS = ['plaka', 'tarih', 'litre', 'tutar'];
 const createCsvError = (status, code, message, extra = {}) =>
   Object.assign(new Error(message), { status, code, ...extra });
 
-const normalizePlate = (raw) => String(raw || '').toLocaleUpperCase('tr-TR').replace(/[\s\-_./]+/g, '');
+const normalizePlate = (raw) =>
+  String(raw || '')
+    .replace(/[iıİ]/g, 'I')
+    .toUpperCase()
+    .replace(/[\s\-_./]+/g, '');
 
 const normalizeHeaderKey = (raw) =>
   String(raw || '')
@@ -101,7 +105,11 @@ const parseCsvDate = (raw) => {
 };
 
 const parseLocaleNumber = (raw) => {
-  const cleaned = String(raw ?? '').trim().replace(/₺|\bTRY\b|\bTL\b|\bLT\b|\bL\b/gi, '').replace(/\s+/g, '');
+  const cleaned = String(raw ?? '')
+    .trim()
+    .replace(/^(?:₺|TRY|TL)\s*/i, '')
+    .replace(/\s*(?:₺|TRY|TL|LT|L)\.?$/i, '')
+    .replace(/\s+/g, '');
   if (!cleaned || !/^-?[\d.,]+$/.test(cleaned) || !/\d/.test(cleaned)) return null;
   const lastComma = cleaned.lastIndexOf(',');
   const lastDot = cleaned.lastIndexOf('.');

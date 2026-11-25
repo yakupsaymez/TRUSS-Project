@@ -14,6 +14,7 @@ import LedgerDataTable from '@/components/v2/LedgerDataTable';
 import ConfirmDialog from '@/components/v2/ConfirmDialog';
 import MovementSheet from '@/components/v2/MovementSheet';
 import FuelAnomalyPanel from '@/components/v2/FuelAnomalyPanel';
+import FuelImportSheet from '@/components/v2/FuelImportSheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -81,6 +82,7 @@ export default function Hareketler() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [importSheetOpen, setImportSheetOpen] = useState(false);
   const [sheetState, setSheetState] = useState({
     open: false,
     mode: 'create',
@@ -94,6 +96,7 @@ export default function Hareketler() {
 
   const role = resolveRole(user);
   const canManage = [ROLES.SYSTEM_ADMIN, ROLES.FLEET_MANAGER].includes(role);
+  const canImportFuel = canManage && user?.yetkiler?.yakit !== false;
   const canAddFuel = canManage || user?.yetkiler?.yakit === true;
   const canAddMaintenance = canManage || user?.yetkiler?.bakim === true;
   const canViewFinance = canAccessChannel(user, 'analytics');
@@ -385,7 +388,9 @@ export default function Hareketler() {
         onRepeatRow={canAddFuel || canAddMaintenance ? handleRepeatRow : undefined}
         onEditRow={canManage ? handleEditRow : undefined}
         onDeleteRequest={handleDeleteRequest}
+        onImportFuel={canImportFuel ? () => setImportSheetOpen(true) : undefined}
       />
+      {canImportFuel && <FuelImportSheet open={importSheetOpen} onOpenChange={setImportSheetOpen} onImported={handleSheetSuccess} />}
 
       <MovementSheet
         open={

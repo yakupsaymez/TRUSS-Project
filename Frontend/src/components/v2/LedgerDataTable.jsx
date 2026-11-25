@@ -41,6 +41,7 @@ export default function LedgerDataTable({
   onRepeatRow,
   onEditRow,
   onDeleteRequest,
+  onImportFuel,
 }) {
   const state = useLedgerTableState({ rows, araclar, seciliAracId, onVehicleChange });
 
@@ -100,6 +101,7 @@ export default function LedgerDataTable({
           onBitisChange={state.handleBitisChange}
           hasActiveFilters={state.hasActiveFilters}
           onClearFilters={state.handleClearFilters}
+          onImportFuel={onImportFuel}
         />
 
         <Table>

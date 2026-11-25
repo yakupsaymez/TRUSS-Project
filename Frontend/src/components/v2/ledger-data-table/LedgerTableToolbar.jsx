@@ -1,5 +1,5 @@
 import React from 'react';
-import { RotateCcw, Search, X } from 'lucide-react';
+import { RotateCcw, Search, Upload, X } from 'lucide-react';
 import { formatTurkishPlate } from '@/utils/formatters';
 import { Button } from '@/components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
@@ -31,6 +31,7 @@ export default function LedgerTableToolbar({
   onBitisChange,
   hasActiveFilters,
   onClearFilters,
+  onImportFuel,
 }) {
   return (
     <div className="flex flex-col gap-3 border-b border-border p-4">
@@ -129,6 +130,19 @@ export default function LedgerTableToolbar({
           >
             <RotateCcw className="size-3.5" />
             <span>Filtreleri Temizle</span>
+          </Button>
+        )}
+
+        {onImportFuel && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onImportFuel}
+            className="h-9 gap-1.5 text-xs sm:ml-auto"
+          >
+            <Upload className="size-3.5" />
+            <span>Ekstre Yükle (CSV)</span>
           </Button>
         )}
       </div>
