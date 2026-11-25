@@ -1,67 +1,51 @@
 # TRUSS — Mimari Harita (`ARCHITECTURE_MAP.md`)
 
 ## 1. Frontend Rotaları (`Frontend/src/App.js`)
-| Rota | Sayfa Bileşeni | Kanal Koruması (`ChannelGuard`) | Açıklama |
+| Rota | Sayfa Bileşeni | Guard | Kapsam |
 | :--- | :--- | :---: | :--- |
-| `/` | `pages/HomePage.jsx` (`pages/home/*`) | Açık | Kurumsal açılış sayfası (`pages/home/*`) |
-| `/login`, `/register`, `/forgot-password` | `pages/v2/LoginV2.jsx`, `RegisterV2.jsx`, `ForgotPasswordV2.jsx` | Açık | `AuthFrame` tabanlı kimlik doğrulama akışları |
-| `/app` | `pages/v2/GenelBakis.jsx` | `horizon` | KPI şeridi, maliyet trendi, bütçe/gerçekleşen, filo sağlığı |
-| `/app/filo` | `pages/v2/Filo.jsx` | `horizon` | Araç envanter tablosu (`FleetDataTable`), `VehicleSheet`, `AssignVehicleSheet` |
-| `/app/harita` | `pages/v2/Harita.jsx` | `horizon` | Canlı araç konum haritası (`FleetLiveMap`) ve sürücü check-in |
-| `/app/hareketler` | `pages/v2/Hareketler.jsx` | `ledger` | Birleşik yakıt & bakım defteri (`LedgerDataTable`, `MovementSheet`, `FuelAnomalyPanel`, `FuelImportSheet`) |
-| `/app/parcalar` | `pages/v2/Parcalar.jsx` | `components` | Parça ömrü ve değişim takibi (`ComponentDataTable`, `ComponentSheet`) |
-| `/app/takvim` | `pages/v2/Takvim.jsx` | `horizon` | Belge vadesi ve periyodik bakım takvimi (`FleetCalendar`) |
-| `/app/ekip` | `pages/v2/Ekip.jsx` | `crew` | Üye/sürücü yönetimi (`CrewDataTable`, `PermissionsSheet`, `ResetPasswordSheet`) |
-| `/app/ayarlar` | `pages/v2/Ayarlar.jsx` (`pages/v2/ayarlar/*`) | Korumalı (`ProtectedRoute`) | Profil, şifre, bildirim matrisi, organizasyon ayarları ve denetim izi (`?tab=denetim`) |
+| `/` | `pages/HomePage.jsx` (`pages/home/*`) | Açık | Kurumsal vitrin |
+| `/login`, `/register`, `/forgot-password` | `pages/v2/{Login,Register,ForgotPassword}V2.jsx` | Açık | `AuthFrame` kimlik doğrulama |
+| `/app` | `pages/v2/GenelBakis.jsx` | `horizon` | KPI, maliyet trendi, bütçe, filo sağlığı |
+| `/app/filo` | `pages/v2/Filo.jsx` | `horizon` | `FleetDataTable`, `VehicleSheet`, `AssignVehicleSheet` |
+| `/app/harita` | `pages/v2/Harita.jsx` | `horizon` | `FleetLiveMap`, sürücü check-in |
+| `/app/hareketler` | `pages/v2/Hareketler.jsx` | `ledger` | `LedgerDataTable`, `MovementSheet`, `FuelAnomalyPanel`, `FuelImportSheet` |
+| `/app/parcalar` | `pages/v2/Parcalar.jsx` | `components` | `ComponentDataTable`, `ComponentSheet` |
+| `/app/takvim` | `pages/v2/Takvim.jsx` | `horizon` | `FleetCalendar` |
+| `/app/ekip` | `pages/v2/Ekip.jsx` | `crew` | `CrewDataTable`, `PermissionsSheet`, `ResetPasswordSheet` |
+| `/app/ayarlar` | `pages/v2/Ayarlar.jsx` (`pages/v2/ayarlar/*`) | `ProtectedRoute` | Profil, şifre, bildirim, org, `?tab=denetim` |
 
 ## 2. Frontend Modül Yapısı (`Frontend/src/`)
-- **Çekirdek & Kabuk (`components/v2/`):** `AppShell.jsx`, `AppSheet.jsx`, `AuthFrame.jsx`, `ChannelGuard.jsx`, `CommandPalette.jsx`, `ConfirmDialog.jsx`, `EmptyState.jsx`, `SayacFieldError.jsx`, `channelAccess.js`, `navConfig.js`, `AssignVehicleSheet.jsx`, `CreateMemberSheet.jsx`, `PermissionsSheet.jsx`, `ResetPasswordSheet.jsx`, `NotificationBell.jsx`, `ActionCenterCard.jsx`, `FleetEfficiencyCard.jsx`, `FuelAnomalyPanel.jsx`, `FuelImportSheet.jsx`, analitik kartlar (`OverviewKpiStrip`, `CostTrendChart`, `BudgetVarianceCard`, `FleetHealthWidget`, `DocumentComplianceCard`, `SegmentedDistributionCard`, `CrewRoleSummaryStrip`).
-- **`REFACTOR-1` & `V2.1-FE4` Feature-Module Klasör Ağacı (`<= 300` satır Unix modüler mimari):**
-  - `pages/home/`: `HomeNavbar.jsx`, `HomeHero.jsx`, `HomePreviewShowcase.jsx`, `HomeModulesSection.jsx`, `HomeArchitectureSection.jsx`, `HomeFooterCta.jsx`, `homeContent.js`
-  - `pages/v2/ayarlar/`: `GenelTab.jsx`, `ProfilTab.jsx`, `OrganizasyonTab.jsx`, `BildirimlerTab.jsx`, `GuvenlikTab.jsx`, `DenetimTab.jsx`, `PasswordChangeForm.jsx`, `useAyarlarData.js`, `ayarlarConstants.js`, `denetimConstants.js`
-  - `components/v2/app-shell/`: `AppShellSidebar.jsx`, `AppShellHeader.jsx`, `useAppShellState.js`, `appShellHelpers.jsx`
-  - `components/v2/command-palette/`: `CommandPaletteResults.jsx`, `useCommandPaletteState.js`, `commandPaletteGroups.js`, `commandPaletteParsers.js`
-  - `components/v2/vehicle-sheet/`: `VehicleCatalogSection.jsx`, `VehicleCalibrationSection.jsx`, `VehicleDocumentsSection.jsx`, `useVehicleSheetForm.js`, `useVehicleKatalog.js`, `hydrateVehicleKatalog.js`, `vehicleSheetHelpers.js`
-  - `components/v2/movement-sheet/`: `MovementIdentitySection.jsx`, `MovementCostSection.jsx`, `MovementNotesSection.jsx`, `useMovementSheetForm.js`, `movementSheetHelpers.js`
-  - `components/v2/component-sheet/`: `ComponentIdentitySection.jsx`, `ComponentLifecycleSection.jsx`, `useComponentSheetForm.js`, `componentSheetHelpers.js`
-  - `components/v2/fleet-data-table/`: `FleetTableToolbar.jsx`, `FleetTableCells.jsx`, `FleetEfficiencyCell.jsx`, `FleetTablePagination.jsx`, `VehicleArchiveDialog.jsx`, `useFleetArchive.js`, `fleetTableColumns.jsx`, `fleetTableHelpers.js`
-  - `components/v2/ledger-data-table/`: `LedgerTableHeader.jsx`, `LedgerTableToolbar.jsx`, `LedgerTablePagination.jsx`, `ledgerTableColumns.jsx`, `useLedgerTableState.js`, `ledgerTableHelpers.js`
-  - `components/v2/component-data-table/`: `ComponentTableSummary.jsx`, `ComponentTableToolbar.jsx`, `ComponentTablePagination.jsx`, `componentTableColumns.jsx`, `componentTableHelpers.js`
-  - `components/v2/crew-data-table/`: `CrewTableToolbar.jsx`, `CrewRowActions.jsx`, `CrewTablePagination.jsx`, `crewTableColumns.jsx`, `crewTableHelpers.js`
-  - `components/v2/fleet-live-map/`: `FleetMapSidebar.jsx`, `FleetMapCanvas.jsx`, `FleetMapDetailBar.jsx`, `useFleetMapState.js`, `mapHelpers.js`
-  - `components/v2/fleet-calendar/`: `CalendarToolbar.jsx`, `CalendarMonthView.jsx`, `CalendarWeekDayView.jsx`, `CalendarEventChip.jsx`, `useFleetCalendarState.js`, `calendarHelpers.js`
-  - `components/v2/fuel-anomaly/`: `FuelAnomalyRow.jsx`
-  - `components/v2/fuel-import/`: `FuelImportPreviewTable.jsx`, `fuelImportHelpers.js`
-- **`components/ui/`:** `truss-date-picker.jsx` ve Radix/Shadcn temel UI atomları.
-- **`store/`:** `useAuthStore.js` (JWT, kullanıcı, rol, kanal izinleri), `useVehicleStore.js` (aktif araç seçimi ve filo önbelleği), `useAppStore.js` (kabuk/UI durumu).
-- **`services/`:** `api.js` (Axios + JWT interceptor), `authService.js`, `aracService.js`, `yakitService.js` (+ anomali ve toplu CSV import uçları), `bakimService.js`, `parcaService.js`, `raporService.js`, `katalogService.js`, `adminService.js`, `bildirimService.js`, `denetimService.js`.
+- **Çekirdek (`components/v2/`):** `AppShell`, `AppSheet`, `AuthFrame`, `ChannelGuard`, `CommandPalette`, `ConfirmDialog`, `EmptyState`, `SayacFieldError`, `channelAccess.js`, `navConfig.js`, `AssignVehicleSheet`, `CreateMemberSheet`, `PermissionsSheet`, `ResetPasswordSheet`, `NotificationBell`, `ActionCenterCard`, `FleetEfficiencyCard`, `FuelAnomalyPanel`, `FuelImportSheet`, `OverviewKpiStrip`, `CostTrendChart`, `BudgetVarianceCard`, `FleetHealthWidget`, `DocumentComplianceCard`, `SegmentedDistributionCard`, `CrewRoleSummaryStrip`.
+- **Feature-Module Alt Klasörleri (`<= 300`L):**
+  - `pages/home/*`, `pages/v2/ayarlar/*` (`GenelTab`, `ProfilTab`, `OrganizasyonTab`, `BildirimlerTab`, `GuvenlikTab`, `DenetimTab`, `PasswordChangeForm`, `useAyarlarData`, `ayarlarConstants`, `denetimConstants`)
+  - `components/v2/{app-shell,command-palette,vehicle-sheet,movement-sheet,component-sheet,fleet-data-table,ledger-data-table,component-data-table,crew-data-table,fleet-live-map,fleet-calendar,fuel-anomaly,fuel-import}/*`
+- **`components/ui/`:** `truss-date-picker.jsx`, `chart.jsx`, Radix/Shadcn temel atomlar.
+- **`store/`:** `useAuthStore.js`, `useVehicleStore.js`, `useAppStore.js`.
+- **`services/`:** `api.js`, `authService.js`, `aracService.js`, `yakitService.js`, `bakimService.js`, `parcaService.js`, `raporService.js`, `katalogService.js`, `adminService.js`, `bildirimService.js`, `denetimService.js`.
 
 ## 3. Backend Mimari Haritası (`Backend/`)
-| Katman | Dosyalar | Sorumluluk |
-| :--- | :--- | :--- |
-| **Giriş & DB** | `index.js`, `db.js`, `database.sql`, `scripts/migrateV22{DbPerf,Notify,Anomaly,Audit}.js` | Express sunucusu, `pg` bağlantı havuzu (`OID 1082` saf `YYYY-MM-DD` parser), şema ve idempotent V2.2 migrasyonları |
-| **Routes** | `routes/userRoutes.js`, `adminRoutes.js`, `aracRoutes.js` + `routes/arac/{aracHelpers,aracHandlers,aracMutationHandlers,aracArchiveHandlers}.js`, `yakitRoutes.js`, `bakimRoutes.js`, `parcaRoutes.js`, `raporRoutes.js`, `katalogRoutes.js`, `bildirimRoutes.js`, `denetimRoutes.js` | `/api/*` REST uçları, `/api/araclar/:id/{arsiv,geri-yukle}`, `/api/denetim-kayitlari` (`READ-ONLY`), `/api/bildirimler`, `/api/yakitlar/anomaliler*`, `/api/yakitlar/toplu-*` (`1mb` izole parser) ve middleware zinciri |
-| **Controllers** | `controllers/userController.js`, `adminController.js` + `controllers/admin/{adminHelpers,adminUserController,adminOrgAssignmentController}.js`, `yakitController.js`, `yakitAnomalyController.js`, `yakitImportController.js`, `bakimController.js`, `parcaController.js`, `raporController.js`, `tcoController.js`, `katalogController.js`, `bildirimController.js`, `denetimController.js` | İş mantığı, `admin/*` Feature-Module ayrımı, TCO analizi, yakıt anomali & toplu CSV import API'si, bildirim kutusu/aksiyon merkezi, salt-okunur denetim izi ve PostgreSQL TX yönetimi |
-| **Middlewares** | `middlewares/authMiddleware.js`, `rbacMiddleware.js` | JWT doğrulama, `FLEET_MANAGER`/`DRIVER` rol ve `org_id` erişim filtreleri |
-| **Utils** | `utils/odometerGuard.js`, `utils/dateUtils.js`, `utils/csvFuelParser.js` | `FOR UPDATE` araç kilidi, `arsivliAracEngelle` (`409`), komşu sayaç sınırları (`422`), `aracSayaciniSenkronizeEt`, TR takvim yardımcıları, sıfır-bağımlılıklı RFC-4180 CSV ayrıştırıcı |
-| **Services** | `services/notificationScheduler.js`, `notificationService.js`, `predictiveService.js`, `alertEvaluators.js`, `tcoService.js`, `fuelAnomalyService.js`, `fuelAnomalyRules.js`, `fuelImportService.js`, `auditService.js`, `emailService.js`, `smsService.js` | Günlük/haftalık cron, ortak tahmini bakım & eşik motoru, TCO birim maliyet motoru, 4 kurallı yakıt anomali motoru, toplu CSV yakıt içe aktarım motoru (`UNNEST`), maskeli append-only denetim izi (`logAuditEvent`), dedup & bildirim gönderimi |
+- **Giriş & DB:** `index.js`, `db.js` (`OID 1082`), `database.sql`, `scripts/migrateV22{DbPerf,Notify,Anomaly,Audit}.js`.
+- **Routes (`routes/`):** `userRoutes.js`, `adminRoutes.js`, `aracRoutes.js` + `arac/{aracHelpers,aracHandlers,aracMutationHandlers,aracArchiveHandlers}.js`, `yakitRoutes.js`, `bakimRoutes.js`, `parcaRoutes.js`, `raporRoutes.js`, `katalogRoutes.js`, `bildirimRoutes.js`, `denetimRoutes.js` (`/api/araclar/:id/{arsiv,geri-yukle}`, `/api/denetim-kayitlari`, `/api/bildirimler`, `/api/yakitlar/anomaliler*`, `/api/yakitlar/toplu-{onizleme,aktar}` `1mb` parser).
+- **Controllers (`controllers/`):** `userController.js`, `adminController.js` + `admin/{adminHelpers,adminUserController,adminOrgAssignmentController}.js`, `yakitController.js`, `yakitAnomalyController.js`, `yakitImportController.js`, `bakimController.js`, `parcaController.js`, `raporController.js`, `tcoController.js`, `katalogController.js`, `bildirimController.js`, `denetimController.js`.
+- **Middlewares & Utils:** `middlewares/{authMiddleware,rbacMiddleware}.js`, `utils/{odometerGuard,dateUtils,csvFuelParser,jwtSecret}.js` (`FOR UPDATE`, `arsivliAracEngelle` `409`, `422 SAYAC_KRONOLOJI_IHLALI`, `aracSayaciniSenkronizeEt`).
+- **Services (`services/`):** `notificationScheduler.js`, `notificationService.js`, `predictiveService.js`, `alertEvaluators.js`, `tcoService.js`, `fuelAnomalyService.js`, `fuelAnomalyRules.js`, `fuelImportService.js` (`UNNEST`), `auditService.js` (`logAuditEvent`), `emailService.js`, `smsService.js`.
 
-## 4. PostgreSQL Veritabanı Tabloları (15 Tablo)
-1. **`organizations`:** Kurumsal kiracı kaydı (`org_id`, `unvan`, `vergi_no`, `plan_tipi`, `aktif`, `olusturulma_tarihi`, `aylik_yakit_butcesi`, `aylik_bakim_butcesi`).
-2. **`users`:** Kullanıcılar (`user_id`, `ad_soyad`, `email`, `sifre`, `telefon`, `org_id`, `role`, `yetkiler` JSONB, `bildirim_tercihleri` JSONB, `email_bildirim_aktif`, `sms_bildirim_aktif`, `dil`, `para_birimi`, `olcu_birimi`, `kayit_tarihi`).
-3. **`araclar`:** Filo envanteri (`arac_id`, `kullanici_id`, `org_id`, `plaka`, `kategori_id`, `kategori`, `marka`, `model`, `yil`, `sayac_tipi` [`KM`/`SMH`], `guncel_km`, `guncel_calisma_saati`, `varyant_id`, `onerilen_bakim_km`, `triger_degisim_km`, `calisma_saati_bakim`, `depo_kapasitesi_l`, `hedef_tuketim`, `muayene_tarihi`, `kasko_tarihi`, `sigorta_tarihi`, `son_enlem`, `son_boylam`, `son_konum_adi`, `son_konum_zamani`, `arsivlendi_mi`, `arsiv_tarihi`, `arsiv_nedeni`).
-4. **`arac_sofor_atamalari`:** Aktif ve geçmiş araç-sürücü zimmet kayıtları (`atama_id`, `arac_id`, `sofor_user_id`, `atanma_tarihi`, `teslim_tarihi`, `aktif`).
-5. **`yakitlar`:** Yakıt alım hareketleri (`yakit_id`, `arac_id`, `yakit_tipi`, `tarih`, `litre`, `tutar`, `km`, `notlar`, `fatura_no`, `belge_url`, `olusturan_user_id`).
-6. **`bakimlar`:** Bakım/servis hareketleri (`bakim_id`, `arac_id`, `bakim_tipi`, `tarih`, `km`, `maliyet`, `notlar`, `fatura_no`, `belge_url`, `olusturan_user_id`).
-7. **`parca_takip`:** Araç bileşen/parça ömür takibi (`parca_id`, `arac_id`, `parca_adi`, `son_degisim_km`, `degisim_araligi_km`, `son_degisim_tarihi`, `maliyet`, `notlar`).
-8. **`ref_kategoriler`, `ref_markalar`, `ref_kategori_marka`, `ref_modeller`, `ref_arac_varyantlari`:** 5'li normalize araç katalog referans tabloları.
-9. **`bildirim_olaylari`:** Uygulama içi & e-posta bildirim olayları (`bildirim_id`, `org_id`, `user_id`, `arac_id`, `kategori`, `seviye`, `referans_anahtar`, `baslik`, `mesaj`, `link_url`, `meta_json`, `okundu_mu`, `eposta_gonderildi`, `olusturma_tarihi`, `okunma_tarihi`).
-10. **`yakit_anomalileri`:** Yakıt suistimal & tüketim anomalileri (`anomali_id`, `org_id`, `arac_id`, `yakit_id`, `tip`, `seviye`, `olculen_deger`, `beklenen_esik`, `aciklama`, `durum`, `inceleyen_user_id`, `inceleme_notu`, `olusturma_tarihi`, `inceleme_tarihi`).
-11. **`denetim_kayitlari`:** Değişmez denetim izi (`denetim_id`, `org_id`, `user_id`, `kullanici_eposta`, `kullanici_rol`, `eylem`, `varlik_tipi`, `varlik_id`, `ozet`, `detay_json`, `ip_adresi`, `olusturma_tarihi`).
-12. **`V2.2` İndeksleri:** `idx_araclar_org_id`, `idx_araclar_org_aktif`, `idx_yakitlar_arac_tarih_km`, `idx_bakimlar_arac_tarih_km`, `idx_parca_takip_arac_id`, `idx_atamalar_aktif_arac`, `uq_bildirim_user_kat_ref`, `idx_bildirim_user_okundu`, `uq_yakit_anomali_kayit_tip`, `idx_yakit_anomalileri_org_durum`, `idx_yakit_anomalileri_arac`, `idx_denetim_org_tarih`, `idx_denetim_varlik`.
+## 4. PostgreSQL Tabloları (`15` Tablo) & `V2.2` İndeksleri
+1. `organizations` (`org_id`, `unvan`, `vergi_no`, `plan_tipi`, `aktif`, `olusturulma_tarihi`, `aylik_yakit_butcesi`, `aylik_bakim_butcesi`)
+2. `users` (`user_id`, `ad_soyad`, `email`, `sifre`, `telefon`, `org_id`, `role`, `yetkiler`, `bildirim_tercihleri`, `email_bildirim_aktif`, `sms_bildirim_aktif`, `dil`, `para_birimi`, `olcu_birimi`, `kayit_tarihi`)
+3. `araclar` (`arac_id`, `kullanici_id`, `org_id`, `plaka`, `kategori_id`, `kategori`, `marka`, `model`, `yil`, `sayac_tipi`, `guncel_km`, `guncel_calisma_saati`, `varyant_id`, `onerilen_bakim_km`, `triger_degisim_km`, `calisma_saati_bakim`, `depo_kapasitesi_l`, `hedef_tuketim`, `muayene_tarihi`, `kasko_tarihi`, `sigorta_tarihi`, `son_enlem`, `son_boylam`, `son_konum_adi`, `son_konum_zamani`, `arsivlendi_mi`, `arsiv_tarihi`, `arsiv_nedeni`)
+4. `arac_sofor_atamalari` (`atama_id`, `arac_id`, `sofor_user_id`, `atanma_tarihi`, `teslim_tarihi`, `aktif`)
+5. `yakitlar` (`yakit_id`, `arac_id`, `yakit_tipi`, `tarih`, `litre`, `tutar`, `km`, `notlar`, `fatura_no`, `belge_url`, `olusturan_user_id`)
+6. `bakimlar` (`bakim_id`, `arac_id`, `bakim_tipi`, `tarih`, `km`, `maliyet`, `notlar`, `fatura_no`, `belge_url`, `olusturan_user_id`)
+7. `parca_takip` (`parca_id`, `arac_id`, `parca_adi`, `son_degisim_km`, `degisim_araligi_km`, `son_degisim_tarihi`, `maliyet`, `notlar`)
+8. `ref_kategoriler`, `ref_markalar`, `ref_kategori_marka`, `ref_modeller`, `ref_arac_varyantlari` (5 katalog tablosu)
+9. `bildirim_olaylari` (`bildirim_id`, `org_id`, `user_id`, `arac_id`, `kategori`, `seviye`, `referans_anahtar`, `baslik`, `mesaj`, `link_url`, `meta_json`, `okundu_mu`, `eposta_gonderildi`, `olusturma_tarihi`, `okunma_tarihi`)
+10. `yakit_anomalileri` (`anomali_id`, `org_id`, `arac_id`, `yakit_id`, `tip`, `seviye`, `olculen_deger`, `beklenen_esik`, `aciklama`, `durum`, `inceleyen_user_id`, `inceleme_notu`, `olusturma_tarihi`, `inceleme_tarihi`)
+11. `denetim_kayitlari` (`denetim_id`, `org_id`, `user_id`, `kullanici_eposta`, `kullanici_rol`, `eylem`, `varlik_tipi`, `varlik_id`, `ozet`, `detay_json`, `ip_adresi`, `olusturma_tarihi`)
+- **İndeksler:** `idx_araclar_org_id`, `idx_araclar_org_aktif`, `idx_yakitlar_arac_tarih_km`, `idx_bakimlar_arac_tarih_km`, `idx_parca_takip_arac_id`, `idx_atamalar_aktif_arac`, `uq_bildirim_user_kat_ref`, `idx_bildirim_user_okundu`, `uq_yakit_anomali_kayit_tip`, `idx_yakit_anomalileri_org_durum`, `idx_yakit_anomalileri_arac`, `idx_denetim_org_tarih`, `idx_denetim_varlik`.
 
-## 5. AI-OS & Antigravity v2.34.0 Katmanı (`.ai/` & `.agent/` — `OPS-1..5`)
-- **Kanonik Hafıza & Otomasyon (`.ai/` & `scripts/`):** `PROGRESS.md`, `SWARM_PLAYBOOK.md`, `ENGINEERING_GUARDRAILS.md`, `ARCHITECTURE_MAP.md`, `DECISIONS.md` (`ADR-01..12`), `gate-baseline.json`, `skills/caveman.md` + `scripts/ai-gate.mjs` (`gate`/`gate:fast`), `scripts/context-pack.mjs` (`context:pack`), `scripts/context-audit.mjs` (`context:audit`) & `.githooks/pre-commit`.
-- **Native Rules (`.agent/rules/`):** `00-truss-core.md` (`always_on`), `10-frontend-luma.md` (`**/Frontend/**`), `20-backend-sql.md` (`**/Backend/**`), `30-ops-gate.md` (`**/.ai/**, **/scripts/**, **/.githooks/**, **/.agent/**`).
-- **Modern Skills (`.agent/skills/*/SKILL.md` — 9 Skill):** `truss`, `s5-plan`, `s1-fe`, `s2-be`, `s2-seal`, `s3-qa`, `s4-sweep`, `truss-audit` (`references/postgres-mcp-readonly.md`), `truss-qa-browser`.
-- **Custom Agents (`.agent/agents/`):** `s5-architect.md` (`pro`, `READ-ONLY`), `s3-qa.md` (`pro`, `READ-ONLY` + Browser Subagent), `s4-bughunter.md` (`flash`), `s1-frontend.md` (`inherit`), `s2-backend-ops.md` (`inherit`).
+## 5. AI-OS & FORGE Katmanı (`.ai/` & `.agent/`)
+- **Kanonik Hafıza (`.ai/` — 6 dosya):** `PROGRESS.md`, `SWARM_PLAYBOOK.md`, `ENGINEERING_GUARDRAILS.md`, `ARCHITECTURE_MAP.md`, `DECISIONS.md` (`ADR-01..24`), `HANDOFF_TEMPLATE.md` (+ `gate-baseline.json`, `scripts/{ai-gate,context-pack,context-audit}.mjs`).
+- **4 Native Rule (`.agent/rules/`):** `00-truss-core.md`, `10-frontend-luma.md`, `20-backend-sql.md`, `30-ops-gate.md`.
+- **5 Derin Skill (`.agent/skills/*/SKILL.md`):** `forge`, `critic`, `forge-seal`, `forge-qa-browser`, `forge-xray` (`references/postgres-mcp-readonly.md`).
+- **5 Uzman (`.agent/agents/`):** `keystone.md` (`pro`), `core-smith.md` (`inherit`), `shell-crafter.md` (`inherit`), `sentinel.md` (`pro`), `radar.md` (`flash`).

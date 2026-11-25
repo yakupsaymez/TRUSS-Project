@@ -1,38 +1,23 @@
 # TRUSS — Mühendislik Korkulukları (`ENGINEERING_GUARDRAILS.md`)
 
 ## 1. Tasarım Sistemi (`radix-luma` & Tailwind v4)
-- **Zorunlu Semantik Tokenlar:** `bg-background`, `bg-card`, `bg-muted`, `text-foreground`, `text-muted-foreground`, `border-border`, `bg-primary`, `text-primary-foreground`, `bg-destructive`, `ring-ring`.
-- **Kesin Yasaklı Sınıflar & Renkler:**
-  - Ham `#hex`, `rgb()`, `hsl()` renk değerleri (grafik/harita CSS değişkenleri hariç).
-  - Eski/sabit paletler: `zinc-*`, `slate-*`, `purple-*`, `emerald-*`, `amber-*`, `truss-*`.
-  - Ağır GPU efektleri: `blur-3xl` ve aşırı dekoratif glow katmanları.
-- **Logo Standardı:** İkonsuz tipografik `TRU` (`text-foreground`) + `SS` (`text-primary`) — harici SVG/ikon amblem kullanılmaz.
-- **Tipografi & Sayısal Veri:** Tüm plaka, KM, çalışma saati (`SMH`), tutar (₺), litre ve tarih sütunlarında `tabular-nums` (`font-mono` veya `tabular-nums`) zorunludur.
+- **Zorunlu Tokenlar:** `bg-background`, `bg-card`, `bg-muted`, `text-foreground`, `text-muted-foreground`, `border-border`, `bg-primary`, `text-primary-foreground`, `bg-destructive`, `ring-ring`.
+- **Yasaklar:** Ham `#hex`/`rgb()`/`hsl()` (grafik/harita CSS değişkenleri hariç), `zinc-*`, `slate-*`, `purple-*`, `emerald-*`, `amber-*`, `truss-*`, `blur-3xl`.
+- **Logo & Sayısal Veri:** İkonsuz `TRU` (`text-foreground`) + `SS` (`text-primary`); plaka, `KM`, `SMH`, `₺`, litre ve tarihlerde `tabular-nums`.
 
-## 2. Yasaklı Importlar & Tarayıcı Çağrıları
-- Next.js kalıntıları: `"use client"`, `next/*` (`next/link`, `next/navigation`, `next/image`).
-- Bildirim/Takvim: `sonner` (yalnızca `react-hot-toast` kullanılır), `components/ui/calendar` (yalnızca `<TrussDatePicker />` kullanılır).
-- Native diyaloglar: `window.confirm`, `window.alert`, `window.prompt` (yalnızca `<ConfirmDialog />` veya `<AppSheet />` kullanılır).
+## 2. Yasaklı Importlar & Tarih Standardı
+- **Yasak:** `"use client"`, `next/*`, `sonner` (`react-hot-toast` kullan), `components/ui/calendar` (`<TrussDatePicker />`), `window.confirm/alert/prompt` (`<ConfirmDialog />`/`<AppSheet />`).
+- **Tarih (`ADR-01/02`):** `pg` `DATE` (`OID 1082`) saf `YYYY-MM-DD`; gelecek tarih kontrolü UTC `.max('now')` yerine `Backend/utils/dateUtils.js` (`tarihStr` + `ileriTarihMi`) ile yapılır.
 
-## 3. Tarih, Zaman Dilimi ve `<TrussDatePicker />`
-- Tüm tarih girişlerinde `<TrussDatePicker />` (`Frontend/src/components/ui/truss-date-picker.jsx`) zorunludur.
-- Backend `pg` sürücüsünde `DATE` (`OID 1082`) saf `YYYY-MM-DD` string olarak parse edilir (`Backend/db.js`).
-- Gelecek tarih kontrolleri UTC `Joi.date().max('now')` ile değil, `Backend/utils/dateUtils.js` (`tarihStr` + `ileriTarihMi`, `Europe/Istanbul`) ile yapılır.
+## 3. RBAC, `a.org_id` İzolasyonu & Hata Kodları
+- **FE RBAC (`ADR-08/15`):** `<ChannelGuard />` + `channelAccess.js` (`canAccessChannel`, `isFleetManager`), `403` double-toast yasak.
+- **BE RBAC & Kiracı (`ADR-13/17`):** Korumalı uçlarda `authMiddleware` + `rbacMiddleware`; tüm `pg` sorguları parametreli (`$1, $2`) ve doğrudan indeksli **`a.org_id = $N`** (`SYSTEM_ADMIN` `org_id` varsa `a.org_id = $N`, yalnız `NULL` iken `'1=1'`).
+- **`422 SAYAC_KRONOLOJI_IHLALI` & `409 VEHICLE_ARCHIVED` (`ADR-03/23`):** Sayaç ihlallerinde `422` (`SAYAC_KRONOLOJI_IHLALI`) döner ve UI'da global toast yerine `<SayacFieldError />` gösterilir; arşivli araca yeni hareket/parça/zimmet `409` (`VEHICLE_ARCHIVED`) döner.
 
-## 4. RBAC & Çoklu Kiracı (`org_id`) Güvenliği
-- **Frontend:** Rota seviyesinde `<ChannelGuard channel="..." />` ve bileşen seviyesinde `channelAccess.js` (`canAccessChannel`, `isFleetManager`) zorunludur.
-- **Backend:** Tüm korumalı uçlarda `authMiddleware` + `rbacMiddleware` (`buildVehicleAccessFilter`, `checkVehicleOwnership`) zorunludur.
-- **SQL & `org_id` İzolasyonu:** Tüm sorgular parametreli (`$1, $2`) olmalıdır. `FLEET_MANAGER` erişimi kullanıcının `org_id` sınırıyla (`EXISTS (SELECT 1 FROM users o WHERE o.user_id = a.kullanici_id AND o.org_id = $N)`) izole edilir.
+## 4. Fonksiyonel Çekirdek & 3 Katmanlı UI (`ADR-24`)
+- **BE Çekirdek / Kabuk:** Controller `<= 90`L; iş mantığı `req/res`-bağımsız `*WriteService` / `*Rules` `fn(client, actor, input)` + `AppError`; `pool.connect()` için `try/finally client.release()`, yazmada `FOR UPDATE`, cron'da `pg_try_advisory_lock`.
+- **FE 3 Katmanlı Dikey Dilim:** Sayfa Kabuğu `<= 180`L + `use*Controller <= 200`L + Saf Görünüm `<= 200`L; yaprak görünümde API importu **yasak** (yalnız props+callback); Frozen Contract sıfır tahmin; çapraz event yalnız `utils/dataEvents.js` (`DATA_SCOPES` + `truss:data-changed`).
 
-## 5. `422` Odometer Guard & Hata Bildirim disiplini
-- Sayaç (`KM` / `SMH`) kronolojik sınırlarını ihlal eden kayıtlar Backend'den `422` (`code: 'ODOMETER_VIOLATION'` veya `'SAYAC_GERI_GIDEMEZ'`) döner.
-- Frontend `422` hatalarında global toast **göstermez**; hata `<SayacFieldError />` ile ilgili form alanının altında satır içi (inline) gösterilir.
-- `403` yetki hatalarında interceptor ile sayfa bileşeni arasında çift toast (double-toast) tetiklenmesi yasaktır.
-
-## 6. Dosya Boyutu, Modülerlik & Bundle Bütçesi
-- **Satır Limitleri (Ratchet):**
-  - `≤ 300` satır: İdeal hedef.
-  - `301 – 450` satır: Uyarı bölgesi (yeni özellik eklenirken bölünmeli).
-  - `> 600` satır: **Sert Ret** (`OPS-2` `ai-gate` tarafından engellenir; mevcut büyük dosyalar tek satır bile büyüyemez).
-- **`> 400` Satır Feature-Module Kuralı:** 400 satırı aşan her sayfa veya modül `FeatureName/index.jsx` + alt bileşen/hook klasör yapısına bölünür.
-- **Entry Chunk Bütçesi:** Vite production build ana giriş paketi (`index-*.js`) için hedef `≤ 350 KB`, sert üst sınır **`450 KB`**'dır.
+## 5. Dosya Boyutu & Bundle Bütçesi
+- **Satır Limiti:** `<= 300`L ideal, `301-600`L uyarı, `> 600`L **sert ret** (`ai-gate`).
+- **Entry Chunk Bütçesi:** Hedef `<= 350 KB`, sert sınır `450 KB` (vendor ratchet `maxChunkKb: 352 KB`).

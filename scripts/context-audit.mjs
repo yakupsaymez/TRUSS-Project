@@ -14,7 +14,6 @@ export const AI_LINE_LIMITS = {
   '.ai/SWARM_PLAYBOOK.md': 150,
   '.ai/ARCHITECTURE_MAP.md': 160,
   '.ai/DECISIONS.md': 180,
-  '.ai/skills/caveman.md': 50,
   '.ai/HANDOFF_TEMPLATE.md': 60,
 };
 

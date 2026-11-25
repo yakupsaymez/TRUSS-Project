@@ -41,7 +41,6 @@ const CORE_FILES = [
   '.ai/SWARM_PLAYBOOK.md',
   '.ai/ENGINEERING_GUARDRAILS.md',
   '.ai/DECISIONS.md',
-  '.ai/skills/caveman.md',
   ...(isFull ? ['.ai/ARCHITECTURE_MAP.md'] : []),
 ];
 
