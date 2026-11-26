@@ -5,6 +5,7 @@ const { araclariKilitle, assertNotArchived, assertOdometerChronology } = require
 const { createBakimTx } = require('./bakimWriteService');
 const { dispatchNotificationToUser } = require('./notificationService');
 const { bindWorkOrderKeysTx } = require('./docVaultService');
+const { hasFinanceAccess } = require('./docVaultHelpers');
 
 const WORKORDER_COLS = `is_emri_id, org_id, arac_id, acan_user_id, onaylayan_user_id, olusulan_bakim_id,
   baslik, aciklama, kategori, oncelik, durum, bildirilen_sayac, servis_adi, tahmini_maliyet,
@@ -16,6 +17,7 @@ const MGR_FIELDS = ['servis_adi', 'tahmini_maliyet', 'planlanan_tarih'];
 const isMgr = (a) => a?.role === 'SYSTEM_ADMIN' || a?.role === 'FLEET_MANAGER';
 const cleanStr = (v, max) => { const s = String(v || '').trim(); return s ? (max ? s.slice(0, max) : s) : null; };
 const numOrNull = (v) => (v === null || v === '' ? null : Number(v));
+const maskWorkOrderRow = (row, canFinance) => (canFinance ? row : { ...row, tahmini_maliyet: null, gerceklesen_maliyet: null });
 
 const assertActor = (actor, requireMgr = false) => {
   if (!actor?.user_id) throw new AppError(401, 'TOKEN_MISSING', 'Oturum bulunamadı.');
@@ -90,6 +92,7 @@ const createWorkOrderTx = async (client, actor, input, options = {}) => {
   if (!hedef) throw new AppError(404, 'VEHICLE_NOT_FOUND', 'Araç bulunamadı.');
   assertNotArchived(hedef, 'iş emri', 'açılamaz');
 
+  const canFinance = hasFinanceAccess(actor);
   const ins = await client.query(
     `INSERT INTO is_emirleri (org_id, arac_id, acan_user_id, baslik, aciklama, kategori, oncelik, bildirilen_sayac, servis_adi, tahmini_maliyet, planlanan_tarih)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING ${WORKORDER_COLS}`,
@@ -98,7 +101,7 @@ const createWorkOrderTx = async (client, actor, input, options = {}) => {
       input.kategori || 'ariza', input.oncelik || 'normal',
       input.bildirilen_sayac !== undefined ? numOrNull(input.bildirilen_sayac) : null,
       cleanStr(input.servis_adi, 120),
-      input.tahmini_maliyet !== undefined ? numOrNull(input.tahmini_maliyet) : null, planTarih,
+      canFinance && input.tahmini_maliyet !== undefined ? numOrNull(input.tahmini_maliyet) : null, planTarih,
     ]
   );
   const row = ins.rows[0];
@@ -109,7 +112,7 @@ const createWorkOrderTx = async (client, actor, input, options = {}) => {
     keys: input.belge_anahtarlari,
   });
   return {
-    row, notifyCtx: null,
+    row: maskWorkOrderRow(row, canFinance), notifyCtx: null,
     auditCtx: { eylem: 'IS_EMRI_ACILDI', varlik_tipi: 'is_emri', varlik_id: row.is_emri_id, org_id: row.org_id, ozet: `${arac.plaka} aracı için "${row.baslik}" iş emri açıldı.`, detay: { plaka: arac.plaka, kategori: row.kategori, oncelik: row.oncelik } },
   };
 };
@@ -126,6 +129,7 @@ const updateWorkOrderTx = async (client, actor, input) => {
   const { wo } = await lockVehicleAndWo(client, id, found.arac_id, 'güncellenemez');
   const nextDurum = input.durum !== undefined ? input.durum : wo.durum;
 
+  const canFinance = hasFinanceAccess(actor);
   const upd = await client.query(
     `UPDATE is_emirleri
      SET baslik=$2, aciklama=$3, kategori=$4, oncelik=$5, durum=$6, bildirilen_sayac=$7, servis_adi=$8,
@@ -138,14 +142,14 @@ const updateWorkOrderTx = async (client, actor, input) => {
       input.kategori ?? wo.kategori, input.oncelik ?? wo.oncelik, nextDurum,
       input.bildirilen_sayac !== undefined ? numOrNull(input.bildirilen_sayac) : wo.bildirilen_sayac,
       input.servis_adi !== undefined ? cleanStr(input.servis_adi, 120) : wo.servis_adi,
-      input.tahmini_maliyet !== undefined ? numOrNull(input.tahmini_maliyet) : wo.tahmini_maliyet,
+      canFinance && input.tahmini_maliyet !== undefined ? numOrNull(input.tahmini_maliyet) : wo.tahmini_maliyet,
       planTarih !== undefined ? planTarih : wo.planlanan_tarih,
       nextDurum === 'serviste' ? actor.user_id : wo.onaylayan_user_id,
     ]
   );
   const row = upd.rows[0];
   return {
-    row, notifyCtx: null,
+    row: maskWorkOrderRow(row, canFinance), notifyCtx: null,
     auditCtx: { eylem: 'IS_EMRI_GUNCELLENDI', varlik_tipi: 'is_emri', varlik_id: row.is_emri_id, org_id: row.org_id, ozet: `${found.plaka || `#${row.arac_id}`} iş emri güncellendi (${row.durum}).`, detay: { plaka: found.plaka, durum: row.durum, servis_adi: row.servis_adi } },
   };
 };
@@ -171,7 +175,8 @@ const completeWorkOrderTx = async (client, actor, input) => {
   const decimalNote = isHour && !Number.isInteger(sayac) ? `[Sayaç: ${sayac} saat]` : '';
   const notlar = [cleanStr(input.notlar), decimalNote].filter(Boolean).join(' ') || null;
   const bakimTipi = cleanStr(input.islem_tipi, 150) || (wo.kategori === 'periyodik_bakim' ? 'Periyodik Bakım' : wo.baslik.slice(0, 150));
-  const tutar = Number(input.tutar);
+  const canFinance = hasFinanceAccess(actor);
+  const tutar = canFinance ? Number(input.tutar) : (wo.gerceklesen_maliyet ?? 0);
 
   await bindWorkOrderKeysTx(client, actor, {
     isEmriId: id,
@@ -190,12 +195,14 @@ const completeWorkOrderTx = async (client, actor, input) => {
      SET durum='tamamlandi', olusulan_bakim_id=$2, gerceklesen_maliyet=$3, servis_adi=COALESCE($4, servis_adi),
          onaylayan_user_id=$5, kapanis_tarihi=NOW(), guncelleme_tarihi=NOW()
      WHERE is_emri_id=$1 RETURNING ${WORKORDER_COLS}`,
-    [id, bakim.bakim_id, tutar, cleanStr(input.servis_adi, 120), actor.user_id]
+    [id, bakim.bakim_id, canFinance ? tutar : wo.gerceklesen_maliyet, cleanStr(input.servis_adi, 120), actor.user_id]
   );
   const row = upd.rows[0];
   return {
-    row, bakim, notifyCtx: buildNotifyCtx(wo, row, actor, found.plaka),
-    auditCtx: { eylem: 'IS_EMRI_TAMAMLANDI', varlik_tipi: 'is_emri', varlik_id: row.is_emri_id, org_id: row.org_id, ozet: `${found.plaka || `#${row.arac_id}`} iş emri tamamlandı (Bakım #${bakim.bakim_id}).`, detay: { plaka: found.plaka, bakim_id: bakim.bakim_id, tutar, sayac_degeri: sayac } },
+    row: maskWorkOrderRow(row, canFinance),
+    bakim: canFinance ? bakim : { ...bakim, maliyet: null, fatura_no: null, belge_url: null },
+    notifyCtx: buildNotifyCtx(wo, row, actor, found.plaka),
+    auditCtx: { eylem: 'IS_EMRI_TAMAMLANDI', varlik_tipi: 'is_emri', varlik_id: row.is_emri_id, org_id: row.org_id, ozet: `${found.plaka || `#${row.arac_id}`} iş emri tamamlandı (Bakım #${bakim.bakim_id}).`, detay: { plaka: found.plaka, bakim_id: bakim.bakim_id, ...(canFinance ? { tutar } : {}), sayac_degeri: sayac } },
   };
 };
 
@@ -210,6 +217,7 @@ const cancelWorkOrderTx = async (client, actor, input) => {
     throw new AppError(403, 'FORBIDDEN_ROLE', 'Şoförler yalnızca kendi açtıkları açık iş emirlerini iptal edebilir.');
   }
 
+  const canFinance = hasFinanceAccess(actor);
   const neden = cleanStr(input.red_iptal_nedeni, 240);
   const upd = await client.query(
     `UPDATE is_emirleri SET durum='iptal', red_iptal_nedeni=$2, onaylayan_user_id=COALESCE($3, onaylayan_user_id), kapanis_tarihi=NOW(), guncelleme_tarihi=NOW()
@@ -218,7 +226,7 @@ const cancelWorkOrderTx = async (client, actor, input) => {
   );
   const row = upd.rows[0];
   return {
-    row, notifyCtx: buildNotifyCtx(wo, row, actor, found.plaka),
+    row: maskWorkOrderRow(row, canFinance), notifyCtx: buildNotifyCtx(wo, row, actor, found.plaka),
     auditCtx: { eylem: 'IS_EMRI_IPTAL', varlik_tipi: 'is_emri', varlik_id: row.is_emri_id, org_id: row.org_id, ozet: `${found.plaka || `#${row.arac_id}`} iş emri iptal edildi.`, detay: { plaka: found.plaka, red_iptal_nedeni: neden } },
   };
 };

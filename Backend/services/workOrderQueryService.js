@@ -97,6 +97,8 @@ const listWorkOrders = async (actor, filters = {}) => {
   const canSeeFinance = hasFinanceAccess(actor);
   const isEmirleri = listRes.rows.map((r) => ({
     ...r,
+    tahmini_maliyet: canSeeFinance ? r.tahmini_maliyet : null,
+    gerceklesen_maliyet: canSeeFinance ? r.gerceklesen_maliyet : null,
     bakim_belge_url: canSeeFinance ? (r.bakim_belge_url || null) : null,
     belgeler: docMap.get(r.is_emri_id) || [],
   }));

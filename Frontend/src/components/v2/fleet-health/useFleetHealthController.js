@@ -1,4 +1,7 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import useAuthStore from '@/store/useAuthStore';
+import { formatTurkishPlate } from '@/utils/formatters';
 import { getGuncelSayac, hesaplaBakimDurumu, STATUS_PRIORITY } from '@/utils/complianceUtils';
 
 export const HEALTH_STATUS_META = {
@@ -25,6 +28,9 @@ export const HEALTH_STATUS_META = {
 };
 
 export function useFleetHealthController(araclar = []) {
+  const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const canManage = user?.role === 'SYSTEM_ADMIN' || user?.role === 'FLEET_MANAGER';
   const { items, counts, avgHealth, measurableCount } = useMemo(() => {
     const statusCounts = { tehlike: 0, uyari: 0, sorunsuz: 0, bilinmiyor: 0 };
     let percentSum = 0;
@@ -74,6 +80,22 @@ export function useFleetHealthController(araclar = []) {
           ? 'stroke-status-warning'
           : 'stroke-primary';
 
+  const handleCreateWorkOrder = useCallback((arac, durum) => {
+    if (!canManage || !arac?.arac_id || arac.arsivlendi_mi === true) return;
+    const plate = formatTurkishPlate(arac.plaka || '') || arac.plaka || '';
+    const oncelik = durum === 'tehlike' ? 'kritik' : durum === 'uyari' ? 'yuksek' : 'normal';
+    navigate('/app/is-emirleri', {
+      state: {
+        prefillWorkOrder: {
+          arac_id: Number(arac.arac_id),
+          kategori: 'periyodik_bakim',
+          oncelik,
+          baslik: plate ? `${plate} — Periyodik Bakım` : 'Periyodik Bakım',
+        },
+      },
+    });
+  }, [canManage, navigate]);
+
   return {
     items,
     visibleItems,
@@ -82,5 +104,7 @@ export function useFleetHealthController(araclar = []) {
     measurableCount,
     overallStrokeClass,
     totalCount: araclar.length,
+    canManage,
+    handleCreateWorkOrder,
   };
 }

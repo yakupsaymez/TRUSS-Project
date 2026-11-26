@@ -65,11 +65,13 @@
 - **2026-11-26:** `0`-npm `csvSerializer` (`\uFEFF`, `\r\n`, OWASP `'`, RFC 4180) + `raporQueryService` (`MAX_EXPORT_ROWS=10000`, `LIMIT 10001`, `buildVehicleAccessFilter`, `no-store`/`nosniff`, `X-Export-*`); `raporController` (`76`L), `GenelBakis` (`158`L) + `useGenelBakisController` (`144`L) + `ExecExportMenu` (`86`L).
 ### ADR-32: `userSettings` Ayrımı, `V2.3` X-Ray Dikişleri & Ratchet `12 -> 6` (`FORGE-C4`)
 - **2026-11-26:** `userSettingsController` (`76`L) + `userSettingsService` (`237`L, `ADR-14`/`token_version`); `database.sql` `typnamespace = current_schema()::regnamespace`; `forge-meter` `1M`/`$0.90`; 6 dosya daraltılıp ratchet `12 -> 6` (`0` P0 X-Ray).
-### ADR-33: Parça Takip Çekirdeği (`parcaQuery/WriteService`) & Ratchet `6 -> 5` (`FORGE-D0`)
-- **2026-11-26:** `parcaQueryService` (`73`L) + `parcaWriteService` (`188`L: `araclar -> parca_takip` kilit, `ADR-09`, `!hasFinanceAccess` `maliyet` koruma/maskeleme, `23505 -> 409`, `PARCA_*` audit) ayrıldı; `parcaController` (`84`L) slim + ratchet `6 -> 5` (`0` BE ratchet).
-### ADR-34: `complianceUtils`, `FleetHealthWidget`/`Takvim` 3-Katman & Ratchet `5 -> 3` (`FORGE-D1`)
-- **2026-11-26:** `complianceUtils` (`UTC+3` kaymasız `YYYY-MM-DD`, `getComplianceUrgency` yalnız vade tarihlerine, `bakim` geçmiş hareket), `FleetHealthWidget`/`Takvim` 3-katman (`AbortController`+`requestIdRef`, deterministik `TakvimEventDialog`, `DRIVER`/arşivde mutasyon gizli), `IsEmirleri` `prefillWorkOrder` (`navigate(..., { state: null })`), ratchet `5 -> 3`.
+### ADR-33: Parça Çekirdeği (`parcaQuery/WriteService`) & Ratchet `6 -> 5` (`FORGE-D0`)
+- **2026-11-26:** `parcaQueryService` (`73`L) + `parcaWriteService` (`188`L: `araclar -> parca_takip` kilit, `ADR-09`, `!hasFinanceAccess` maliyet koruma/maskeleme, `23505 -> 409`, `PARCA_*` audit); `parcaController` (`84`L) slim, ratchet `6 -> 5`.
+### ADR-34: `complianceUtils`, `FleetHealth`/`Takvim` 3-Katman & Ratchet `5 -> 3` (`FORGE-D1`)
+- **2026-11-26:** `complianceUtils` (`UTC+3` kaymasız `YYYY-MM-DD`, vade aciliyeti), `FleetHealthWidget`/`Takvim` 3-katman (`AbortController`+`requestIdRef`, `DRIVER`/arşivde mutasyon gizli), `IsEmirleri` `prefillWorkOrder` (`state: null`), ratchet `5 -> 3`.
 ### ADR-35: `CreateMemberSheet` & `CostTrendChart` 3-Katman + Ratchet `3 -> 1` (`FORGE-D2`)
-- **2026-11-26:** `CreateMemberSheet` (`useRef` submit kilidi, `arsivlendi_mi` filtre, `DATA_SCOPES.VEHICLE/HANDOVER`) ve `CostTrendChart` (`0`-lazy, `effectiveTab = isSingleVehicle ? 'aylik' : activeTab`, sıfır-bölme koruması) 3 katmana ayrıldı; ratchet `3 -> 1` (yalnız `Harita.jsx`).
+- **2026-11-26:** `CreateMemberSheet` (`useRef` kilit, `arsivlendi_mi` filtre, `DATA_SCOPES`) ve `CostTrendChart` (`0`-lazy, `effectiveTab`, sıfır-bölme) 3-katman; ratchet `3 -> 1` (`Harita.jsx`).
 ### ADR-36: `Harita` 3-Katman, `(0,0)`/Arşiv Koruması & Sıfır-Ratchet (`FORGE-D3`)
-- **2026-11-26:** `Harita` (`useHaritaController` + `haritaUtils` + 3 saf yaprak; `isMountedRef`/`requestIdRef`/`submitLockRef`, `DATA_SCOPES.VEHICLE/HANDOVER`, `(0,0)` & `arsivlendi_mi` koruması, `canManage && !arsivlendi_mi` `İş Emri Aç` -> `prefillWorkOrder`) ayrıldı; `gate-baseline.json` `"files": {}` (`0` ratchet).
+- **2026-11-26:** `Harita` (`useHaritaController`+`haritaUtils`+3 yaprak; `(0,0)` & `arsivlendi_mi` koruması, `canManage && !arsivlendi_mi` `prefillWorkOrder`); `gate-baseline.json` `"files": {}` (`0` ratchet).
+### ADR-37: `V2.4-SEAL` Finans Maskeleme, 0-Uyarı & Çapraz-Kiracı Matrisi (`FORGE-D4`)
+- **2026-11-26:** `workOrderQuery/WriteService` `!hasFinanceAccess` maliyet/belge maskeler & korur; `FleetHealthWidget` `prefillWorkOrder` bağlar; `parca`/`parcaIntegrity`/`v24SealMatrix` (`<= 250`L) `0` uyarı/ratchet mührü.

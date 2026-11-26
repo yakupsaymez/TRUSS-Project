@@ -1,9 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, Truck } from 'lucide-react';
+import { ArrowUpRight, Truck, Wrench } from 'lucide-react';
 import { formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import EmptyState from '@/components/v2/EmptyState';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -57,6 +58,8 @@ export default function FleetHealthView({
   avgHealth,
   measurableCount,
   overallStrokeClass,
+  canManage,
+  handleCreateWorkOrder,
   onSelectVehicle,
   className,
 }) {
@@ -155,13 +158,8 @@ export default function FleetHealthView({
                       : `${formatLocaleNumber(bakim.kalan, 0)} ${bakim.birim} kaldı · ${formatLocaleNumber(guncelSayac, 0)} ${bakim.birim}`;
 
                 return (
-                  <button
-                    key={arac.arac_id}
-                    type="button"
-                    onClick={() => onSelectVehicle?.(arac)}
-                    className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
+                  <div key={arac.arac_id} className="flex w-full items-center justify-between gap-2 px-3 py-2.5 transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-muted/50">
+                    <button type="button" onClick={() => onSelectVehicle?.(arac)} className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                       <HealthRing percent={kalanYuzde} size={44} strokeWidth={4.5} strokeClass={meta.strokeClass} />
                       <div className="min-w-0 space-y-0.5">
                         <div className="flex items-center gap-1.5">
@@ -170,11 +168,16 @@ export default function FleetHealthView({
                         </div>
                         <p className="truncate text-[11px] tabular-nums text-muted-foreground">{detailText}</p>
                       </div>
+                    </button>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <Badge variant="outline" className={cn('shrink-0 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap', meta.badgeClass)}>{meta.label}</Badge>
+                      {canManage && !arac?.arsivlendi_mi && (durum === 'tehlike' || durum === 'uyari') && (
+                        <Button type="button" variant="ghost" size="icon-xs" title="İş Emri Aç" aria-label="İş Emri Aç" onClick={() => handleCreateWorkOrder?.(arac, durum)}>
+                          <Wrench className="size-3.5" />
+                        </Button>
+                      )}
                     </div>
-                    <Badge variant="outline" className={cn('shrink-0 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap', meta.badgeClass)}>
-                      {meta.label}
-                    </Badge>
-                  </button>
+                  </div>
                 );
               })}
             </div>
