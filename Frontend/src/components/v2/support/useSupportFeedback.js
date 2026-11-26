@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api, { getLastRequestId } from '@/services/api';
@@ -25,8 +25,18 @@ export function useSupportFeedback({ open, role, onOpenChange }) {
   const [filterDurum, setFilterDurum] = useState('ALL');
   const [filterKategori, setFilterKategori] = useState('ALL');
   const [updatingId, setUpdatingId] = useState(null);
+  const mountedRef = useRef(true);
+  const requestSeqRef = useRef(0);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const fetchList = useCallback(async () => {
+    const seq = ++requestSeqRef.current;
     setLoadingList(true);
     setListError('');
     try {
@@ -34,11 +44,15 @@ export function useSupportFeedback({ open, role, onOpenChange }) {
       if (filterDurum !== 'ALL') params.durum = filterDurum;
       if (filterKategori !== 'ALL') params.kategori = filterKategori;
       const res = await api.get('/geri-bildirim', { params, silent403: true });
+      if (!mountedRef.current || seq !== requestSeqRef.current) return;
       setItems(Array.isArray(res.data?.geri_bildirimler) ? res.data.geri_bildirimler : []);
     } catch (err) {
+      if (!mountedRef.current || seq !== requestSeqRef.current) return;
       setListError(err?.response?.data?.message || 'Bildirimler yüklenemedi.');
     } finally {
-      setLoadingList(false);
+      if (mountedRef.current && seq === requestSeqRef.current) {
+        setLoadingList(false);
+      }
     }
   }, [filterDurum, filterKategori]);
 
@@ -77,6 +91,7 @@ export function useSupportFeedback({ open, role, onOpenChange }) {
         sayfa_yolu: location.pathname,
         son_istek_id: getLastRequestId(),
       });
+      if (!mountedRef.current) return;
       toast.success('Geri bildiriminiz alındı.');
       setBaslik('');
       setMesaj('');
@@ -85,10 +100,11 @@ export function useSupportFeedback({ open, role, onOpenChange }) {
       fetchList();
       setActiveTab('liste');
     } catch (err) {
+      if (!mountedRef.current) return;
       const msg = err?.response?.data?.message || 'Geri bildirim gönderilemedi.';
       setFormError(msg);
     } finally {
-      setSubmitting(false);
+      if (mountedRef.current) setSubmitting(false);
     }
   };
 
@@ -100,13 +116,15 @@ export function useSupportFeedback({ open, role, onOpenChange }) {
         durum,
         yonetici_notu: yoneticiNotu,
       });
+      if (!mountedRef.current) return;
       toast.success('Bildirim durumu güncellendi.');
       emitDataChanged(DATA_SCOPES.SUPPORT, { source: 'support-sheet' });
       fetchList();
     } catch (err) {
+      if (!mountedRef.current) return;
       toast.error(err?.response?.data?.message || 'Durum güncellenemedi.');
     } finally {
-      setUpdatingId(null);
+      if (mountedRef.current) setUpdatingId(null);
     }
   };
 

@@ -8,6 +8,7 @@
     "gate": "node scripts/ai-gate.mjs",
     "gate:fast": "node scripts/ai-gate.mjs --fast",
     "db:migrate": "node Backend/scripts/migrate.js",
-    "test:core": "node --test --test-concurrency=1 Backend/tests/*.test.js"
+    "test:core": "node --test --test-concurrency=1 Backend/tests/*.test.js",
+    "preflight:prod": "node scripts/preflight-prod.mjs"
   }
 }

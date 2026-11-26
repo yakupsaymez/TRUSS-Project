@@ -1,8 +1,11 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
+const rawBase = (import.meta.env.VITE_API_URL || '').trim();
+const API_BASE_URL = rawBase ? rawBase.replace(/\/+$/, '') : (import.meta.env.DEV ? 'http://localhost:5001/api' : '/api');
+
 const api = axios.create({
-    baseURL: 'http://localhost:5001/api', // Backend'in ana kapısı
+    baseURL: API_BASE_URL,
 });
 
 let lastRequestId = null;

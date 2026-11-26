@@ -83,3 +83,5 @@
 - **2026-11-26:** `011` `geri_bildirimler` (20. tablo), `users.aktif_mi` (`403 ACCOUNT_DISABLED` -> oturum temizle `/login?reason=expired`), `uq_sofor_tek_aktif_zimmet`, `SupportFeedbackSheet` (`DATA_SCOPES.SUPPORT`, `getLastRequestId`), `ErrorBoundary`, `NotFoundV2`, `LegalDocsModal`, `CorporateContactCard` (`supportConfig` boşsa nötr).
 ### ADR-41: `LandingV2` Kurumsal Vitrin, Ölü Kod Temizliği & `reason=disabled|expired` (`FORGE-E3`)
 - **2026-11-26:** `LandingV2` + `components/v2/landing/*` (`0` API/Recharts/dış URL, `LegalDocsModal key={legalTab}`), eski `HomePage`/`pages/home/*` silindi, `robots.txt` & OG meta eklendi, `api.js` + `LoginV2` `/login?reason=expired|disabled` ayrıştırır.
+### ADR-42: `V2.5 LAUNCH-FORTRESS` Final Mühür, `api.js` Prod `baseURL` & `preflight:prod` (`FORGE-E4`)
+- **2026-11-27:** `api.js` prod `baseURL` `VITE_API_URL || (DEV ? localhost:5001/api : /api)`; `ErrorBoundary` `resetKey`; `useSupportFeedback` `mountedRef`+`requestSeqRef`; `scripts/preflight-prod.mjs` (`0/1/2`, sırsız rapor, env/kripto+`Frontend/dist`+PG16 `20` tablo/`000..011`); `Backend/.env.example`, `docs/LAUNCH_RUNBOOK.md`.

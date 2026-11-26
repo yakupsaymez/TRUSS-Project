@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -56,12 +56,21 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+function RouterErrorBoundary({ children }) {
+  const location = useLocation();
+  return (
+    <ErrorBoundary resetKey={`${location.pathname}${location.search}`}>
+      {children}
+    </ErrorBoundary>
+  );
+}
+
 function App() {
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <ErrorBoundary>
-        <Router>
-        <Toaster
+      <Router>
+        <RouterErrorBoundary>
+          <Toaster
           position="top-right"
           toastOptions={{
             style: {
@@ -153,8 +162,8 @@ function App() {
             <Route path="*" element={<NotFoundV2 />} />
           </Routes>
         </Suspense>
+        </RouterErrorBoundary>
       </Router>
-      </ErrorBoundary>
     </ThemeProvider>
   );
 }

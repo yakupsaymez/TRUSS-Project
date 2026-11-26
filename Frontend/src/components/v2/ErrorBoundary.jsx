@@ -19,6 +19,12 @@ export default class ErrorBoundary extends React.Component {
     // Sessiz yakalama; hassas stack trace kullanıcıya gösterilmez.
   }
 
+  componentDidUpdate(prevProps) {
+    if (prevProps.resetKey !== this.props.resetKey && this.state.hasError) {
+      this.setState({ hasError: false, copied: false });
+    }
+  }
+
   componentWillUnmount() {
     clearTimeout(this.copyTimer);
   }
