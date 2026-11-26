@@ -62,7 +62,7 @@ export function formatWoDate(iso) {
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
 }
 
-export function buildInitialWorkOrderForm({ mode, record, defaultDurum, araclar, defaultAracId }) {
+export function buildInitialWorkOrderForm({ mode, record, defaultDurum, prefill = null, araclar, defaultAracId }) {
   if (mode === 'edit' && record) {
     const isHour = isHourOdometer(record.sayac_tipi);
     const hasSayac = record.bildirilen_sayac !== null && record.bildirilen_sayac !== undefined && record.bildirilen_sayac !== '';
@@ -80,12 +80,16 @@ export function buildInitialWorkOrderForm({ mode, record, defaultDurum, araclar,
       planlanan_tarih: record.planlanan_tarih ? String(record.planlanan_tarih).slice(0, 10) : '',
     };
   }
-  const initialAracId = defaultAracId && defaultAracId !== 'tum'
-    ? String(defaultAracId)
-    : (araclar[0]?.arac_id ? String(araclar[0].arac_id) : '');
+  const initialAracId = prefill?.arac_id
+    ? String(prefill.arac_id)
+    : defaultAracId && defaultAracId !== 'tum'
+      ? String(defaultAracId)
+      : (araclar[0]?.arac_id ? String(araclar[0].arac_id) : '');
+  const validKat = KATEGORI_OPTIONS.some((o) => o.value === prefill?.kategori) ? prefill.kategori : 'ariza';
+  const validOnc = ONCELIK_OPTIONS.some((o) => o.value === prefill?.oncelik) ? prefill.oncelik : 'normal';
   return {
-    arac_id: initialAracId, baslik: '', kategori: 'ariza', oncelik: 'normal', durum: 'acik',
-    bildirilen_sayac: '', aciklama: '', servis_adi: '', tahmini_maliyet: '', planlanan_tarih: '',
+    arac_id: initialAracId, baslik: prefill?.baslik || '', kategori: validKat, oncelik: validOnc, durum: 'acik',
+    bildirilen_sayac: '', aciklama: prefill?.aciklama || '', servis_adi: '', tahmini_maliyet: '', planlanan_tarih: '',
   };
 }
 

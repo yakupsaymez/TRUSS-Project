@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import useAuthStore from '@/store/useAuthStore';
 import useVehicleStore from '@/store/useVehicleStore';
@@ -14,6 +15,8 @@ const EMPTY_OZET = { acik: 0, serviste: 0, tamamlandi_bu_ay: 0 };
 const SRC = { source: 'work-orders-page' };
 
 export function useIsEmirleriController() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const araclar = useVehicleStore((s) => s.araclar);
   const vehiclesLoading = useVehicleStore((s) => s.loading);
@@ -38,7 +41,7 @@ export function useIsEmirleriController() {
   const [hasLoaded, setHasLoaded] = useState(isMissingManagerOrg);
   const [submitting, setSubmitting] = useState(false);
 
-  const [formSheet, setFormSheet] = useState({ open: false, mode: 'create', record: null, defaultDurum: null });
+  const [formSheet, setFormSheet] = useState({ open: false, mode: 'create', record: null, defaultDurum: null, prefill: null });
   const [completeTarget, setCompleteTarget] = useState(null);
   const [cancelTarget, setCancelTarget] = useState(null);
 
@@ -104,9 +107,18 @@ export function useIsEmirleriController() {
   const handleKategoriChange = (val) => { setKategori(val); setOffset(0); };
   const clearFilters = () => { setDurum('all'); setOncelik('all'); setKategori('all'); setOffset(0); };
 
-  const openCreate = () => setFormSheet({ open: true, mode: 'create', record: null, defaultDurum: null });
-  const openEdit = (record, defaultDurum = null) => setFormSheet({ open: true, mode: 'edit', record, defaultDurum });
-  const closeFormSheet = () => setFormSheet({ open: false, mode: 'create', record: null, defaultDurum: null });
+  const openCreate = () => setFormSheet({ open: true, mode: 'create', record: null, defaultDurum: null, prefill: null });
+  const openEdit = (record, defaultDurum = null) => setFormSheet({ open: true, mode: 'edit', record, defaultDurum, prefill: null });
+  const closeFormSheet = () => setFormSheet({ open: false, mode: 'create', record: null, defaultDurum: null, prefill: null });
+
+  useEffect(() => {
+    const prefill = location.state?.prefillWorkOrder;
+    if (!prefill) return;
+    if (!isMissingManagerOrg) {
+      setFormSheet({ open: true, mode: 'create', record: null, defaultDurum: null, prefill });
+    }
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate, isMissingManagerOrg]);
 
   const runSimpleMutation = async (fn, okMsg, errMsg, onOk) => {
     setSubmitting(true);

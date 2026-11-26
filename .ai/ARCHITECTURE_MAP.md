@@ -11,7 +11,7 @@
 |`/app/hareketler`|`pages/v2/Hareketler.jsx`|`ledger`|`useHareketlerController`, `LedgerDataTable`, `MovementSheet`, `FuelAnomalyPanel`, `FuelImportSheet`|
 |`/app/parcalar`|`pages/v2/Parcalar.jsx`|`components`|`ComponentDataTable`, `ComponentSheet`|
 |`/app/is-emirleri`|`pages/v2/IsEmirleri.jsx`|`ProtectedRoute`|`work-orders/{WorkOrderTable,WorkOrderFormSheet,WorkOrderCompleteDialog,WorkOrderCancelDialog,useIsEmirleriController}`|
-|`/app/takvim`|`pages/v2/Takvim.jsx`|`horizon`|`FleetCalendar`|
+|`/app/takvim`|`pages/v2/Takvim.jsx`|`horizon`|`FleetCalendar`, `takvim/{useTakvimController,TakvimEventDialog}`|
 |`/app/ekip`|`pages/v2/Ekip.jsx`|`crew`|`CrewDataTable`, `CreateMemberSheet`, `PermissionsSheet`, `ResetPasswordSheet`|
 |`/app/ayarlar`|`pages/v2/Ayarlar.jsx`|`ProtectedRoute`|`pages/v2/ayarlar/{Genel,Profil,Organizasyon,Bildirimler,Guvenlik,Denetim}Tab`, `useAyarlarData`|
 - **Paylaşılan (`Frontend/src/`):** `components/v2/{AppShell,AppSheet,ChannelGuard,CommandPalette,ConfirmDialog,EmptyState,SayacFieldError,NotificationBell,ActionCenterCard,FleetEfficiencyCard,DocumentComplianceCard,SegmentedDistributionCard,channelAccess.js,navConfig.js}`, `components/v2/doc-vault/*`, `components/ui/*` (Radix/`chart.jsx`/`truss-date-picker.jsx`), `utils/dataEvents.js`, `store/{useAuthStore,useVehicleStore,useAppStore}.js`, `services/{api,auth,arac,yakit,bakim,parca,isEmri,belge,zimmet,rapor,katalog,admin,bildirim,denetim}Service.js`.
@@ -30,5 +30,5 @@
 - **İndeksler:** `idx_araclar_org_id`, `idx_araclar_org_aktif`, `idx_yakitlar_arac_tarih_km`, `idx_bakimlar_arac_tarih_km`, `idx_parca_takip_arac_id`, `idx_atamalar_aktif_arac`, `idx_bildirim_user_okundu`, `idx_yakit_anomalileri_org_durum`, `idx_denetim_org_tarih`, `idx_is_emirleri_org_durum`, `idx_belge_kasasi_varlik`, `idx_zimmet_muayeneleri_org_tarih`.
 
 ## 4. AI-OS, FORGE & CI (`.ai/`, `.agent/`, `.github/`)
-- **`.ai/` & CI:** `PROGRESS`, `SWARM_PLAYBOOK`, `ENGINEERING_GUARDRAILS`, `ARCHITECTURE_MAP`, `DECISIONS` (`ADR-01..33`), `HANDOFF_TEMPLATE`.md, `gate-baseline.json` (`5` ratchet); `scripts/{ai-gate,context-pack,context-audit,forge-meter}.mjs`; `.github/workflows/ci.yml`.
+- **`.ai/` & CI:** `PROGRESS`, `SWARM_PLAYBOOK`, `ENGINEERING_GUARDRAILS`, `ARCHITECTURE_MAP`, `DECISIONS` (`ADR-01..34`), `HANDOFF_TEMPLATE`.md, `gate-baseline.json` (`3` ratchet); `scripts/{ai-gate,context-pack,context-audit,forge-meter}.mjs`; `.github/workflows/ci.yml`.
 - **`.agent/`:** `rules/{00-truss-core,10-frontend-luma,20-backend-sql,30-ops-gate}.md`; `skills/{forge,critic,forge-seal,forge-qa-browser,forge-xray}/SKILL.md`; `agents/{keystone,sentinel,core-smith,shell-crafter,radar}.md`.

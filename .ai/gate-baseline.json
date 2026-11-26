@@ -10,8 +10,6 @@
   "files": {
     "Frontend/src/components/v2/CostTrendChart.jsx": 345,
     "Frontend/src/components/v2/CreateMemberSheet.jsx": 464,
-    "Frontend/src/components/v2/FleetHealthWidget.jsx": 378,
-    "Frontend/src/pages/v2/Harita.jsx": 483,
-    "Frontend/src/pages/v2/Takvim.jsx": 418
+    "Frontend/src/pages/v2/Harita.jsx": 483
   }
 }

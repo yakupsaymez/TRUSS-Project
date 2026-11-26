@@ -14,11 +14,11 @@ import {
 } from './workOrderConstants';
 
 export default function WorkOrderFormSheet({
-  open, onOpenChange, mode = 'create', record = null, defaultDurum = null,
+  open, onOpenChange, mode = 'create', record = null, defaultDurum = null, prefill = null,
   araclar = [], defaultAracId = 'tum', canManage = false, currentUserId = null,
   submitting = false, onCreate, onUpdate, onDocsChanged,
 }) {
-  const [form, setForm] = useState(() => buildInitialWorkOrderForm({ mode, record, defaultDurum, araclar, defaultAracId }));
+  const [form, setForm] = useState(() => buildInitialWorkOrderForm({ mode, record, defaultDurum, prefill, araclar, defaultAracId }));
   const [initialJson, setInitialJson] = useState('');
   const [errors, setErrors] = useState({});
   const [draftDocs, setDraftDocs] = useState([]);
@@ -35,13 +35,13 @@ export default function WorkOrderFormSheet({
       docUpload.abortUpload(); docUpload.clearError(); setDraftDocs([]); setBoundDocs([]);
       return;
     }
-    const init = buildInitialWorkOrderForm({ mode, record, defaultDurum, araclar, defaultAracId });
+    const init = buildInitialWorkOrderForm({ mode, record, defaultDurum, prefill, araclar, defaultAracId });
     setForm(init); setInitialJson(JSON.stringify(init)); setErrors({});
     setDraftDocs([]);
     setBoundDocs(isEdit && Array.isArray(record?.belgeler) ? record.belgeler : []);
     docUpload.clearError();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, mode, record, defaultDurum, araclar, defaultAracId]);
+  }, [open, mode, record, defaultDurum, prefill, araclar, defaultAracId]);
 
   const selectedVehicle = useMemo(
     () => araclar.find((a) => String(a.arac_id) === String(form.arac_id)) || null,

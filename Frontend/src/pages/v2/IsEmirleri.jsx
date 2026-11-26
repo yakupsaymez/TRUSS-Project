@@ -152,6 +152,7 @@ export default function IsEmirleri() {
       <WorkOrderFormSheet
         open={formSheet.open} onOpenChange={(next) => !next && closeFormSheet()}
         mode={formSheet.mode} record={formSheet.record} defaultDurum={formSheet.defaultDurum}
+        prefill={formSheet.prefill}
         araclar={araclar} defaultAracId={seciliAracId} canManage={canManage} currentUserId={currentUserId}
         submitting={submitting} onCreate={submitCreate} onUpdate={submitUpdate} onDocsChanged={loadWorkOrders}
       />

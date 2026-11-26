@@ -67,3 +67,5 @@
 - **2026-11-26:** `userSettingsController` (`76`L) + `userSettingsService` (`237`L, `ADR-14`/`token_version`); `database.sql` `typnamespace = current_schema()::regnamespace`; `forge-meter` `1M`/`$0.90`; 6 dosya daraltılıp ratchet `12 -> 6` (`0` P0 X-Ray).
 ### ADR-33: Parça Takip Çekirdeği (`parcaQuery/WriteService`) & Ratchet `6 -> 5` (`FORGE-D0`)
 - **2026-11-26:** `parcaQueryService` (`73`L) + `parcaWriteService` (`188`L: `araclar -> parca_takip` kilit, `ADR-09`, `!hasFinanceAccess` `maliyet` koruma/maskeleme, `23505 -> 409`, `PARCA_*` audit) ayrıldı; `parcaController` (`84`L) slim + ratchet `6 -> 5` (`0` BE ratchet).
+### ADR-34: `complianceUtils`, `FleetHealthWidget`/`Takvim` 3-Katman & Ratchet `5 -> 3` (`FORGE-D1`)
+- **2026-11-26:** `complianceUtils` (`UTC+3` kaymasız `YYYY-MM-DD`, `getComplianceUrgency` yalnız vade tarihlerine, `bakim` geçmiş hareket), `FleetHealthWidget`/`Takvim` 3-katman (`AbortController`+`requestIdRef`, deterministik `TakvimEventDialog`, `DRIVER`/arşivde mutasyon gizli), `IsEmirleri` `prefillWorkOrder` (`navigate(..., { state: null })`), ratchet `5 -> 3`.
