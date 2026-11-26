@@ -1,4 +1,10 @@
+const { BASE_SCHEMA_SQL } = require('./baseSchemaSql');
+
 const MIGRATIONS = [
+  {
+    version: '000_base_schema',
+    sql: BASE_SCHEMA_SQL,
+  },
   {
     version: '001_v21_mp1r_contract',
     sql: `

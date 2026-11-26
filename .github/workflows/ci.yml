@@ -1,0 +1,72 @@
+name: TRUSS CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: truss_ci_password
+          POSTGRES_DB: truss_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      NODE_ENV: test
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: truss_ci_password
+      DB_NAME: truss_ci
+      JWT_SECRET: ci-test-jwt-secret-key-at-least-32-chars
+      CORS_ORIGIN: http://localhost:5173
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            Backend/package-lock.json
+            Frontend/package-lock.json
+
+      - name: Install Backend dependencies
+        run: npm --prefix Backend ci
+
+      - name: Install Frontend dependencies
+        run: npm --prefix Frontend ci
+
+      - name: Bootstrap database schema (1st migrate)
+        run: npm run db:migrate
+
+      - name: Verify migration SHA-256 idempotency (2nd migrate)
+        run: |
+          OUTPUT="$(npm run --silent db:migrate)"
+          echo "$OUTPUT"
+          node -e "const line = process.argv[1].split('\n').reverse().find((l) => l.trim().startsWith('{')); const r = JSON.parse(line || '{}'); if (!r.ok || !Array.isArray(r.applied) || r.applied.length !== 0) { console.error('Expected 0 applied migrations on 2nd run:', process.argv[1]); process.exit(1); }" "$OUTPUT"
+
+      - name: Run core backend test suite
+        run: npm run test:core
+
+      - name: Run AI quality gate
+        run: npm run gate
+
+      - name: Run strict context audit
+        run: npm run context:audit -- --strict

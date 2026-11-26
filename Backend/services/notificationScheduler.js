@@ -264,17 +264,30 @@ const runWeeklySummaryCheck = async (options = {}) => {
   }
 };
 
+let scheduledTasks = [];
+
 const startNotificationCron = () => {
+  if (scheduledTasks.length > 0) return scheduledTasks;
   const timezone = process.env.CRON_TIMEZONE || 'Europe/Istanbul';
-  cron.schedule('0 9 * * *', () => runNotificationChecks(), { timezone });
-  cron.schedule('0 9 * * 1', () => runWeeklySummaryCheck(), { timezone });
+  scheduledTasks.push(cron.schedule('0 9 * * *', () => runNotificationChecks(), { timezone }));
+  scheduledTasks.push(cron.schedule('0 9 * * 1', () => runWeeklySummaryCheck(), { timezone }));
   console.log('[Cron] Günlük (09:00) ve haftalık Pazartesi (09:00) bildirim görevleri planlandı.');
+  return scheduledTasks;
+};
+
+const stopNotificationScheduler = () => {
+  for (const task of scheduledTasks) {
+    task?.stop?.();
+    task?.destroy?.();
+  }
+  scheduledTasks = [];
 };
 
 module.exports = {
   CRON_LOCKS,
   withAdvisoryLock,
   startNotificationCron,
+  stopNotificationScheduler,
   runNotificationChecks,
   runWeeklySummaryCheck,
 };

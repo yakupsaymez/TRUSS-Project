@@ -1,26 +1,21 @@
 # TRUSS — Canlı İlerleme & Durum (`PROGRESS.md`)
 
-## 1. Aktif Durum (`main` — `FORGE-M4 (RELEASE-SEAL)`)
-- **Faz B (`V2.2`) TAMAMLANDI — MÜHÜRLENDİ (`QA PASS`)**
-- **Mühürlenen Epoklar:**
-  - `V2.1..V2.2` (`cbca5d0..980cc98`): `radix-luma`, `OPS-1..5b`, `REFACTOR-1`, `HOTFIX-W1..W3`, `org_id`, TCO/anomali/CSV, arşiv+denetim (`ADR-17..23`) — **QA PASS**.
-  - `FORGE-M0..M2` (`d07405b..51ae544`): 5 uzman (`ADR-24`), `schema_migrations`, `token_version`, `CRON_LOCKS`, arşiv (`ADR-25`), `*WriteService`, Recharts `227.9KB`, `dataEvents` (`ADR-26`) — **QA PASS**.
-  - `FORGE-M3A..M3B` (`7bdae0e..M3B`): `is_emirleri`+`008`, `workOrder{Write,Query}Service`, `/app/is-emirleri` 3 katmanlı UI (`ADR-27`) — **QA PASS**.
-  - `FORGE-M4 (RELEASE-SEAL)`: Arşiv dikişleri (`updateArac`, `updateAracKonum`, `getAllParcalar`, `getYakitAnomalileri`), `qaSeed` `org_id`/cleanup, `ai-gate` 14-dosya (`301-600`L) ratchet + `v2/index.js` temizliği + doküman senkronu — **`test:core 20/20 PASS`, `maxChunkKb: 228`, `QA PASS`**.
+## 1. Aktif Durum (`main` — `FORGE-C0` MÜHÜRLENDİ)
+- **Mühürlenen Geçmiş (`V2.1..FORGE-M4`):** `radix-luma` OKLCH, `a.org_id` + `SYSTEM_ADMIN` (`ADR-13/17`), TCO/anomali/CSV/denetim/arşiv (`ADR-18..23`), `FORGE` 5 uzman + `*WriteService` + `schema_migrations` + `token_version` + `is_emirleri` + `14`-dosya `gate-baseline` ratchet (`ADR-24..27`) — **QA PASS**.
+- **`FORGE-C0 (PROD-SHIELD & CI)` — TAMAMLANDI — MÜHÜRLENDİ:** Sıfır yeni npm paketiyle `validateEnv` (`DATABASE_URL`/prod `JWT_SECRET>=32`/CORS), `securityHeaders`, 2 katmanlı `rateLimiter` (`429 RATE_LIMITED`), single-flight `GET /api/health`, DI `gracefulShutdown`, `000_base_schema` (`current_schema()::regnamespace`) boş-DB bootstrap ve `.github/workflows/ci.yml` PG 16 CI (`ADR-28`) — **`test:core 26/26 PASS`, `maxChunkKb: 228`, `QA PASS`**.
 
-## 2. Master Yol Haritası (`FORGE-M0..M4`)
-- **`FORGE-M0..M2` (TAMAM):** Topoloji (`d07405b`), DB/Auth (`a7c68d6`), çekirdek/bundle (`51ae544`).
-- **`FORGE-M3A..M3B` (TAMAM):** İş emri şeması, çekirdek, 3 katmanlı UI (`ADR-27`).
-- **`FORGE-M4` (TAMAMLANDI — MÜHÜRLENDİ):** `radar` röntgeni, 14-dosya `gate-baseline.json` ratchet, arşiv/`qaSeed` dikişleri, `V2.2` mührü.
+## 2. Yol Haritası (`FORGE-C0..C4`)
+- **`FORGE-C0` (TAMAM):** Üretim zırhı (`validateEnv`, `securityHeaders`, `rateLimiter`, `/api/health`, `gracefulShutdown`), `000_base_schema` + PG 16 CI.
+- **`FORGE-C1..C4` (PLANLI):** Gözlemlenebilirlik/loglama, toplu operasyon/rapor sertleştirme, 14-dosya ratchet daraltma ve sonraki ürün dilimleri.
 
 ## 3. Teknik Risk & Ratchet Durumu
-- **Bundle & Monolit:** `maxChunkKb: 228` (`<= 228 KB`), Gate 1 `14` ratchet dosya (`0` fail, `0` warn, `0` shrinkable), `test:core 20/20 PASS`.
+- **Bundle & Monolit:** `maxChunkKb: 228` (`<= 228 KB`), Gate 1 `14` ratchet dosya (`0` fail, `0` warn, `0` shrinkable), `test:core 26/26 PASS`, PG 16 CI + `000_base_schema` aktif.
 
 ## 4. 📌 Durum Panosu
 | Uzman | Güç | Şu An | Hemen Şimdi | İleride |
 |:---|:---|:---|:---|:---|
-| **Keystone** | `pro` | `FORGE-M4` mühürlendi | Sonraki faz bekle | `V2.3` planlama |
-| **Core-Smith** | `inherit` | `FORGE-M4` `/forge-seal` | Atomik commit + push | Bakım/ölçek |
-| **Shell-Crafter** | `inherit` | `FORGE-M4` tamam (`v2/index.js` temiz) | Sonraki paket bekle | `14` dosya daraltma |
-| **Sentinel** | `pro` | `FORGE-M4` **QA PASS** | Sonraki paket bekle | Regresyon E2E |
-| **Radar** | `flash` | `FORGE-M4` röntgen tamam | Sonraki taramayı bekle | `V2.3` sapma avı |
+| **Keystone** | `pro` | `FORGE-C0` mühürlendi | `FORGE-C1` kapsamı | `C1..C4` mimari plan |
+| **Core-Smith** | `inherit` | `FORGE-C0` `/forge-seal` | Atomik commit + CI kontrol | `C1` BE sertleştirme |
+| **Shell-Crafter** | `inherit` | `FORGE-C0` (`0 diff`) | `FORGE-C1` bekle | `14` dosya daraltma |
+| **Sentinel** | `pro` | `FORGE-C0` **QA PASS** | Sonraki paketi bekle | Regresyon & E2E |
+| **Radar** | `flash` | `FORGE-C0` temiz | Periyodik röntgen bekle | `C1..C4` sapma avı |

@@ -1,110 +1,114 @@
 # TRUSS — Mimari Karar Kayıtları (`DECISIONS.md`)
 
-> **Kural (`P0-to-Rule`):** Her P0/P1 veya mimari karar: Başlık + `Tarih · Kök Neden` + `Kalıcı Kural`.
+> **Kural (`P0-to-Rule`):** Başlık + `Tarih · Kök Neden` + `Kalıcı Kural`.
 
-### ADR-01: `pg` DATE (`OID 1082`) Saf `YYYY-MM-DD` Ayrıştırması
-- **2026-11-24 (`V2.1-BE`) · Kök Neden:** `node-postgres` `DATE` kolonlarını yerel gece yarısı `Date` nesnesine çevirip JSON'da UTC-1 gün kayması yaratıyordu.
-- **Kalıcı Kural:** `Backend/db.js` içinde `pg.types.setTypeParser(1082, (val) => val)` zorunludur; tüm `DATE` kolonları saf `YYYY-MM-DD` string döner.
+### ADR-01: `pg` DATE (`OID 1082`) Saf `YYYY-MM-DD`
+- **2026-11-24 (`V2.1`) · Neden:** `node-postgres` `DATE` UTC-1 gün kayması yaratıyordu.
+- **Kural:** `Backend/db.js` `pg.types.setTypeParser(1082, (val) => val)` zorunlu; tüm `DATE` değerleri `YYYY-MM-DD` string döner.
 
-### ADR-02: Türkiye (`Europe/Istanbul`) Saat Dilimi Gelecek Tarih Kontrolü
-- **2026-11-24 (`V2.1-BE`) · Kök Neden:** `Joi.date().iso().max('now')` UTC bazlı çalıştığından TR 00:00–02:59 arası bugünü gelecek tarih sayıp `400` veriyordu.
-- **Kalıcı Kural:** Joi `.max('now')` yasaktır; `Backend/utils/dateUtils.js` (`tarihStr` + `ileriTarihMi`) kullanılır.
+### ADR-02: TR (`Europe/Istanbul`) Gelecek Tarih Kontrolü
+- **2026-11-24 (`V2.1`) · Neden:** Joi UTC `.max('now')` TR 00:00–02:59'da bugünü reddediyordu.
+- **Kural:** `.max('now')` yasak; `Backend/utils/dateUtils.js` (`tarihStr`, `ileriTarihMi`) kullanılır.
 
-### ADR-03: `422 SAYAC_KRONOLOJI_IHLALI` & `FOR UPDATE` Satır Kilidi
-- **2026-11-23 (`MP-7/7b`) · Kök Neden:** Eşzamanlı yakıt/bakım eklemelerinde ve geçmiş tarihli kayıtlarda `KM`/`SMH` kronolojisi bozulabiliyordu.
-- **Kalıcı Kural:** Yakıt/bakım yazmada `araclariKilitle` (`FOR UPDATE`) + `sayacSinirlari` zorunludur; ihlalde `422` (`SAYAC_KRONOLOJI_IHLALI`) döner ve UI'da `<SayacFieldError />` ile satır içi gösterilir.
+### ADR-03: `422 SAYAC_KRONOLOJI_IHLALI` & `FOR UPDATE` Kilidi
+- **2026-11-23 (`MP-7/7b`) · Neden:** Eşzamanlı/geçmiş kayıtlar `KM`/`SMH` kronolojisini bozuyordu.
+- **Kural:** Yazmada `araclariKilitle` (`FOR UPDATE`) + `sayacSinirlari` zorunlu; ihlalde `422 SAYAC_KRONOLOJI_IHLALI` döner, UI `<SayacFieldError />` gösterir.
 
 ### ADR-04: `update` / `delete` Sonrası `aracSayaciniSenkronizeEt`
-- **2026-11-23 (`MP-8`/`V2.1-BE`) · Kök Neden:** En yüksek KM silindiğinde, düşürüldüğünde veya taşındığında `araclar.guncel_km` / `guncel_calisma_saati` yüksek değerde asılı kalıyordu.
-- **Kalıcı Kural:** Her yakıt/bakım `update`/`delete` işleminde (araç değiştiyse eski+yeni) TX içinde `aracSayaciniSenkronizeEt` çağrılır.
+- **2026-11-23 (`MP-8`) · Neden:** Silinen/düşürülen yüksek KM sonrası araç sayacı yüksek kalıyordu.
+- **Kural:** Her yakıt/bakım `update`/`delete` TX içinde (araç değiştiyse eski+yeni) `aracSayaciniSenkronizeEt` çağrılır.
 
-### ADR-05: `[SUPERSEDED -> ADR-17]` Çoklu `FLEET_MANAGER` `org_id` İzolasyonu
-- **2026-11-24 (`V2.1-BE`) · Kural:** Eski `EXISTS (SELECT 1 FROM users o ...)` alt sorgusu `ADR-17` doğrudan indeksli `a.org_id = $N` filtresiyle değiştirildi.
+### ADR-05: `[SUPERSEDED -> ADR-17]` Kiracı İzolasyonu
+- **2026-11-24 · Kural:** Dolaylı `EXISTS` alt sorgusu `ADR-17` doğrudan indeksli `a.org_id = $N` ile değiştirildi.
 
-### ADR-06: `radix-luma` Semantik Tema & Eski `truss-*` / Sabit Palet Yasağı
-- **2026-11-23 (`V2.1-FE1`) · Kök Neden:** Sabit `zinc-*`, `slate-*`, `truss-*` ve `#hex` açık/koyu tema geçişinde kontrastı kırıyordu.
-- **Kalıcı Kural:** Tüm v2 bileşenlerde yalnız `radix-luma` OKLCH semantik tokenları (`bg-background`, `bg-card`, `text-foreground`, `border-border`, `bg-primary`) kullanılır.
+### ADR-06: `radix-luma` Semantik Tema & Eski Palet Yasağı
+- **2026-11-23 (`V2.1`) · Neden:** Sabit `zinc/slate/truss-*` ve `#hex` koyu/açık temayı kırıyordu.
+- **Kural:** Tüm v2 bileşenlerde yalnız `radix-luma` OKLCH semantik tokenları (`bg-background`, `bg-card`, `text-foreground`, `border-border`, `bg-primary`) kullanılır.
 
-### ADR-07: İkonsuz Tipografik `TRU` + `SS` Logo Standardı
-- **2026-11-23 (`V2.1-FE1`) · Kök Neden:** Farklı sayfalarda (`AppShell`, `AuthFrame`, `HomePage`) tutarsız SVG amblemler marka kimliğini parçalıyordu.
-- **Kalıcı Kural:** TRUSS logosu her yüzeyde ikonsuz, saf tipografik `TRU` (`text-foreground`) + `SS` (`text-primary`) olarak render edilir.
+### ADR-07: İkonsuz Tipografik `TRU` + `SS` Logo
+- **2026-11-23 (`V2.1`) · Neden:** Dağınık SVG amblemler marka tutarlılığını bozuyordu.
+- **Kural:** Logo her yüzeyde ikonsuz `TRU` (`text-foreground`) + `SS` (`text-primary`) olarak render edilir.
 
-### ADR-08: Çift Katmanlı RBAC (`ChannelGuard` + Backend Middleware)
-- **2026-11-24 (`V2.1-BE/FE2`) · Kök Neden:** Sadece UI'da gizlenen yönetim/rapor uçları doğrudan API çağrısıyla `DRIVER` rolüne açık kalabiliyordu.
-- **Kalıcı Kural:** Her modül FE'de `<ChannelGuard />` + `channelAccess.js`, BE'de rol/sahiplik middleware'i (`403`) ile çift taraflı korunur.
+### ADR-08: Çift Katmanlı RBAC (`ChannelGuard` + Backend)
+- **2026-11-24 (`V2.1`) · Neden:** Yalnız UI'da gizlenen uçlar `DRIVER`'a açık kalabiliyordu.
+- **Kural:** Her modül FE'de `<ChannelGuard />` + `channelAccess.js`, BE'de rol/sahiplik middleware (`403`) ile korunur.
 
 ### ADR-09: `updateParca` Üzerinde `arac_id` Değişmezliği
-- **2026-11-24 (`V2.1-BE`) · Kök Neden:** `PUT /api/parcalar/:id` ile parçayı başka araca taşımak takılma KM ve araç geçmişini bozuyordu.
-- **Kalıcı Kural:** `updateParca` farklı `arac_id` gönderildiğinde `400` döner ve `UPDATE` içinde `arac_id` kolonunu asla değiştirmez.
+- **2026-11-24 (`V2.1`) · Neden:** `PUT /api/parcalar/:id` ile parça taşıma KM geçmişini bozuyordu.
+- **Kural:** Farklı `arac_id` `400` döner; `UPDATE` içinde `arac_id` değişmez.
 
 ### ADR-10: Evrensel Tek Girişli AI-OS (`AGENTS.md` + `.ai/*`)
-- **2026-11-24 (`OPS-1`) · Kök Neden:** Dağınık v1 dokümanları eski `ABTS` adını ve geçersiz renk/mimari kurallarını bağlama sızdırıyordu.
-- **Kalıcı Kural:** `CLAUDE.md`, `.cursorrules`, `.windsurfrules` tek kaynak `AGENTS.md` + `.ai/*` işaret eder; eski dokümanlar silinir veya `.ai/archive/` altına alınır.
+- **2026-11-24 (`OPS-1`) · Neden:** Dağınık dokümanlar eski `ABTS` adını sızdırıyordu.
+- **Kural:** `CLAUDE.md`, `.cursorrules`, `.windsurfrules` tek kaynak `AGENTS.md` + `.ai/*` işaret eder.
 
-### ADR-11: Nullable Katalog Alanlarında `undefined` vs `null` Ayrımı (`PATCH/PUT`)
-- **2026-11-24 (`QA-SWEEP-BE`) · Kök Neden:** `aracMutationHandlers.js` falsy kontrolü manuel kategoriye geçişte gönderilen `null` değerini eski ID ile eziyordu.
-- **Kalıcı Kural:** Temizlenebilir FK/katalog alanları `field !== undefined ? (field ? Number(field) : null) : mevcut.field` kalıbıyla işlenir.
+### ADR-11: Nullable Kataloglarda `undefined` vs `null`
+- **2026-11-24 (`QA-BE`) · Neden:** Falsy kontrol `null` ile temizlenen FK alanını eski ID ile eziyordu.
+- **Kural:** Temizlenebilir FK'lar `field !== undefined ? (field ? Number(field) : null) : mevcut.field` kalıbıyla işlenir.
 
-### ADR-12: Kademeli Async Dropdown İstek İptali & Kısmi Form Hidrasyonu
-- **2026-11-24 (`QA-SWEEP-FE`) · Kök Neden:** In-flight alt dropdown istekleri iptal edilmiyor ve async hidrasyon `setForm(resolved)` ile kullanıcı girdisini siliyordu.
-- **Kalıcı Kural:** Üst seçimde alt listeler temizlenip `RequestIdRef` artırılır; async hidrasyon yalnız ilgili alanları `prev` üzerine kısmi patch'ler.
+### ADR-12: Async Dropdown İstek İptali & Kısmi Hidrasyon
+- **2026-11-24 (`QA-FE`) · Neden:** Geç yanıtlar alt listeyi ve kullanıcı formunu eziyordu.
+- **Kural:** Üst seçimde alt listeler sıfırlanıp `RequestIdRef` artırılır; async hidrasyon `prev` üstüne kısmi patch yapar.
 
-### ADR-13: `SYSTEM_ADMIN` Organizasyon (`org_id`) Kiracı İzolasyonu
-- **2026-11-24 (`V2.1-HOTFIX-W1`) · Kök Neden:** `buildVehicleAccessFilter` içinde `SYSTEM_ADMIN` koşulsuz `'1=1'` döndüğü için org adminleri rakip kiracıyı görebiliyordu.
-- **Kalıcı Kural:** `SYSTEM_ADMIN` için `user.org_id` tanımlıysa `a.org_id = $N` uygulanır; yalnız `org_id IS NULL` platform yöneticisi `'1=1'` görür.
+### ADR-13: `SYSTEM_ADMIN` `org_id` Kiracı İzolasyonu
+- **2026-11-24 (`HW1`) · Neden:** Koşulsuz `'1=1'` org adminlerinin rakip kiracıyı görmesine yol açıyordu.
+- **Kural:** `user.org_id` varsa `a.org_id = $N` zorunlu; yalnız `org_id IS NULL` platform yöneticisi `'1=1'` görür.
 
-### ADR-14: `JWT_SECRET` Fail-Fast & Güvenli Araç Devri (`ON DELETE SET NULL`)
-- **2026-11-24 (`V2.1-HOTFIX-W1`) · Kök Neden:** Hardcoded JWT fallback zayıf imza riski yaratıyor ve `fk_araclar_kullanici ON DELETE CASCADE` hesap silmede filoyu siliyordu.
-- **Kalıcı Kural:** `Backend/utils/jwtSecret.js` (`getJwtSecret()`) zorunludur; `fk_araclar_kullanici` `ON DELETE SET NULL` olur ve `DELETE /settings/account` önce araçları devreder veya `409` döner.
+### ADR-14: `JWT_SECRET` Fail-Fast & Araç Devri (`ON DELETE SET NULL`)
+- **2026-11-24 (`HW1`) · Neden:** Hardcoded secret ve `CASCADE` araç silme riski vardı.
+- **Kural:** `getJwtSecret()` zorunlu; `fk_araclar_kullanici` `ON DELETE SET NULL`, `DELETE /settings/account` önce devir yapar veya `409` döner.
 
-### ADR-15: Sayaç Tipi Kilidi, Başlangıç Tabanı, 3-Anahtarlı RBAC & Finans Gizliliği
-- **2026-11-25 (`V2.1-HOTFIX-W2`) · Kök Neden:** Kayıtlı araçta `KM/SMH` değişebiliyor, 6'lı sahte UI yetki anahtarları ve `DRIVER`'a finans tutarı sızıyordu.
-- **Kalıcı Kural:** Hareket/parçalı araçta `sayac_tipi` değişimi `422` ile engellenir, boş hareketlerde `guncel_km` tabanı korunur; ekip yetkisi yalnız `yakit/bakim/finans` kullanır ve finans `canAccessChannel(user, 'analytics')` ile gizlenir.
+### ADR-15: Sayaç Tipi Kilidi, 3-Anahtarlı RBAC & Finans Gizliliği
+- **2026-11-25 (`HW2`) · Neden:** Hareketli araçta `KM/SMH` değişimi ve `DRIVER`'a finans sızıntısı önlendi.
+- **Kural:** Hareket/parçalı araçta `sayac_tipi` değişimi `422`; ekip yetkisi yalnız `yakit/bakim/finans`; finans `canAccessChannel(user, 'analytics')` ile gizlenir.
 
-### ADR-16: Yakıt/Bakım Joi Taşma Koruması, `CORS_ORIGIN`, Gate 2 `utils/**` & State/Toast Hijyeni
-- **2026-11-25 (`V2.1-HOTFIX-W3`) · Kök Neden:** Sayısal taşmalar `500` üretiyor, `localStorage.clear()` temayı siliyor ve inline hatalar çift toast basıyordu.
-- **Kalıcı Kural:** Yakıt/bakım Joi DB limitlidir, `server.js` `process.env.CORS_ORIGIN` okur, Gate 2 `utils/**` tarar; çıkışta yalnız auth/filo sıfırlanır, `autoResetPageIndex: false`, inline hatalarda `notifyApiError` tetiklenmez.
+### ADR-16: Joi Taşma Koruması, `CORS_ORIGIN`, Gate 2 `utils/**` & Hijyen
+- **2026-11-25 (`HW3`) · Neden:** Sayısal taşmalar `500`, `localStorage.clear()` tema siliyordu.
+- **Kural:** Yakıt/bakım Joi DB limitli, `CORS_ORIGIN` env, Gate 2 `utils/**` tarar; çıkışta yalnız auth/filo sıfırlanır, inline hatada çift toast yok.
 
-### ADR-17: Doğrudan `araclar.org_id` Kiracı İzolasyonu, Sıfır Runtime DDL & Fatura Normalizasyonu
-- **2026-11-25 (`V2.2-DBPERF`) · Kök Neden:** Dolaylı `users` alt sorgusu yavaşlıyor, `kullanici_id IS NULL` araçlar izolasyondan düşüyor ve runtime `ALTER TABLE` istek yolunu kirletiyordu.
-- **Kalıcı Kural:** `buildVehicleAccessFilter` ve atamalar indeksli `a.org_id = $N` (`ensureManagerOrgId` backfill) kullanır; controller/route içi `ALTER TABLE` yasak, `yakitlar`/`bakimlar` `fatura_no`, `belge_url`, `olusturan_user_id` tutar.
+### ADR-17: Doğrudan `araclar.org_id`, Sıfır Runtime DDL & Fatura Alanları
+- **2026-11-25 (`DBPERF`) · Neden:** Alt sorgular yavaşlıyor ve runtime `ALTER TABLE` yolu kirletiyordu.
+- **Kural:** İndeksli `a.org_id = $N` (`ensureManagerOrgId`); runtime `ALTER TABLE` yasak; `yakitlar`/`bakimlar` `fatura_no`, `belge_url`, `olusturan_user_id` tutar.
 
-### ADR-18: Bildirim Dedup Kilidi, `predictiveService` TR Takvimi & Finansal RBAC
-- **2026-11-25 (`V2.2-NOTIFY`) · Kök Neden:** Tekrarlı uyarılar tekilleşmiyor, `UNION ALL` `kayit_id DESC` ile yanlış son 2 hareketi seçiyor ve finans yetkisi denetlenmiyordu.
-- **Kalıcı Kural:** `bildirim_olaylari` üzerinde `UNIQUE (user_id, kategori, referans_anahtar)` + `ON CONFLICT DO NOTHING` uygulanır; `predictiveService` `ORDER BY tarih DESC, km DESC` + `dateUtils` kullanır; `bildirim_tercihleri` ve `maliyet_ozeti` `hasFinanceAccess` zorunludur.
+### ADR-18: Bildirim Dedup, `predictiveService` TR Takvimi & Finansal RBAC
+- **2026-11-25 (`NOTIFY`) · Neden:** Tekrarlı bildirim ve yanlış `UNION ALL` sıralaması vardı.
+- **Kural:** `bildirim_olaylari` `UNIQUE (user_id, kategori, referans_anahtar)` + `ON CONFLICT DO NOTHING`; `ORDER BY tarih DESC, km DESC`; `bildirim_tercihleri`/`maliyet_ozeti` `hasFinanceAccess` zorunlu.
 
 ### ADR-19: Yakıt Anomali İdempotensi, Tuple Öncül & Kiracı İzolasyonu
-- **2026-11-25 (`V2.2-ANOMALY-BE`) · Kök Neden:** Tekrarlı taramalar mükerrer anomali üretebilir, incelenmiş kararları silebilir ve `PATCH` kiracı sınırını aşabilirdi.
-- **Kalıcı Kural:** `yakit_anomalileri` `uq_yakit_anomali_kayit_tip` + `ON CONFLICT DO NOTHING` kullanır; `curKm > 0` iken `(tarih, km, yakit_id) < (...)` tuple öncülü seçilir; `update` yalnız `durum = 'acik'` yeniler ve `PATCH /anomaliler/:id` `FROM araclar a` + `buildVehicleAccessFilter` zorunlu kılar.
+- **2026-11-25 (`ANOMALY`) · Neden:** Tekrarlı tarama/PATCH kiracı sınırını ve inceleme kararını bozabilirdi.
+- **Kural:** `uq_yakit_anomali_kayit_tip` + `ON CONFLICT DO NOTHING`; `curKm > 0` tuple öncülü; yalnız `durum = 'acik'` yenilenir; `PATCH /anomaliler/:id` `buildVehicleAccessFilter` zorunlu.
 
-### ADR-20: Gizli E-posta Dedup Kilidi, Saf Anomali Kuralları & Tek-Yayın Event
-- **2026-11-25 (`V2.2-POLISH`) · Kök Neden:** `uygulama: false, email: true` dedup atlıyor, TCO/anomali taramaları ayrışıyor ve mutasyonlar çift fetch üretiyordu.
-- **Kalıcı Kural:** E-posta `meta_json.uygulama_gizli = true` + `okundu_mu = TRUE` yazılır (`GET/PATCH` `404`); `fuelAnomalyRules.js` tekil/toplu (`UNNEST`) taramada paylaşılır; FE tekil `truss:data-changed` + `requestIdRef` kullanır.
+### ADR-20: Gizli E-posta Dedup, Saf Anomali Kuralları & Tek-Yayın Event
+- **2026-11-25 (`POLISH`) · Neden:** Gizli e-posta dedup atlıyor ve mutasyonlar çift fetch üretiyordu.
+- **Kural:** `meta_json.uygulama_gizli = true` + `okundu_mu = TRUE` (`GET/PATCH` `404`); `fuelAnomalyRules.js` tekil/toplu paylaşılır; FE tekil `truss:data-changed` + `requestIdRef` kullanır.
 
-### ADR-21: Principal Bar, `/critic` Red-Team & Zorunlu Faz 1 Öz-Denetimi
-- **2026-11-25 (`OPS-5b`) · Kök Neden:** Övgü, seçenek menüsü ve yüzeysel happy-path pratikleri yarış/kiracı/dikiş (`seam`) hatalarını gizliyordu.
-- **Kalıcı Kural:** `00-truss-core.md` Principal Bar ile övgü/seçenek menüsü yasak; `/critic` öz-denetimi plan ve QA öncesi seam/stres testi uygular.
+### ADR-21: Principal Bar, `/critic` Red-Team & Faz 1 Öz-Denetimi
+- **2026-11-25 (`OPS-5b`) · Neden:** Yüzeysel onay/menüler seam/yarış hatalarını gizliyordu.
+- **Kural:** `00-truss-core.md` Principal Bar ile övgü/menü yasak; `/critic` plan ve QA öncesi seam/stres testi uygular.
 
-### ADR-22: Toplu Yakıt CSV İzolasyonu, Fiziksel İmza Dedup & Kronoloji Sıralaması
-- **2026-11-25 (`V2.2-IMPORT-BE`) · Kök Neden:** Global `100kb` JSON CSV'yi kesiyor, tekil `fatura_no` sahte çakışma üretiyor ve ters-sıralı ekstreler kronolojiyi bozuyordu.
-- **Kalıcı Kural:** `/api/yakitlar/toplu-*` rota-lokal `1mb` `bulkJsonParser` kullanır; `FOR UPDATE` altında `arac_id|tarih|litre|tutar|km` imzasıyla dedup yapılır, adaylar `(tarih ASC, km ASC NULLS LAST, satir_no ASC)` sıralanıp `UNNEST` ile yazılır ve `evaluateBatchFuelAnomalies` çalışır.
+### ADR-22: Toplu Yakıt CSV İzolasyonu, İmza Dedup & Kronoloji
+- **2026-11-25 (`IMPORT`) · Neden:** Global `100kb` JSON CSV'yi kesiyor ve ters ekstre kronolojiyi bozuyordu.
+- **Kural:** `/api/yakitlar/toplu-*` rota-lokal `1mb` parser; `FOR UPDATE` + `arac_id|tarih|litre|tutar|km` dedup; `(tarih ASC, km ASC NULLS LAST, satir_no ASC)` `UNNEST` + `evaluateBatchFuelAnomalies`.
 
-### ADR-23: Araç Soft-Archive (`arsivlendi_mi`) & Değişmez Denetim İzi (`denetim_kayitlari`)
-- **2026-11-25 (`V2.2-AUDIT-BE`) · Kök Neden:** Hareketli aracın fiziksel silinmesi tarihsel maliyeti bozuyor, maliyetsiz başlangıç şablonu ise hard-delete olabilmeli ve kritik mutasyonlar izlenmeliydi.
-- **Kalıcı Kural:** `DELETE /api/araclar/:id` yakıt/bakım veya `COALESCE(maliyet, 0) > 0` parça varsa zimmeti kapatıp `arsivlendi_mi = TRUE` yapar (arşivli araca yazma `409 VEHICLE_ARCHIVED`); `denetim_kayitlari` (`GET /api/denetim-kayitlari`) FK/`CASCADE` olmadan append-only tutulur, `COMMIT` sonrası `auditService.logAuditEvent` ile yazılır ve `ADR-13` `403 FORBIDDEN_ORG_REQUIRED` uygular.
+### ADR-23: Araç Soft-Archive (`arsivlendi_mi`) & Denetim İzi (`denetim_kayitlari`)
+- **2026-11-25 (`AUDIT`) · Neden:** Hareketli aracın silinmesi tarihsel maliyeti bozuyordu.
+- **Kural:** Hareket/maliyetli parça varsa `DELETE /api/araclar/:id` zimmeti kapatıp `arsivlendi_mi = TRUE` yapar (yazmada `409 VEHICLE_ARCHIVED`); `denetim_kayitlari` append-only + `COMMIT` sonrası `logAuditEvent` + `403 FORBIDDEN_ORG_REQUIRED`.
 
-### ADR-24: FORGE Topolojisi & Fonksiyonel Çekirdek / İnce Kabuk Standardı
-- **2026-11-25 (`FORGE-M0`) · Kök Neden:** Eski 5'li Swarm rol sızıntıları, `req/res` kelepçeli servisler, doğrudan API import eden yaprak UI'lar ve `11.5K` tok bağlam şişmesi regresyon ve hız kaybı yaratıyordu.
-- **Kalıcı Kural:** `FORGE` 5 uzmanı (`keystone`, `core-smith`, `shell-crafter`, `sentinel`, `radar`) zorunlu **Frozen Contract** + yeni şema/iş kuralında ardışık `core-smith -> shell-crafter` uygular; BE `<= 90`L controller + `req/res`-bağımsız `fn(client, actor, input)` + `AppError`, FE `Sayfa <= 180`L + `use*Controller <= 200`L + `Saf Görünüm <= 200`L (yaprakta API importu yasak) + merkezi `utils/dataEvents.js` kullanır.
+### ADR-24: FORGE Topolojisi & Fonksiyonel Çekirdek / İnce Kabuk
+- **2026-11-25 (`FORGE-M0`) · Neden:** Rol sızıntısı, `req/res`-bağımlı servis ve yaprak API importu regresyon üretiyordu.
+- **Kural:** `FORGE` 5 uzman Frozen Contract + ardışık `core-smith -> shell-crafter`; BE `<= 90`L controller + `fn(client, actor, input)` + `AppError`; FE `Sayfa <= 180`L + `use*Controller <= 200`L + `Saf Görünüm <= 200`L + `dataEvents.js`.
 
-### ADR-25: `schema_migrations`, `token_version`, Cron Kilidi, Tam Arşiv Koruması & `test:core`
-- **2026-11-25 (`FORGE-M1`) · Kök Neden:** Tekil `migrate*.js` scriptleri checksum/kilit taşımıyordu, `denetim_kayitlari.org_id` `CASCADE` riski vardı, şifre/rol değişimi eski JWT'yi iptal etmiyordu, `deleteParca` ve `update/delete` arşiv kontrolü eksikti ve runtime test yoktu.
-- **Kalıcı Kural:** `db:migrate` (`pg_advisory_lock` + SHA-256 `schema_migrations`), `fk_denetim_kayitlari_org ON DELETE SET NULL`, `token_version` (`401 TOKEN_REVOKED`), `pg_try_advisory_lock` cron kilidi, `arsivliAracEngelle` tam `POST/PUT/DELETE` (`updateArac`/`updateAracKonum` `409` + aktif okuma filtresi), `ai-gate` `14` dosya (`301-600`L) ratchet kilidi ve `node:test` `npm run test:core` kalıcı zırhtır.
+### ADR-25: `schema_migrations`, `token_version`, Cron Kilidi, Arşiv & `test:core`
+- **2026-11-25 (`FORGE-M1`) · Neden:** Checksum/kilit, JWT iptali, tam arşiv ve runtime test eksikti.
+- **Kural:** `db:migrate` (`pg_advisory_lock` + SHA-256 `schema_migrations`), `fk_denetim_kayitlari_org ON DELETE SET NULL`, `token_version` (`401 TOKEN_REVOKED`), `pg_try_advisory_lock` cron, `arsivliAracEngelle` tam `POST/PUT/DELETE`, `ai-gate` `14` dosya ratchet, `npm run test:core`.
 
-### ADR-26: Fonksiyonel Çekirdek (`AppError`/`withTransaction`), Sıkı `dataEvents` & Recharts Chunk Ayrımı
-- **2026-11-25 (`FORGE-M2`) · Kök Neden:** Controller-içi DB TX ve `res.status` yazımları çekirdek testini kilitliyor, `chart.jsx` wildcard Recharts importu (`Legend`) ve gevşek `dataEvents` dinleyicileri vendor chunk'ını `351.3 KB` üzerine taşıyıp gereksiz fetch üretiyordu.
-- **Kalıcı Kural:** BE mutasyonları `req/res`-bağımsız `*WriteService` (`fn(client, actor, input)`) + `AppError` + `withTransaction` (`ROLLBACK` hatasında `release(true)`) kullanır; FE `chart.jsx` named import (`Legend` kaldırıldı) + `vendor-charts`/`vendor-charts-core` ayrımı, sıkı `dataEvents.js` ve 3 katmanlı `Hareketler`/`BudgetVarianceCard` uygular.
+### ADR-26: `*WriteService` (`withTransaction`), Sıkı `dataEvents` & Chunk Ayrımı
+- **2026-11-25 (`FORGE-M2`) · Neden:** Controller TX ve wildcard Recharts importu (`Legend`) chunk'ı şişiriyordu.
+- **Kural:** Mutasyonlar `req/res`-bağımsız `*WriteService` + `AppError` + `withTransaction` (`ROLLBACK` hatasında `release(true)`); FE named Recharts + `vendor-charts`/`vendor-charts-core`, sıkı `dataEvents.js`, 3 katmanlı `Hareketler`/`BudgetVarianceCard`.
 
-### ADR-27: İş Emri Kilit Sırası, Tek-TX Bakım Kapanışı, `SMH`/`KM` & `DATA_SCOPES`
-- **2026-11-25 (`FORGE-M3A`) · Kök Neden:** Çift tamamlama/arşiv yarışları (`AB-BA`), `SMH` ondalığının `bakimlar.km INT` uyumu, `DATE` kayması ve M3B event sapması tek sözleşmede kilitlenmeliydi.
-- **Kalıcı Kural:** İş emri mutasyonları kilit-öncesi kiracı (`404`/`403`) + `araclar -> is_emirleri` sırası ve `planlanan_tarih::text` (`ADR-01/02`) uygular; `completeWorkOrderTx` `SMH` ondalığını `assertOdometerChronology` + `Math.round` ile tek TX `createBakimTx`'e bağlar; M3B `DATA_SCOPES` anahtarları `WORK_ORDER: 'work-order'`, `'movement'`, `'vehicle'`, `'component'` olur.
+### ADR-27: İş Emri Kilit Sırası, Tek-TX Bakım & `DATA_SCOPES`
+- **2026-11-25 (`FORGE-M3A`) · Neden:** `AB-BA` kilit yarışı ve `SMH` ondalık/DATE sapması riski vardı.
+- **Kural:** Kilit-öncesi kiracı (`404`/`403`) + `araclar -> is_emirleri` kilit sırası + `planlanan_tarih::text`; `completeWorkOrderTx` `assertOdometerChronology` + `Math.round` ile `createBakimTx`'e bağlanır; `DATA_SCOPES.WORK_ORDER = 'work-order'`.
+
+### ADR-28: Üretim Zırhı, Boş-DB Bootstrap & PG 16 CI (`FORGE-C0`)
+- **2026-11-26 (`FORGE-C0`) · Neden:** Fail-fast env doğrulaması, rate limit, security headers, single-flight `/api/health`, graceful shutdown ve sıfırdan DB bootstrap/CI yoktu.
+- **Kural:** Sıfır yeni npm paketiyle `validateEnv` (`DATABASE_URL`/prod `JWT_SECRET>=32`/CORS), `securityHeaders`, NAT-dostu 2 katmanlı `rateLimiter` (`429 RATE_LIMITED`), single-flight `GET /api/health` + DI `gracefulShutdown`, `000_base_schema` (`typnamespace = current_schema()::regnamespace`) + `runMigrations(..., { schema })` ve `.github/workflows/ci.yml` PG 16 CI zorunludur.

@@ -1,18 +1,23 @@
 const path = require('path');
 const pg = require('pg');
-const { Pool } = pg; // pg paketinden PostgreSQL bağlantı havuzunu oluşturmak için Pool sınıfını içe aktarır.
-require('dotenv').config({ path: path.resolve(__dirname, '.env') }); // Backend/.env dosyasını çalışma dizininden bağımsız yükler.
+const { Pool } = pg;
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 // DATE (OID 1082) kolonlarını UTC Date yerine saf 'YYYY-MM-DD' string olarak döndür (UTC-1 gün kaymasını önler)
 pg.types.setTypeParser(1082, (val) => val);
 
-const pool = new Pool({ // PostgreSQL bağlantı havuzunu oluşturur.
-  user: process.env.DB_USER, // Veritabanı kullanıcı adını .env içinden alır.
-  password: process.env.DB_PASSWORD, // Veritabanı şifresini .env içinden alır.
-  host: process.env.DB_HOST, // Veritabanı sunucusunun adresini .env içinden alır.
-  port: parseInt(process.env.DB_PORT, 10) || 5432, // Veritabanı portunu sayıya çevirir, yoksa varsayılan 5432 kullanır.
-  database: process.env.DB_NAME, // Bağlanılacak veritabanı adını .env içinden alır.
-}); // Pool yapılandırmasını tamamlar.
+const databaseUrl = (process.env.DATABASE_URL || '').trim();
+const poolConfig = databaseUrl
+  ? { connectionString: databaseUrl }
+  : {
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      host: process.env.DB_HOST,
+      port: parseInt(process.env.DB_PORT, 10) || 5432,
+      database: process.env.DB_NAME,
+    };
 
-module.exports = pool; // Oluşturulan pool nesnesini diğer dosyalarda kullanılmak üzere dışa aktarır.
+const pool = new Pool(poolConfig);
+
+module.exports = pool;
 

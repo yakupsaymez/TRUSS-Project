@@ -4,13 +4,28 @@ const { MIGRATIONS } = require('./migrations');
 
 const MIGRATE_LOCK_KEY = [1414681939, 1];
 
+const SCHEMA_NAME_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
 const computeChecksum = (sql) =>
   crypto
     .createHash('sha256')
     .update(String(sql).trim().replace(/\r\n/g, '\n'))
     .digest('hex');
 
-async function runMigrations(targetPool = defaultPool) {
+async function runMigrations(targetPool = defaultPool, options = {}) {
+  const schemaRaw = options?.schema;
+  let schemaIdent = null;
+  if (schemaRaw !== undefined && schemaRaw !== null && schemaRaw !== '') {
+    if (typeof schemaRaw !== 'string' || !SCHEMA_NAME_RE.test(schemaRaw)) {
+      throw Object.assign(
+        new Error(`Geçersiz şema adı: ${schemaRaw}`),
+        { code: 'INVALID_SCHEMA_NAME', schema: schemaRaw }
+      );
+    }
+    schemaIdent = `"${schemaRaw}"`;
+  }
+  const migrationsTable = schemaIdent ? `${schemaIdent}.schema_migrations` : 'schema_migrations';
+
   let lockClient = null;
   let lockAcquired = false;
   let hadError = false;
@@ -23,14 +38,14 @@ async function runMigrations(targetPool = defaultPool) {
     lockAcquired = true;
 
     await lockClient.query(`
-      CREATE TABLE IF NOT EXISTS schema_migrations (
+      CREATE TABLE IF NOT EXISTS ${migrationsTable} (
         version VARCHAR(80) PRIMARY KEY,
         applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         checksum VARCHAR(64) NOT NULL
       )
     `);
 
-    const existingRes = await lockClient.query('SELECT version, checksum FROM schema_migrations');
+    const existingRes = await lockClient.query(`SELECT version, checksum FROM ${migrationsTable}`);
     const existingMap = new Map(existingRes.rows.map((r) => [r.version, r.checksum]));
 
     for (const migration of MIGRATIONS) {
@@ -48,9 +63,12 @@ async function runMigrations(targetPool = defaultPool) {
 
       await lockClient.query('BEGIN');
       try {
+        if (schemaIdent) {
+          await lockClient.query(`SET LOCAL search_path TO ${schemaIdent}`);
+        }
         await lockClient.query(migration.sql);
         await lockClient.query(
-          'INSERT INTO schema_migrations (version, checksum) VALUES ($1, $2)',
+          `INSERT INTO ${migrationsTable} (version, checksum) VALUES ($1, $2)`,
           [migration.version, checksum]
         );
         await lockClient.query('COMMIT');

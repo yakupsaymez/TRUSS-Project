@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const Joi = require('joi');
 const authMiddleware = require('../middlewares/authMiddleware');
 const { authorizeRoles } = require('../middlewares/rbacMiddleware');
+const { loginRateLimiter, registerRateLimiter } = require('../middlewares/rateLimiter');
 const userController = require('../controllers/userController');
 const { sendNotificationEmail, escapeHtml } = require('../services/emailService');
 const { sendSMS } = require('../services/smsService');
@@ -15,10 +16,10 @@ const {
 const router = express.Router();
 
 // KAYIT ROTASI (Register)
-router.post('/register', userController.register);
+router.post('/register', registerRateLimiter, userController.register);
 
 // GİRİŞ ROTASI (Login)
-router.post('/login', userController.login);
+router.post('/login', loginRateLimiter, userController.login);
 
 // MEVCUT KULLANICI (Frontend refreshUser için; login cevabındaki user ile aynı şekil)
 router.get('/me', authMiddleware, async (req, res) => {
@@ -55,7 +56,6 @@ router.get('/me', authMiddleware, async (req, res) => {
 // BILDIRIM AYARLARI OKUMA
 router.get('/settings/notifications', authMiddleware, async (req, res) => {
   try {
-
     const result = await pool.query(
       `SELECT user_id, ad_soyad, email, telefon, email_bildirim_aktif, sms_bildirim_aktif, bildirim_tercihleri
        FROM users

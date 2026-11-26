@@ -10,7 +10,7 @@
 |`/app/harita`|`pages/v2/Harita.jsx`|`horizon`|`FleetLiveMap`, check-in|
 |`/app/hareketler`|`pages/v2/Hareketler.jsx`|`ledger`|`LedgerDataTable`, `MovementSheet`, `FuelAnomalyPanel`, `FuelImportSheet`|
 |`/app/parcalar`|`pages/v2/Parcalar.jsx`|`components`|`ComponentDataTable`, `ComponentSheet`|
-|`/app/is-emirleri`|`pages/v2/IsEmirleri.jsx`|Açık|İş emri talep, plan, tamam|
+|`/app/is-emirleri`|`pages/v2/IsEmirleri.jsx`|`ProtectedRoute`|İş emri talep, plan, tamam|
 |`/app/takvim`|`pages/v2/Takvim.jsx`|`horizon`|`FleetCalendar`|
 |`/app/ekip`|`pages/v2/Ekip.jsx`|`crew`|`CrewDataTable`, `PermissionsSheet`, `ResetPasswordSheet`|
 |`/app/ayarlar`|`pages/v2/Ayarlar.jsx` (`pages/v2/ayarlar/*`)|`ProtectedRoute`|Profil, şifre, bildirim, org, `?tab=denetim`|
@@ -22,11 +22,11 @@
 - **Services (`services/`):** `api`, `{auth,arac,yakit,bakim,parca,isEmri,rapor,katalog,admin,bildirim,denetim}Service.js`.
 
 ## 3. Backend Mimari Haritası (`Backend/`)
-- **Giriş/DB:** `index.js` (`require.main`+`app`), `server.js`, `db.js` (`OID 1082`), `database.sql`, `scripts/{migrate,migrations}.js` (`pg_advisory_lock`+`schema_migrations`).
+- **Giriş/DB:** `index.js` (`startServer`, `SIGTERM`/`SIGINT`), `server.js` (`createApp`, `GET /api/health` single-flight), `db.js` (`DATABASE_URL`/`DB_*`, `OID 1082`), `database.sql`, `scripts/{baseSchemaSql,migrate,migrations}.js` (`000_base_schema` + `001..008`, `pg_advisory_lock`, `options.schema`).
 - **Routes:** `{user,admin,arac,yakit,bakim,parca,rapor,katalog,bildirim,denetim,isEmri}Routes.js`, `arac/{aracHelpers,aracHandlers,aracMutationHandlers,aracArchiveHandlers}.js` (`/api/parcalar`+`/api/parca-takip`, `/api/araclar/:id/{arsiv,geri-yukle}`, `/api/denetim-kayitlari`, `/api/bildirimler`, `/api/is-emirleri`, `/api/yakitlar/anomaliler*`, `/api/yakitlar/toplu-{onizleme,aktar}` `1mb`).
 - **Controllers:** `{user,admin,yakit,yakitAnomaly,yakitImport,bakim,parca,rapor,tco,katalog,bildirim,denetim,isEmri}Controller.js`, `admin/{adminHelpers,adminUserController,adminOrgAssignmentController}.js`.
-- **Middlewares/Utils:** `middlewares/{authMiddleware,rbacMiddleware}.js` (`token_version`, 0-DB `requirePermission`), `utils/{odometerGuard,dateUtils,csvFuelParser,jwtSecret,AppError,withTransaction}.js` (`FOR UPDATE`, `arsivliAracEngelle` `409`, `422 SAYAC_KRONOLOJI_IHLALI`, `aracSayaciniSenkronizeEt`).
-- **Services/Tests:** `services/{yakitWriteService,bakimWriteService,workOrderWriteService,workOrderQueryService,notificationScheduler,notificationService,predictiveService,alertEvaluators,tcoService,fuelAnomalyService,fuelAnomalyRules,fuelImportService,auditService,emailService,smsService}.js` (`CRON_LOCKS`, `UNNEST`, `logAuditEvent`); `tests/{{corePure,coreDbIntegrity,writeServices,workOrder}.test,helpers/pgTestHarness}.js`.
+- **Middlewares/Utils:** `middlewares/{authMiddleware,rbacMiddleware,securityHeaders,rateLimiter}.js` (`token_version`, 0-DB `requirePermission`, CSP/HSTS, `loginRateLimiter`/`registerRateLimiter` `429 RATE_LIMITED`), `utils/{validateEnv,gracefulShutdown,odometerGuard,dateUtils,csvFuelParser,jwtSecret,AppError,withTransaction}.js` (`FOR UPDATE`, `arsivliAracEngelle` `409`, `422 SAYAC_KRONOLOJI_IHLALI`, `aracSayaciniSenkronizeEt`).
+- **Services/Tests:** `services/{yakitWriteService,bakimWriteService,workOrderWriteService,workOrderQueryService,notificationScheduler,notificationService,predictiveService,alertEvaluators,tcoService,fuelAnomalyService,fuelAnomalyRules,fuelImportService,auditService,emailService,smsService}.js` (`CRON_LOCKS`, `stopNotificationScheduler`, `UNNEST`, `logAuditEvent`); `tests/{{corePure,coreDbIntegrity,writeServices,workOrder,prodShield}.test,helpers/pgTestHarness}.js`.
 
 ## 4. PostgreSQL (`17` Tablo) & İndeksler
 1. `organizations` (`org_id`, `unvan`, `vergi_no`, `plan_tipi`, `aktif`, `olusturulma_tarihi`, `aylik_yakit_butcesi`, `aylik_bakim_butcesi`)
@@ -44,6 +44,6 @@
 13. `is_emirleri` (`is_emri_id`, `org_id`, `arac_id`, `acan_user_id`, `onaylayan_user_id`, `olusulan_bakim_id`, `baslik`, `aciklama`, `kategori`, `oncelik`, `durum`, `bildirilen_sayac`, `servis_adi`, `tahmini_maliyet`, `gerceklesen_maliyet`, `planlanan_tarih`, `red_iptal_nedeni`, `kapanis_tarihi`, `olusturma_tarihi`, `guncelleme_tarihi`)
 - **İndeksler:** `idx_araclar_org_id`, `idx_araclar_org_aktif`, `idx_yakitlar_arac_tarih_km`, `idx_bakimlar_arac_tarih_km`, `idx_parca_takip_arac_id`, `idx_atamalar_aktif_arac`, `uq_bildirim_user_kat_ref`, `idx_bildirim_user_okundu`, `uq_yakit_anomali_kayit_tip`, `idx_yakit_anomalileri_org_durum`, `idx_yakit_anomalileri_arac`, `idx_denetim_org_tarih`, `idx_denetim_varlik`, `idx_is_emirleri_org_durum`, `idx_is_emirleri_arac_durum`, `uq_is_emirleri_bakim`.
 
-## 5. AI-OS & FORGE (`.ai/`, `.agent/`)
-- **`.ai/`:** `PROGRESS`, `SWARM_PLAYBOOK`, `ENGINEERING_GUARDRAILS`, `ARCHITECTURE_MAP`, `DECISIONS` (`ADR-01..27`), `HANDOFF_TEMPLATE`.md, `gate-baseline.json`; `scripts/{ai-gate,context-pack,context-audit}.mjs`.
+## 5. AI-OS, FORGE & CI (`.ai/`, `.agent/`, `.github/`)
+- **`.ai/` & CI:** `PROGRESS`, `SWARM_PLAYBOOK`, `ENGINEERING_GUARDRAILS`, `ARCHITECTURE_MAP`, `DECISIONS` (`ADR-01..28`), `HANDOFF_TEMPLATE`.md, `gate-baseline.json`; `scripts/{ai-gate,context-pack,context-audit}.mjs`; `.github/workflows/ci.yml` (PG 16 CI).
 - **`.agent/`:** `rules/{00-truss-core,10-frontend-luma,20-backend-sql,30-ops-gate}.md`; `skills/{forge,critic,forge-seal,forge-qa-browser,forge-xray}/SKILL.md` (`references/postgres-mcp-readonly.md`); `agents/{keystone,sentinel,core-smith,shell-crafter,radar}.md`.

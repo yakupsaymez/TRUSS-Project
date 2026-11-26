@@ -2,6 +2,7 @@ const http = require('node:http');
 const bcrypt = require('bcrypt');
 const app = require('../../server');
 const pool = require('../../db');
+const { resetAllRateLimiters } = require('../../middlewares/rateLimiter');
 
 const TEST_ORG_PREFIX = '__forge_test_suite__';
 const TEST_EMAIL_SUFFIX = '@forge-test.local';
@@ -13,6 +14,7 @@ async function getFastTestHash() {
 }
 
 async function startTestServer() {
+  resetAllRateLimiters();
   const server = http.createServer(app);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const addr = server.address();
@@ -123,6 +125,7 @@ async function cleanupTestSuite() {
     throw err;
   } finally {
     if (client) client.release();
+    resetAllRateLimiters();
   }
 }
 
@@ -135,4 +138,5 @@ module.exports = {
   loginUser,
   takeExternalSnapshot,
   cleanupTestSuite,
+  resetAllRateLimiters,
 };

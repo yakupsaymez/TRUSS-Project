@@ -1,52 +1,115 @@
-const express = require('express'); // Express framework'unu projeye dahil eder.
-const cors = require('cors'); // Farkli origin'lerden gelen isteklere izin verir.
+const express = require('express');
+const cors = require('cors');
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '.env') }); // Backend/.env dosyasini sabit yoldan yukler.
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+const pool = require('./db');
 const { getJwtSecret } = require('./utils/jwtSecret');
+const { parseTrustProxy } = require('./utils/validateEnv');
+const { createSecurityHeadersMiddleware } = require('./middlewares/securityHeaders');
+const userRoutes = require('./routes/userRoutes');
+const aracRoutes = require('./routes/aracRoutes');
+const bakimRoutes = require('./routes/bakimRoutes');
+const yakitRoutes = require('./routes/yakitRoutes');
+const parcaRoutes = require('./routes/parcaRoutes');
+const raporRoutes = require('./routes/raporRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const katalogRoutes = require('./routes/katalogRoutes');
+const bildirimRoutes = require('./routes/bildirimRoutes');
+const denetimRoutes = require('./routes/denetimRoutes');
+const isEmriRoutes = require('./routes/isEmriRoutes');
+
 getJwtSecret();
-const userRoutes = require('./routes/userRoutes'); // Kullaniciya ait router'i ayri dosyadan dahil eder.
-const aracRoutes = require('./routes/aracRoutes'); // Araclara ait router'i ayri dosyadan dahil eder.
-const bakimRoutes = require('./routes/bakimRoutes'); // Bakimlara ait router'i ayri dosyadan dahil eder.
-const yakitRoutes = require('./routes/yakitRoutes'); // Yakit islemlerine ait router'i ayri dosyadan dahil eder.
-const parcaRoutes = require('./routes/parcaRoutes'); // Parca takip islemlerine ait router'i dahil eder.
-const raporRoutes = require('./routes/raporRoutes'); // Rapor ve özet endpoint'lerini dahil eder.
-const adminRoutes = require('./routes/adminRoutes'); // Ekip ve şoför yönetimi rotalarını dahil eder.
-const katalogRoutes = require('./routes/katalogRoutes'); // Araç katalog (marka/model/varyant) rotalarını dahil eder.
-const bildirimRoutes = require('./routes/bildirimRoutes'); // Bildirim olayları ve aksiyon merkezi rotalarını dahil eder.
-const denetimRoutes = require('./routes/denetimRoutes'); // Değişmez denetim izi rotalarını dahil eder.
-const isEmriRoutes = require('./routes/isEmriRoutes'); // İş emri rotalarını dahil eder.
 
-const app = express(); // Express uygulama nesnesini olusturur.
+/**
+ * Tekil-uçuş (single-flight) sağlık denetimi ve güvenlik zırhlı Express uygulaması üretir.
+ */
+function createApp({
+  dbPool = pool,
+  nodeEnv = process.env.NODE_ENV,
+  trustProxyRaw = process.env.TRUST_PROXY,
+  corsOriginRaw = process.env.CORS_ORIGIN,
+  healthTimeoutMs = 1500,
+} = {}) {
+  const app = express();
+  let shuttingDown = false;
+  let inFlightHealthPromise = null;
 
-const corsOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean)
-  : ['http://localhost:5173'];
+  app.setShuttingDown = (val) => { shuttingDown = Boolean(val); };
+  app.isShuttingDown = () => shuttingDown;
+  app.disable('x-powered-by');
 
-app.use(cors({
-  origin: corsOrigins.length > 0 ? corsOrigins : ['http://localhost:5173'],
-  credentials: true
-}));
-const defaultJsonParser = express.json();
-app.use((req, res, next) => {
-  if (req.originalUrl && req.originalUrl.startsWith('/api/yakitlar/toplu-')) return next();
-  return defaultJsonParser(req, res, next);
-});
+  const parsedProxy = parseTrustProxy(trustProxyRaw);
+  if (parsedProxy.ok && parsedProxy.value !== false) app.set('trust proxy', parsedProxy.value);
 
-app.get('/', (req, res) => { // Kök dizin test endpoint'i.
-  res.send('TRUSS Backend Çalışıyor'); // Sunucunun aktif oldugunu belirten cevap döner.
-});
+  app.use(createSecurityHeadersMiddleware({ nodeEnv }));
+  const corsOrigins = corsOriginRaw
+    ? String(corsOriginRaw).split(',').map((o) => o.trim()).filter(Boolean)
+    : ['http://localhost:5173'];
+  app.use(cors({
+    origin: corsOrigins.length > 0 ? corsOrigins : ['http://localhost:5173'],
+    credentials: true,
+    exposedHeaders: ['Retry-After', 'RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset'],
+  }));
 
-app.use('/api/users', userRoutes); // Kullaniciyla ilgili tum rotalari router dosyasindan baglar.
-app.use('/api/araclar', aracRoutes); // Araclarla ilgili tum rotalari router dosyasindan baglar.
-app.use('/api/bakimlar', bakimRoutes); // Bakimlarla ilgili tum rotalari router dosyasindan baglar.
-app.use('/api/yakitlar', yakitRoutes); // Yakitlarla ilgili tum rotalari router dosyasindan baglar.
-app.use('/api/parcalar', parcaRoutes); // Parca takip rotalarini uygular.
-app.use('/api/parca-takip', parcaRoutes); // Geriye donuk uyumluluk icin parca takip rotasi.
-app.use('/api/raporlar', raporRoutes); // Rapor ve özet rotalarını uygular.
-app.use('/api/admin', adminRoutes); // Ekip ve şoför yönetimi rotalarını uygular.
-app.use('/api/katalog', katalogRoutes); // Kademeli araç katalog rotalarını uygular.
-app.use('/api/bildirimler', bildirimRoutes); // Bildirim ve aksiyon merkezi rotalarını uygular.
-app.use('/api/denetim-kayitlari', denetimRoutes); // Değişmez denetim izi rotalarını uygular.
-app.use('/api/is-emirleri', isEmriRoutes); // İş emri yaşam döngüsü rotalarını uygular.
+  const defaultJsonParser = express.json();
+  app.use((req, res, next) => {
+    if (req.originalUrl && req.originalUrl.startsWith('/api/yakitlar/toplu-')) return next();
+    return defaultJsonParser(req, res, next);
+  });
 
-module.exports = app; // Uygulama nesnesini index.js dosyasinda baslatmak uzere disa aktarir.
+  const runSingleFlightHealth = () => {
+    if (!inFlightHealthPromise) {
+      inFlightHealthPromise = (async () => {
+        let timer = null;
+        const queryPromise = Promise.resolve().then(() => dbPool.query('SELECT 1'));
+        queryPromise.catch(() => {});
+        const timeoutPromise = new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error('HEALTH_TIMEOUT')), healthTimeoutMs);
+          if (typeof timer.unref === 'function') timer.unref();
+        });
+        try {
+          await Promise.race([queryPromise, timeoutPromise]);
+          return true;
+        } catch {
+          return false;
+        } finally {
+          if (timer) clearTimeout(timer);
+          inFlightHealthPromise = null;
+        }
+      })();
+    }
+    return inFlightHealthPromise;
+  };
+
+  app.get('/api/health', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    if (shuttingDown) {
+      return res.status(503).json({ status: 'shutting_down', db: 'draining', timestamp: new Date().toISOString() });
+    }
+    const ok = await runSingleFlightHealth();
+    const timestamp = new Date().toISOString();
+    return res.status(ok ? 200 : 503).json(
+      ok ? { status: 'ok', db: 'up', timestamp } : { status: 'degraded', db: 'down', timestamp }
+    );
+  });
+
+  app.get('/', (req, res) => res.send('TRUSS Backend Çalışıyor'));
+  app.use('/api/users', userRoutes);
+  app.use('/api/araclar', aracRoutes);
+  app.use('/api/bakimlar', bakimRoutes);
+  app.use('/api/yakitlar', yakitRoutes);
+  app.use('/api/parcalar', parcaRoutes);
+  app.use('/api/parca-takip', parcaRoutes);
+  app.use('/api/raporlar', raporRoutes);
+  app.use('/api/admin', adminRoutes);
+  app.use('/api/katalog', katalogRoutes);
+  app.use('/api/bildirimler', bildirimRoutes);
+  app.use('/api/denetim-kayitlari', denetimRoutes);
+  app.use('/api/is-emirleri', isEmriRoutes);
+
+  return app;
+}
+
+const app = createApp();
+app.createApp = createApp;
+module.exports = app;
