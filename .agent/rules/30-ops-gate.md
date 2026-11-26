@@ -13,11 +13,11 @@ description: TRUSS Ops, ai-gate ratchet, 6 .ai/* dosyası ve .agent/* satır/bü
 - `maxNewFileLines: 600`, `warnFileLines: 300`, `maxChunkKb: 228` gevşetilemez; `git commit --no-verify` kesinlikle **YASAKTIR**.
 
 ## 2. Kanonik `.ai/*` Satır & Bütçe Sınırları (6 Dosya, `<= 7800` tok Full Boot)
-- `.ai/PROGRESS.md`: **`<= 120`L** (canlı durum, `FORGE-M0..M4` yol haritası, 5 uzman panosu).
+- `.ai/PROGRESS.md`: **`<= 120`L** (canlı durum, `Faz C / V2.3` yol haritası, riskler).
 - `.ai/ENGINEERING_GUARDRAILS.md`: **`<= 140`L** (tema, RBAC, `422 SAYAC_KRONOLOJI_IHLALI`, `409 VEHICLE_ARCHIVED`, çekirdek/UI sınırları).
 - `.ai/SWARM_PLAYBOOK.md`: **`<= 150`L** (`FORGE` işletim kılavuzu).
-- `.ai/ARCHITECTURE_MAP.md`: **`<= 160`L** (gerçek rotalar, uçlar, `17` PostgreSQL tablosu ve `ADR-01..27` haritası).
-- `.ai/DECISIONS.md`: **`<= 180`L** (`ADR-01..27`; her yeni `P0-to-Rule` `Tarih · Kök Neden · Kalıcı Kural` 3 satır).
+- `.ai/ARCHITECTURE_MAP.md`: **`<= 160`L** (gerçek rotalar, uçlar, PostgreSQL tabloları ve `.ai/DECISIONS.md` referans haritası).
+- `.ai/DECISIONS.md`: **`<= 180`L** (kalıcı `ADR-*` kararları; her yeni `P0-to-Rule` `Tarih · Kök Neden · Kalıcı Kural` 3 satır).
 - `.ai/HANDOFF_TEMPLATE.md`: **`<= 60`L** (`FORGE` 5 uzman boot komutları ve devir şablonu).
 
 ## 3. `.agent/*` Şema & Denetim

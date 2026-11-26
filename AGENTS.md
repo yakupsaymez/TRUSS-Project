@@ -17,11 +17,11 @@
 ## 4. `.ai/` Kanonik Haritası (6 Dosya)
 | Dosya | Maks Satır | Amaç |
 | :--- | :---: | :--- |
-| `.ai/PROGRESS.md` | 120 | Canlı sprint, `FORGE-M0..M4` yol haritası, riskler ve 5 uzman panosu |
+| `.ai/PROGRESS.md` | 120 | Canlı sprint, `Faz C / V2.3` yol haritası, riskler ve durum |
 | `.ai/SWARM_PLAYBOOK.md` | 150 | `FORGE` işletim kılavuzu, Frozen Contract, ardışık/paralel akış, Caveman |
 | `.ai/ENGINEERING_GUARDRAILS.md` | 140 | `radix-luma`, RBAC, `422 SAYAC_KRONOLOJI_IHLALI`, çekirdek/UI sınırları |
-| `.ai/ARCHITECTURE_MAP.md` | 160 | Gerçek FE rotaları/modülleri, BE uçları, `18` PostgreSQL tablosu & indeksler |
-| `.ai/DECISIONS.md` | 180 | `ADR-01..29` kalıcı mimari kararlar (`P0-to-Rule` hafızası) |
+| `.ai/ARCHITECTURE_MAP.md` | 160 | Gerçek FE rotaları/modülleri, BE uçları, PostgreSQL şeması & indeksler |
+| `.ai/DECISIONS.md` | 180 | Kalıcı mimari kararlar (`ADR-*` / `P0-to-Rule` hafızası) |
 | `.ai/HANDOFF_TEMPLATE.md` | 60 | `FORGE` 5 uzman boot komutları ve Frozen Contract devir şablonu |
 | `.ai/archive/` | — | Arşivlenmiş eski planlar (`.aiignore` ile hariç tutulur) |
 

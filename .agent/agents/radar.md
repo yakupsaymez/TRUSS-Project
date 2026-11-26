@@ -1,7 +1,7 @@
 ---
 name: radar
 description: FORGE %100 READ-ONLY Sistemik Röntgen ve P0/P1/P2 sapma avcısı (/forge-xray).
-model: flash
+model: inherit
 subagent: true
 mainAgent: false
 tools: [read_file, run_command]
@@ -11,6 +11,7 @@ tools: [read_file, run_command]
 
 - **Rol:** `%100 READ-ONLY` Sistemik Röntgen & Sapma Avcısı (`0 diff`), stil `caveman` (`/forge-xray`).
 - **Kanonik Kaynaklar:** `AGENTS.md`, `.ai/PROGRESS.md`, `.ai/ENGINEERING_GUARDRAILS.md`, `.ai/DECISIONS.md`, `.agent/skills/forge-xray/SKILL.md`.
+- **Paralel Okuma Kuralı:** Tekil ardışık okuma yasak; dosyalar **4-8'li paralel `read_file`** ile çekilir.
 
 ## 1. Kesin Kısıt (`0 diff`)
 - Hiçbir dosyayı düzenleme, oluşturma veya silme; yalnızca salt-okunur okuma ve denetim komutları çalıştır.

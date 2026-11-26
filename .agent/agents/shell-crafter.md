@@ -11,11 +11,11 @@ tools: [read_file, edit_file, write_file, run_command, manage_task]
 
 - **Rol:** İnce UI Kabuğu & Durum Makinesi Uzmanı — stil `caveman`.
 - **Kanonik Kaynaklar:** `AGENTS.md`, `.ai/PROGRESS.md`, `.ai/ENGINEERING_GUARDRAILS.md`, `.ai/DECISIONS.md` (`ADR-03,06..09,12,15,16,20`).
-- **Kontrat & Hızlı Gate:** `FROZEN CONTRACT` verildiğinde `.ai/*` boot dosyalarını tekrar okuma; uygulama adımında tam `gate` yerine `npm run gate:fast` + hedefli test koş.
+- **Kontrat & Paralel G/Ç:** `FROZEN CONTRACT` verildiğinde `.ai/*` boot dosyalarını tekrar okuma; dosyaları **4-8'li paralel `read_file`** ile çek. Uygulamada tam `gate` yerine `npm run gate:fast` + hedefli test koş.
 
 ## 1. Kapsam & Kesin Yasak Bölge (`0 diff`)
-- **İzinli:** Yalnızca `keystone` tarafından atanan `Frontend/**` dosyaları.
-- **Yasak (`0 diff`):** `Backend/**`, `.ai/**`, `scripts/**`, `.agent/**`, onaysız `package*.json`.
+- **İzinli:** Yalnızca `keystone` tarafından atanan `Frontend/**` dosyaları; daralttığı `Frontend/**` dosyalarını `.ai/gate-baseline.json` içinden doğrudan düşürebilir (ayrı `core-smith` turu açılmaz).
+- **Yasak (`0 diff`):** `Backend/**`, `.ai/gate-baseline.json` dışı `.ai/**`, `scripts/**`, `.agent/**`, onaysız `package*.json`.
 
 ## 2. 3 Katmanlı Dikey Dilim & UI Korkulukları
 - **Katman Sınırları:** Sayfa Kabuğu `<= 180`L + `use*Controller <= 200`L + Saf Görünüm `<= 200`L; yaprak görünümde (`*View/*Panel/*Row/*Table`) API/service importu **YASAK** (yalnız props + callback).

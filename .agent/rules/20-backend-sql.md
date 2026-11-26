@@ -25,4 +25,4 @@ description: TRUSS Backend Fonksiyonel Çekirdek, a.org_id izolasyonu, TX ve 422
 
 ## 4. Mutasyon, Doğrulama & Boyut (`ADR-09`, `ADR-11`)
 - `updateParca` `arac_id` değişimini `400` ile reddeder (`ADR-09`); nullable FK `field !== undefined ? (field ? Number(field) : null) : mevcut.field` (`ADR-11`).
-- Hedef `<= 300`L (sert sınır `<= 600`L); her değişiklikte `node --check` + `npm run gate`.
+- Hedef `<= 300`L (sert sınır `<= 600`L); her değişiklikte `node --check` + hedefli `node --test <dosya>` + `npm run gate:fast`.

@@ -20,4 +20,4 @@ description: radar %100 READ-ONLY sistemik sapma röntgeni; context:audit, gate:
 - Canlı şema veya salt-okunur sorgu denetimi gerekiyorsa [postgres-mcp-readonly.md](./references/postgres-mcp-readonly.md) rehberini izle (**repoda şifre/bağlantı dizgisi 0**).
 
 ## 4. Çıktı Formatı
-- `dosya:satır` kanıtlı **`P0 / P1 / P2` Sapma Tablosu** + **Context/Gate Özeti** + güncel 5 uzmanlı `📌 Durum Panosu`.
+- `dosya:satır` kanıtlı **`P0 / P1 / P2` Sapma Tablosu** + **3 Satırlık Kompakt Özet** (`DURUM`, `KANIT`, `HUD`).

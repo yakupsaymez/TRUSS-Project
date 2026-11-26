@@ -75,10 +75,10 @@ function parseTranscript(rawText, onEvent) {
 }
 
 function gradeTurn(t) {
-  let env = { steps: 12, net: 22_000, usd: 0.28 };
-  if (t.browser_steps > 0 || t.hasBrowserTool) env = { steps: 22, net: 45_000, usd: 0.65 };
-  else if (t.subagents >= 2) env = { steps: 38, net: 80_000, usd: 1.15 };
-  else if (t.hasEditCmd) env = { steps: 18, net: 35_000, usd: 0.45 };
+  let env = { steps: 14, net: 95_000, usd: 0.45 };
+  if (t.browser_steps > 0 || t.hasBrowserTool) env = { steps: 28, net: 220_000, usd: 0.95 };
+  else if (t.subagents >= 2) env = { steps: 45, net: 320_000, usd: 1.35 };
+  else if (t.hasEditCmd) env = { steps: 24, net: 160_000, usd: 0.65 };
   const ratio = Math.max(t.steps / env.steps, (t.in + t.out) / env.net, t.turn_usd / env.usd);
   let idx = ratio <= 0.75 ? 0 : ratio <= 1.05 ? 1 : ratio <= 1.35 ? 2 : ratio <= 1.75 ? 3 : 4;
   if (t.steps >= 4 && (t.in + t.cache) >= 20_000 && t.cache / (t.in + t.cache) < 0.30) idx = Math.max(idx, 2);

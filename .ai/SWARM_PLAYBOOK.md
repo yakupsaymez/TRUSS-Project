@@ -3,19 +3,22 @@
 ## 1. Uzman Matrisi & Yasak Bölgeler
 | Uzman | Rol & Sorumluluk | Kesin Yasak Bölge (`0 diff`) | Model |
 | :--- | :--- | :--- | :--- |
-| **Keystone** | Baş Mimar (`READ-ONLY`, `/critic`, Frozen Contract) | **TÜM REPO** | `pro` |
-| **Core-Smith** | Fonksiyonel Çekirdek, Veri, TX/SQL & `/forge-seal` | `Frontend/**`, onaysız `package*.json`/baseline | `inherit` |
-| **Shell-Crafter** | İnce UI Kabuğu, 3 katmanlı dikey dilim & `radix-luma` | `Backend/**`, `.ai/**`, `scripts/**`, `.agent/**`, `package*.json` | `inherit` |
-| **Sentinel** | İzole Düşman QA & `forge-qa-browser` E2E (`READ-ONLY`) | **TÜM REPO** | `pro` |
-| **Radar** | Sistemik Röntgen & Sapma Avcısı (`/forge-xray`, `READ-ONLY`) | **TÜM REPO** | `flash` |
+| **Keystone** | Baş Mimar (`READ-ONLY`, `/critic`, Frozen Contract) | **TÜM REPO** | `inherit` |
+| **Core-Smith** | Fonksiyonel Çekirdek, Veri, TX/SQL, `<= 2` FE eki (kontratla) & `/forge-seal` | Onaysız `Frontend/**` / `package*.json` / baseline | `inherit` |
+| **Shell-Crafter** | İnce UI Kabuğu, 3 katmanlı dikey dilim & `radix-luma` | `Backend/**`, `.ai/gate-baseline.json` dışı `.ai/**`, `scripts/**`, `.agent/**`, `package*.json` | `inherit` |
+| **Sentinel** | İzole Düşman QA & hedefli `forge-qa-browser` E2E (`READ-ONLY`) | **TÜM REPO** | `inherit` |
+| **Radar** | Sistemik Röntgen & Sapma Avcısı (`/forge-xray`, `READ-ONLY`) | **TÜM REPO** | `inherit` |
 
-## 2. FORGE İş Akışı & Frozen Contract
-1. **Plan (`keystone`):** `Orchestrator` delege öncesi `0` dosya okur; tam `.ai/*` boot + `/critic` + **Frozen Contract** (`URL`, `Status`, `JSON Keys`, Enum, `DATA_SCOPES`) yalnız `keystone` içindir.
+## 2. FORGE İş Akışı, Paralel G/Ç & Dilim Yönlendirme
+1. **Plan (`keystone`):** `Orchestrator` `0` dosya okur; tam `.ai/*` boot + **4-8'li paralel `read_file`** (maks `12` hedef dosya) + `/critic` + **Frozen Contract** (`URL`, `Status`, `JSON Keys`, Enum, `DATA_SCOPES`) yalnız `keystone` içindir.
 2. **Onay (`STOP`):** Kullanıcı onayı olmadan yazma uzmanı başlatılmaz (`0 diff`).
-3. **Uygulama:** Ardışık `core-smith -> shell-crafter` (ayrık dosya/kontratta paralel); uzmanlar `.ai/*` tekrar okumaz, yalnız `npm run gate:fast` + ilgili tekil `node --test <dosya>` koşar (tam `gate` YASAK).
-4. **Adversarial QA (`sentinel`):** Çapraz kiracı, yarış, sızan TX, `forge-qa-browser` E2E + tam `npm run gate` (`1x`, `PASS`/`FAIL`, maks 2 döngü).
-5. **Mühürleme (`/forge-seal`):** Yalnız `PASS` sonrası `core-smith` `.ai/*` günceller, `context:audit --strict` doğrular ve atomik commit atar (manuel `npm run gate` koşmaz; `.githooks/pre-commit` `1x` çalıştırır).
+3. **Uygulama:** Uzmanlar `.ai/*` tekrar okumaz, tekil ardışık okuma yerine **4-8'li paralel `read_file`** kullanır ve yalnız `npm run gate:fast` + hedefli `node --test <dosya>` koşar. `FROZEN CONTRACT` yetkisiyle `<= 2` FE dosyası tek geçişte `core-smith` ile bağlanır; `>= 3` FE dosyasında ardışık `core-smith -> shell-crafter` çalışır. `shell-crafter` daralttığı `Frontend/**` satırlarını `.ai/gate-baseline.json`'dan düşebilir.
+4. **Adversarial QA (`sentinel`):** Yalnız **`1x npm run gate`** + **`1x npm run context:audit -- --strict`** koşar (mükerrer test/build yok). `Frontend/**` `0 diff` ise tarayıcı E2E yok; değişiklik varsa değişen rota/sheet üzerinde hedefli E2E (`<= 10` hedef, `15` tavan).
+5. **Mühürleme (`/forge-seal`):** Yalnız `PASS` sonrası `core-smith` `.ai/*` günceller, **`1x npm run context:audit -- --strict`** doğrular ve commit atar (`.githooks/pre-commit` `1x gate` koşar; push yalnız kullanıcı isterse).
 
-## 3. Caveman İletişim & `📌 Durum Panosu`
+## 3. Caveman İletişim & 3 Satırlık Kompakt Özet
 - **Caveman (`core-smith`, `shell-crafter`, `radar`) / Caveman Lite (`keystone`, `sentinel`):** Ultra-kısa, sıfır dolgu, madde/tablo odaklı; kod, SQL, path, hata kodu ve gate/audit çıktısı asla kısaltılmaz.
-- **Zorunlu Pano:** Her yanıt sonunda 5 uzman (`keystone`, `core-smith`, `shell-crafter`, `sentinel`, `radar`) için 5 sütunlu `📌 Durum Panosu` basılır (`| Uzman | Model / Güç | Şu An Ne Yapıyor | Hemen Şimdi Ne Yapmalı | İleride Ne Yapacak |`).
+- **Zorunlu Tur Sonu Özeti (3 Satır):**
+  1) `DURUM:` (`PLAN / QA PASS / COMMIT <hash>`) + değişen dosya özeti
+  2) `KANIT:` (`gate / test / context:audit` tek satır sonucu)
+  3) `HUD:` (`node scripts/forge-meter.mjs --dir <aktif-artifact-dizini>` tek satırlık `codeburn` çıktısı)

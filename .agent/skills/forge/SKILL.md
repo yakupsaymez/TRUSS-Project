@@ -10,21 +10,19 @@ description: FORGE 5 fazlı orkestrasyon; keystone/critic plan, onay, core-smith
 
 ## 5 Fazlı Deterministik Akış
 1. **Faz 1 — Plan & Sözleşme Kilidi (`READ-ONLY`, `0 diff`):**
-   - `keystone` ile hedefi cerrahi mikro-paketlere böl; zorunlu `/critic` (`.agent/skills/critic/SKILL.md`) Red-Team öz-denetimini çalıştır.
-   - **Frozen Contract** kilitle (`URL`, HTTP Method, `Status`, `JSON Keys`, Kanonik Enum, `DATA_SCOPES`).
-   - Çıktıda `İzinli Kapsam`, `Kesin Yasak Bölge`, `Frozen Contract`, `Kabul Kriterleri` ve `📌 Durum Panosu` sun.
+   - `keystone` ile **4-8'li paralel `read_file`** (maks `12` hedef dosya) + `/critic` öz-denetimi uygula.
+   - **Frozen Contract** kilitle (`URL`, Method, `Status`, `JSON Keys`, Enum, `DATA_SCOPES`), `İzinli Kapsam`, `Kesin Yasak Bölge` ve `Kabul Kriterleri` sun.
 2. **Faz 2 — Zorunlu Kullanıcı Onayı (`STOP`, `0 diff`):**
-   - Kullanıcı açık onay vermeden yazma uzmanı (`core-smith` / `shell-crafter`) başlatılmaz.
+   - Kullanıcı açık onay vermeden yazma uzmanı başlatılmaz.
 3. **Faz 3 — Uygulama (`invoke_subagent`):**
-   - **Ardışık Kural:** Yeni şema/iş kuralında zorunlu **`core-smith -> shell-crafter`** sırası izlenir.
-   - **Paralel Dalga:** Yalnız dondurulmuş kontratlı ve ayrık dosyalı refaktörde paralel çalıştırılır.
-   - Her uygulayıcı ilk satırda `COMMIT DURUMU: ATILMADI (QA bekleniyor)` basar ve tam doğrulama çıktılarını döndürür.
+   - `FROZEN CONTRACT` yetkisiyle `<= 2` FE dosyası tek geçişte `core-smith` ile bağlanır; `>= 3` FE dosyasında ardışık `core-smith -> shell-crafter` (ayrık refaktörde paralel). `shell-crafter` daralttığı `Frontend/**` satırlarını `.ai/gate-baseline.json`'dan düşebilir.
+   - Uygulayıcılar ilk satırda `COMMIT DURUMU: ATILMADI (QA bekleniyor)` basar, yalnız `npm run gate:fast` + hedefli test koşar.
 4. **Faz 4 — İzole Adversarial QA (`sentinel`, `READ-ONLY`):**
-   - Bağımsız `sentinel` kırılma/kiracı/yarış/gate denetimi yapar; UI değişikliğinde `forge-qa-browser` zorunludur.
-   - `QA KARARI: FAIL` -> bulgular ilgili uygulayıcıya (`send_message`) döner ve tekrar `sentinel` çalışır (maks 2 döngü, sonra kullanıcıya eskalasyon).
+   - `sentinel` yalnız **`1x npm run gate`** + **`1x npm run context:audit -- --strict`** koşar; `Frontend/**` `0 diff` ise E2E yok, değişiklik varsa hedefli `forge-qa-browser` (`<= 10` hedef, maks `15` adım). `FAIL` -> maks 2 döngü, sonra eskalasyon.
 5. **Faz 5 — Mühürleme (`/forge-seal`):**
-   - Yalnız `QA KARARI: PASS` sonrası `core-smith` (`/forge-seal`) ile `.ai/*` güncellenir, `context:audit --strict` + `gate` doğrulanır ve atomik commit atılır (`git push` yalnız kullanıcı isterse).
+   - Yalnız `PASS` sonrası `core-smith` `.ai/*` günceller, `1x npm run context:audit -- --strict` doğrular ve commit atar (`.githooks/pre-commit` `1x gate` koşar; push yalnız kullanıcı isterse).
 
-## Zorunlu Yanıt Sonu Panosu (`📌 Durum Panosu`)
-Her yanıt sonunda 5 uzman (`keystone`, `core-smith`, `shell-crafter`, `sentinel`, `radar`) için 5 sütunlu pano bas:
-`| Uzman | Model / Güç | Şu An Ne Yapıyor | Hemen Şimdi Ne Yapmalı | İleride Ne Yapacak |`
+## Zorunlu 3 Satırlık Kompakt Özet
+1. `DURUM:` (`PLAN / QA PASS / COMMIT <hash>`) + değişen dosya özeti
+2. `KANIT:` (`gate / test / context:audit` tek satır sonucu)
+3. `HUD:` (`node scripts/forge-meter.mjs --dir <aktif-artifact-dizini>` tek satırlık `codeburn` çıktısı)
