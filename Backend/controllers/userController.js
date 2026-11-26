@@ -100,6 +100,12 @@ const login = async (req, res) => {
     if (!passwordMatch) {
       return res.status(401).json({ message: 'Hatalı email veya şifre' });
     }
+    if (user.aktif_mi === false) {
+      return res.status(403).json({
+        code: 'ACCOUNT_DISABLED',
+        message: 'Hesabınız pasif duruma alınmıştır. Yöneticinizle iletişime geçin.',
+      });
+    }
 
     const payload = {
       user_id: user.user_id,

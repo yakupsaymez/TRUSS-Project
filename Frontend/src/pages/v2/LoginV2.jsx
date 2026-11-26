@@ -5,6 +5,7 @@ import { AlertCircle, Eye, EyeOff, Loader2, ShieldAlert } from 'lucide-react';
 import useAuthStore from '@/store/useAuthStore';
 import useVehicleStore from '@/store/useVehicleStore';
 import AuthFrame from '@/components/v2/AuthFrame';
+import LegalDocsModal from '@/components/v2/LegalDocsModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
@@ -25,6 +26,7 @@ export default function LoginV2() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [legalOpen, setLegalOpen] = useState(false);
 
   const handleEmailChange = (e) => {
     setEmail(e.target.value);
@@ -93,18 +95,28 @@ export default function LoginV2() {
   ) : null;
 
   const footerContent = (
-    <p className="text-center text-sm text-muted-foreground">
-      Hesabınız yok mu?{' '}
-      <Link
-        to="/register"
-        className="font-semibold text-foreground underline underline-offset-4 transition-colors hover:text-primary"
+    <div className="space-y-2 text-center">
+      <p className="text-sm text-muted-foreground">
+        Hesabınız yok mu?{' '}
+        <Link
+          to="/register"
+          className="font-semibold text-foreground underline underline-offset-4 transition-colors hover:text-primary"
+        >
+          Kayıt olun
+        </Link>
+      </p>
+      <button
+        type="button"
+        onClick={() => setLegalOpen(true)}
+        className="text-xs text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground"
       >
-        Kayıt olun
-      </Link>
-    </p>
+        KVKK, Gizlilik ve Hizmet Koşulları
+      </button>
+    </div>
   );
 
   return (
+    <>
     <AuthFrame
       title="Hesabınıza giriş yapın"
       description="Filo operasyon paneline devam etmek için bilgilerinizi girin."
@@ -206,5 +218,7 @@ export default function LoginV2() {
         </Button>
       </form>
     </AuthFrame>
+    <LegalDocsModal open={legalOpen} onOpenChange={setLegalOpen} />
+    </>
   );
 }

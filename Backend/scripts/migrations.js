@@ -1,5 +1,6 @@
 const { BASE_SCHEMA_SQL } = require('./baseSchemaSql');
 const { HANDOVER_SCHEMA_SQL } = require('./handoverSchemaSql');
+const { V25_FORTRESS_SCHEMA_SQL } = require('./v25FortressSchemaSql');
 
 const MIGRATIONS = [
   {
@@ -256,6 +257,10 @@ const MIGRATIONS = [
   {
     version: '010_v23_handover_inspection',
     sql: HANDOVER_SCHEMA_SQL,
+  },
+  {
+    version: '011_v25_support_and_account_fortress',
+    sql: V25_FORTRESS_SCHEMA_SQL,
   },
 ];
 

@@ -18,7 +18,7 @@ const getOrgUsers = async (req, res) => {
     }
     const query = `
       SELECT
-        u.user_id, u.ad_soyad, u.email, u.telefon, u.role, u.yetkiler, u.org_id, u.kayit_tarihi,
+        u.user_id, u.ad_soyad, u.email, u.telefon, u.role, u.yetkiler, u.org_id, u.aktif_mi, u.kayit_tarihi,
         COALESCE(
           json_agg(
             json_build_object(

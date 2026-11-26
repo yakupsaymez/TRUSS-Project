@@ -24,7 +24,7 @@ const authMiddleware = async (req, res, next) => { // Korunan rotalar için asyn
     }
 
     const result = await pool.query( // Güncel rol ve yetkiyi DB'den okur (yeniden giriş gerekmez).
-      'SELECT user_id, email, org_id, role, yetkiler, token_version FROM users WHERE user_id = $1',
+      'SELECT user_id, email, org_id, role, yetkiler, token_version, aktif_mi FROM users WHERE user_id = $1',
       [decoded.user_id]
     );
 
@@ -33,6 +33,12 @@ const authMiddleware = async (req, res, next) => { // Korunan rotalar için asyn
     }
 
     const row = result.rows[0]; // DB'deki güncel kullanıcı kaydını alır.
+    if (row.aktif_mi === false) {
+      return res.status(403).json({
+        code: 'ACCOUNT_DISABLED',
+        message: 'Hesabınız pasif duruma alınmıştır. Yöneticinizle iletişime geçin.',
+      });
+    }
     if (Number(decoded.tv ?? 0) !== Number(row.token_version ?? 0)) {
       return res.status(401).json({ message: 'Oturum geçersiz kılındı', code: 'TOKEN_REVOKED' });
     }

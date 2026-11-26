@@ -4,6 +4,7 @@ import {
   ChevronDown,
   ChevronsUpDown,
   LaptopMinimal,
+  LifeBuoy,
   LogOut,
   Moon,
   Settings,
@@ -55,6 +56,7 @@ export default function AppShellSidebar({
   theme,
   setTheme,
   onNavigate,
+  onOpenSupport,
   onLogout,
 }) {
   return (
@@ -161,6 +163,18 @@ export default function AppShellSidebar({
       </SidebarContent>
 
       <SidebarFooter className="border-t border-border bg-background p-3">
+        <SidebarMenu className="mb-1">
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              type="button"
+              tooltip="Destek & Geri Bildirim"
+              onClick={onOpenSupport}
+            >
+              <LifeBuoy className="size-4" />
+              <span>Destek & Geri Bildirim</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton

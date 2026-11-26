@@ -83,6 +83,7 @@ export function useAppShellState() {
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [vehicleSheetOpen, setVehicleSheetOpen] = useState(false);
+  const [supportSheetOpen, setSupportSheetOpen] = useState(false);
   const [movementSheetState, setMovementSheetState] = useState({
     open: false,
     initialTip: 'YAKIT',
@@ -224,6 +225,8 @@ export function useAppShellState() {
     setPaletteOpen,
     vehicleSheetOpen,
     setVehicleSheetOpen,
+    supportSheetOpen,
+    setSupportSheetOpen,
     movementSheetState,
     setMovementSheetState,
     componentSheetState,

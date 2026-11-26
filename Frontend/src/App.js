@@ -5,8 +5,10 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { Skeleton } from '@/components/ui/skeleton';
 import useAuthStore from '@/store/useAuthStore';
 import ChannelGuard from '@/components/v2/ChannelGuard';
+import ErrorBoundary from '@/components/v2/ErrorBoundary';
 
 const HomePage = lazy(() => import('@/pages/HomePage'));
+const NotFoundV2 = lazy(() => import('@/pages/v2/NotFoundV2'));
 const AppShell = lazy(() => import('@/components/v2/AppShell'));
 const GenelBakis = lazy(() => import('@/pages/v2/GenelBakis'));
 const Filo = lazy(() => import('@/pages/v2/Filo'));
@@ -57,7 +59,8 @@ function ProtectedRoute({ children }) {
 function App() {
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <Router>
+      <ErrorBoundary>
+        <Router>
         <Toaster
           position="top-right"
           toastOptions={{
@@ -147,17 +150,11 @@ function App() {
               <Route path="ayarlar" element={<Ayarlar />} />
               <Route path="*" element={<Navigate to="/app" replace />} />
             </Route>
-            <Route
-              path="*"
-              element={
-                <ProtectedRoute>
-                  <Navigate to="/app" replace />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="*" element={<NotFoundV2 />} />
           </Routes>
         </Suspense>
       </Router>
+      </ErrorBoundary>
     </ThemeProvider>
   );
 }

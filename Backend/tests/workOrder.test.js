@@ -37,9 +37,11 @@ describe('FORGE Work Orders (is_emirleri) E2E Tests', () => {
     mgrA = await createTestUser({ orgId: orgA.org_id, role: 'FLEET_MANAGER', tag: 'woMgrA' });
     const mgrB = await createTestUser({ orgId: orgB.org_id, role: 'FLEET_MANAGER', tag: 'woMgrB' });
     drvA = await createTestUser({ orgId: orgA.org_id, role: 'DRIVER', tag: 'woDrvA', yetkiler: { bakim: false } });
+    const drvSmh = await createTestUser({ orgId: orgA.org_id, role: 'DRIVER', tag: 'woDrvSmh', yetkiler: { bakim: false } });
     tokMgrA = (await loginUser(srv.baseUrl, mgrA.email)).body.token;
     const tokMgrB = (await loginUser(srv.baseUrl, mgrB.email)).body.token;
     tokDrvA = (await loginUser(srv.baseUrl, drvA.email)).body.token;
+    const tokDrvSmh = (await loginUser(srv.baseUrl, drvSmh.email)).body.token;
 
     aracAssigned = await addArac(tokMgrA, { plaka: '34WO0001', marka: 'Ford', model: 'Transit', yil: 2024, guncel_km: 1000, sayac_tipi: 'KM' });
     aracUnassigned = await addArac(tokMgrA, { plaka: '34WO0002', marka: 'Fiat', model: 'Doblo', yil: 2024, guncel_km: 2000, sayac_tipi: 'KM' });
@@ -47,9 +49,10 @@ describe('FORGE Work Orders (is_emirleri) E2E Tests', () => {
     aracOrgB = await addArac(tokMgrB, { plaka: '34WOB001', marka: 'Renault', model: 'Master', yil: 2024, guncel_km: 500, sayac_tipi: 'KM' });
 
     await pool.query(
-      `INSERT INTO arac_sofor_atamalari (arac_id, sofor_user_id, aktif) VALUES ($1, $2, TRUE), ($3, $2, TRUE)`,
-      [aracAssigned, drvA.user_id, aracSmh]
+      `INSERT INTO arac_sofor_atamalari (arac_id, sofor_user_id, aktif) VALUES ($1, $2, TRUE), ($3, $4, TRUE)`,
+      [aracAssigned, drvA.user_id, aracSmh, drvSmh.user_id]
     );
+    srv._tokDrvSmh = tokDrvSmh;
     await pool.query(
       `INSERT INTO parca_takip (arac_id, parca_adi, son_degisim_km, degisim_araligi_km, son_degisim_tarihi)
        VALUES ($1, 'Motor Yağı', 500, 10000, '2025-12-01') ON CONFLICT (arac_id, parca_adi) DO NOTHING`,
@@ -180,7 +183,7 @@ describe('FORGE Work Orders (is_emirleri) E2E Tests', () => {
 
   it('4) SMH ondalikli tamamlama + Promise.all eszamanli cift tamamlama + arsivleme oto-iptal', async () => {
     const smhWo = await requestJson(srv.baseUrl, '/api/is-emirleri', {
-      method: 'POST', token: tokDrvA, body: { arac_id: aracSmh, baslik: 'Hidrolik kontrol' },
+      method: 'POST', token: srv._tokDrvSmh, body: { arac_id: aracSmh, baslik: 'Hidrolik kontrol' },
     });
     const smhId = smhWo.body.is_emri.is_emri_id;
     const [r1, r2] = await Promise.all([

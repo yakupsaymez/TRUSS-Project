@@ -5,6 +5,7 @@ const {
   updateUserPermissions,
   resetUserPassword,
 } = require('./admin/adminUserController');
+const { updateUserStatus } = require('./admin/adminUserStatusController');
 
 const {
   assignVehicleToDriver,
@@ -20,6 +21,7 @@ module.exports = {
   updateUserRole,
   updateUserPermissions,
   resetUserPassword,
+  updateUserStatus,
   unassignVehicle,
   getOrganization,
   updateOrganization,

@@ -60,7 +60,7 @@ describe('FORGE-D4: V2.4-SEAL Finans Maskeleme, IDOR & Arşiv Matrisi (ADR-37)',
       [arac1Id, driver1.user_id]
     );
     const atamaRes = await pool.query(
-      `INSERT INTO arac_sofor_atamalari (arac_id, sofor_user_id, aktif) VALUES ($1, $2, TRUE) RETURNING atama_id`,
+      `INSERT INTO arac_sofor_atamalari (arac_id, sofor_user_id, aktif) VALUES ($1, $2, FALSE) RETURNING atama_id`,
       [arsivAracId, driver1.user_id]
     );
     arsivAtamaId = atamaRes.rows[0].atama_id;

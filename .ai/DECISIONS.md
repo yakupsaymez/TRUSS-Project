@@ -79,3 +79,5 @@
 - **2026-11-26:** 12 vektörlük E0 röntgeni `X-Request-Id`/steril `500` eksikliği, `TRUST_PROXY=true` prod zafiyeti, `bakim/yakit` `SYSTEM_ADMIN` çapraz-kiracı taşıma, çift sürücü zimmet yarışı ve `notifyWorkOrderRequester` kiracı sızıntısı açıklarını tespit etti.
 ### ADR-39: Request-Id, Steril `errorHandler`, `TRUST_PROXY` & Çapraz-Kiracı/Zimmet Kilidi (`FORGE-E1`)
 - **2026-11-26:** `requestIdMiddleware` + steril 4-arg `errorHandler`/`apiNotFoundHandler` + `100kb` JSON; `parseTrustProxy` prod'da `'true'` yasaklar (`1..5`/IP/CIDR); `bakim/yakit` `CROSS_TENANT_FORBIDDEN`; `assignVehicleTx` `DRIVER_ALREADY_ASSIGNED`; `notifyWorkOrderRequester` org eşleşmesi.
+### ADR-40: `geri_bildirimler`, `users.aktif_mi`, Tek-Zimmet & Destek/Yasal Kabuk (`FORGE-E2`)
+- **2026-11-26:** `011` `geri_bildirimler` (20. tablo), `users.aktif_mi` (`403 ACCOUNT_DISABLED` -> oturum temizle `/login?reason=expired`), `uq_sofor_tek_aktif_zimmet`, `SupportFeedbackSheet` (`DATA_SCOPES.SUPPORT`, `getLastRequestId`), `ErrorBoundary`, `NotFoundV2`, `LegalDocsModal`, `CorporateContactCard` (`supportConfig` boşsa nötr).

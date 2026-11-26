@@ -12,6 +12,7 @@ const CommandPalette = lazy(() => import('@/components/v2/CommandPalette'));
 const MovementSheet = lazy(() => import('@/components/v2/MovementSheet'));
 const ComponentSheet = lazy(() => import('@/components/v2/ComponentSheet'));
 const VehicleSheet = lazy(() => import('@/components/v2/VehicleSheet'));
+const SupportFeedbackSheet = lazy(() => import('@/components/v2/SupportFeedbackSheet'));
 
 export default function AppShell() {
   const {
@@ -33,6 +34,8 @@ export default function AppShell() {
     setPaletteOpen,
     vehicleSheetOpen,
     setVehicleSheetOpen,
+    supportSheetOpen,
+    setSupportSheetOpen,
     movementSheetState,
     setMovementSheetState,
     componentSheetState,
@@ -69,6 +72,7 @@ export default function AppShell() {
             theme={theme}
             setTheme={setTheme}
             onNavigate={navigate}
+            onOpenSupport={() => setSupportSheetOpen(true)}
             onLogout={handleLogout}
           />
 
@@ -158,6 +162,13 @@ export default function AppShell() {
             araclar={araclar}
             defaultAracId={seciliAracId}
             onSuccess={() => notifyDataChanged(DATA_SCOPES.COMPONENT)}
+          />
+        )}
+        {supportSheetOpen && (
+          <SupportFeedbackSheet
+            open={supportSheetOpen}
+            onOpenChange={setSupportSheetOpen}
+            role={role}
           />
         )}
       </Suspense>

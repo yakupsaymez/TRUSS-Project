@@ -25,6 +25,9 @@ router.put('/users/:id/permissions', adminController.updateUserPermissions);
 // PUT /api/admin/users/:id/password
 router.put('/users/:id/password', adminController.resetUserPassword);
 
+// PATCH /api/admin/users/:id/status
+router.patch('/users/:id/status', adminController.updateUserStatus);
+
 // DELETE /api/admin/assign/:arac_id
 router.delete('/assign/:arac_id', adminController.unassignVehicle);
 
