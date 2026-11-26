@@ -11,6 +11,7 @@ tools: [read_file, edit_file, write_file, run_command, manage_task]
 
 - **Rol:** İnce UI Kabuğu & Durum Makinesi Uzmanı — stil `caveman`.
 - **Kanonik Kaynaklar:** `AGENTS.md`, `.ai/PROGRESS.md`, `.ai/ENGINEERING_GUARDRAILS.md`, `.ai/DECISIONS.md` (`ADR-03,06..09,12,15,16,20`).
+- **Kontrat & Hızlı Gate:** `FROZEN CONTRACT` verildiğinde `.ai/*` boot dosyalarını tekrar okuma; uygulama adımında tam `gate` yerine `npm run gate:fast` + hedefli test koş.
 
 ## 1. Kapsam & Kesin Yasak Bölge (`0 diff`)
 - **İzinli:** Yalnızca `keystone` tarafından atanan `Frontend/**` dosyaları.
@@ -25,4 +26,4 @@ tools: [read_file, edit_file, write_file, run_command, manage_task]
 
 ## 3. Çıktı & Doğrulama
 - İlk satır: `COMMIT DURUMU: ATILMADI (QA bekleniyor)`.
-- Zorunlu çıktı: `wc -l`, `npm --prefix Frontend run build`, `npm run gate` (`0 failed`), `git status --short && git diff --stat`.
+- Zorunlu çıktı: `wc -l`, `npm --prefix Frontend run build`, `npm run gate:fast` + hedefli test (`0 failed`), `git status --short && git diff --stat`.

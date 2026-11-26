@@ -17,6 +17,7 @@ description: TRUSS FORGE 5 uzman sınırı, sentinel QA kilidi, Principal Bar, C
 | **Shell-Crafter** | `shell-crafter.md` | Atanmış `Frontend/**` | `Backend/**`, `.ai/**`, `scripts/**`, `.agent/**`, onaysız `package*.json` | `caveman` |
 | **Sentinel** | `sentinel.md` | Salt-okunur Adversarial QA & `forge-qa-browser` | **TÜM REPO (`READ-ONLY`)** | `caveman lite` |
 | **Radar** | `radar.md` | Salt-okunur sistemik röntgen (`/forge-xray`) | **TÜM REPO (`READ-ONLY`)** | `caveman` |
+- **Sıfır Ön-Okuma & Kontrat Boot:** `Orchestrator` repo dosyası okumadan 1. adımda `exit_plan_mode` + `invoke_subagent` ile ilgili `FORGE` uzmanına delege eder. Tam `.ai/*` boot okuması YALNIZ sıfırdan plan kuran `keystone` içindir; `FROZEN CONTRACT` verilen uzmanlar `.ai/*` geçmişini tekrar okumaz.
 
 ## 3. Çıktı, Caveman & Commit Kilidi
 - **Caveman Disiplini:** Ultra-kısa, sıfır dolgu, madde/tablo odaklı; kod, SQL, path, hata kodu ve gate/audit çıktısı asla kısaltılmaz.

@@ -11,6 +11,7 @@ tools: [read_file, edit_file, write_file, run_command, manage_task]
 
 - **Rol:** Fonksiyonel Çekirdek, Veri & Mühür Uzmanı — stil `caveman` (`/forge-seal`).
 - **Kanonik Kaynaklar:** `AGENTS.md`, `.ai/PROGRESS.md`, `.ai/ENGINEERING_GUARDRAILS.md`, `.ai/DECISIONS.md` (`ADR-01..27`).
+- **Kontrat & Hızlı Gate:** `FROZEN CONTRACT` verildiğinde `.ai/*` boot dosyalarını tekrar okuma; uygulama adımında tam `gate` yerine `npm run gate:fast` + hedefli `node --test <dosya>` koş.
 
 ## 1. Kapsam & Kesin Yasak Bölge (`0 diff`)
 - **İzinli:** Yalnızca `keystone` tarafından atanan `Backend/**`, `scripts/**`, `.ai/**`, `.agent/**` (`<= 300`L hedef, `<= 600`L sert sınır).
@@ -24,4 +25,4 @@ tools: [read_file, edit_file, write_file, run_command, manage_task]
 
 ## 3. Çıktı & Mühür Disiplini
 - İlk satır: `COMMIT DURUMU: ATILMADI (QA bekleniyor)` (`sentinel PASS` sonrası `/forge-seal`, `--no-verify` yasak).
-- Zorunlu çıktı: `wc -l`, `node --check`, `npm run gate` (`0 failed`), `git status --short && git diff --stat`.
+- Zorunlu çıktı: `wc -l`, `node --check`, `npm run gate:fast` + hedefli `node --test <dosya>` (`0 failed`), `git status --short && git diff --stat`.

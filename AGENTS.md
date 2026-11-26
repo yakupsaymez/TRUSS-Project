@@ -8,8 +8,8 @@
   - **BE:** Fonksiyonel Çekirdek (`req/res`-bağımsız `fn(client, actor, input)` + `AppError`) + İnce Controller Kabuğu (`<= 90`L).
   - **FE:** 3 Katmanlı Dikey Dilim (`Sayfa <= 180`L + `use*Controller <= 200`L + `Saf Görünüm <= 200`L; yaprakta API importu yasak) + `radix-luma` OKLCH.
 
-## 2. Zorunlu Boot Protokolü (Her Oturum Başlangıcı)
-İşlem öncesi sırayla oku: `AGENTS.md` -> `.ai/PROGRESS.md` -> `.ai/SWARM_PLAYBOOK.md` -> `.ai/ENGINEERING_GUARDRAILS.md` -> `.ai/DECISIONS.md` (`ADR-01..29`).
+## 2. Kontrat-Bazlı Boot & Tekil Gate
+`Orchestrator` delege öncesi `0` dosya okur; tam `.ai/*` boot (`AGENTS.md` -> `.ai/PROGRESS.md` -> `.ai/SWARM_PLAYBOOK.md` -> `.ai/ENGINEERING_GUARDRAILS.md` -> `.ai/DECISIONS.md`) yalnız sıfırdan plan kuran `keystone` içindir (`FROZEN CONTRACT` uzmanları `.ai/*` tekrar okumaz). Uygulamada yalnız `npm run gate:fast` + ilgili tekil `node --test <dosya>` koşulur; tam `npm run gate` yalnız `sentinel` (`1x`) + `.githooks/pre-commit` (`1x`) içindedir (`/forge-seal` manuel `gate` koşmaz).
 
 ## 3. FORGE Topolojisi (5 Uzman — Rol Tablosu: `.agent/rules/00-truss-core.md`)
 - `keystone` (Baş Mimar, `READ-ONLY`), `core-smith` (BE/Veri/Mühür), `shell-crafter` (FE/UI Kabuk), `sentinel` (Düşman QA, `READ-ONLY`), `radar` (Sistemik Röntgen, `READ-ONLY`).

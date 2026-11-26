@@ -21,16 +21,20 @@ function parseArgs(argv) {
   return o;
 }
 
+const DEC_1_MS = Date.parse('2026-12-01T00:00:00Z');
 const toMs = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : (v ? Date.parse(v) || 0 : 0));
 const fmtTok = (n) => (n < 1000 ? String(Math.round(n)) : n < 1e6 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : `${(n / 1e6).toFixed(2)}M`);
 const fmtUsd = (u) => (u > 0 && u < 0.01 ? u.toFixed(4) : u.toFixed(2));
 
-function stepCost(model, inp, cache, out, stepCtx) {
+function stepCost(model, inp, cache, out, tsMs = 0) {
   const m = String(model || '');
-  const p = /flash/i.test(m) ? { i: 0.30, c: 0.075, o: 2.50 }
-    : /sonnet/i.test(m) ? { i: 3.00, c: 0.30, o: 15.00 }
-      : /opus/i.test(m) ? { i: 5.00, c: 0.50, o: 25.00 }
-        : stepCtx <= 200_000 ? { i: 1.25, c: 0.3125, o: 10.00 } : { i: 2.50, c: 0.625, o: 15.00 };
+  const p = /carbon|argon/i.test(m)
+    ? (tsMs >= DEC_1_MS ? { i: 4.00, c: 0.20, o: 20.00 } : { i: 2.00, c: 0.10, o: 10.00 })
+    : /hydrogen/i.test(m) ? { i: 1.50, c: 0.075, o: 7.50 }
+      : /flash/i.test(m) ? { i: 0.30, c: 0.075, o: 2.50 }
+        : /sonnet/i.test(m) ? { i: 2.00, c: 0.20, o: 10.00 }
+          : /opus/i.test(m) ? { i: 4.00, c: 0.40, o: 20.00 }
+            : { i: 3.00, c: 0.15, o: 15.00 };
   return (inp * p.i + cache * p.c + out * p.o) / 1_000_000;
 }
 
@@ -50,7 +54,7 @@ function applyStep(turn, ev) {
   const stepCtx = inp + cache;
   turn.in += inp; turn.cache += cache; turn.out += out;
   turn.ctx = Math.max(turn.ctx, stepCtx); turn.steps += 1;
-  turn.turn_usd += stepCost(ev.model, inp, cache, out, stepCtx);
+  turn.turn_usd += stepCost(ev.model, inp, cache, out, toMs(ev.created_at));
   for (const name of tool_names) {
     if (/browser/i.test(name)) turn.hasBrowserTool = true;
     if (EDIT_RE.test(name)) turn.hasEditCmd = true;
@@ -141,7 +145,7 @@ function analyzeConv(convDir, dirMtimeMs) {
       for (let i = 0; i < cands.length && subRaw === null; i += 1) subRaw = readOptional(cands[i], i === cands.length - 1 || path.isAbsolute(cands[i]));
       if (subRaw !== null) skipped_lines += parseTranscript(subRaw, (ev) => applyStep(target, ev));
       else if ((Number(m.input_tokens) || 0) + (Number(m.cache_read_tokens) || 0) + (Number(m.output_tokens) || 0) > 0) {
-        applyStep(target, { model: m.model || null, input_tokens: Number(m.input_tokens) || 0, cache_read_tokens: Number(m.cache_read_tokens) || 0, output_tokens: Number(m.output_tokens) || 0, tool_names: [] });
+        applyStep(target, { created_at: m.created_at || m.started_at || null, model: m.model || null, input_tokens: Number(m.input_tokens) || 0, cache_read_tokens: Number(m.cache_read_tokens) || 0, output_tokens: Number(m.output_tokens) || 0, tool_names: [] });
       }
     }
   }

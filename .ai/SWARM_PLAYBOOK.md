@@ -10,11 +10,11 @@
 | **Radar** | Sistemik Röntgen & Sapma Avcısı (`/forge-xray`, `READ-ONLY`) | **TÜM REPO** | `flash` |
 
 ## 2. FORGE İş Akışı & Frozen Contract
-1. **Plan (`keystone`):** `/critic` Red-Team öz-denetimi + **Frozen Contract** (`URL`, `Status`, `JSON Keys`, Enum, `DATA_SCOPES`).
+1. **Plan (`keystone`):** `Orchestrator` delege öncesi `0` dosya okur; tam `.ai/*` boot + `/critic` + **Frozen Contract** (`URL`, `Status`, `JSON Keys`, Enum, `DATA_SCOPES`) yalnız `keystone` içindir.
 2. **Onay (`STOP`):** Kullanıcı onayı olmadan yazma uzmanı başlatılmaz (`0 diff`).
-3. **Uygulama:** Yeni şema/iş kuralında zorunlu **ardışık `core-smith -> shell-crafter`**; yalnız dondurulmuş kontrat + ayrık dosyalı refaktörde **paralel dalga**.
-4. **Adversarial QA (`sentinel`):** Çapraz kiracı, yarış, sızan TX, `forge-qa-browser` E2E (`PASS`/`FAIL`, maks 2 döngü).
-5. **Mühürleme (`/forge-seal`):** Yalnız `PASS` sonrası `core-smith` `.ai/*` günceller, `context:audit --strict` + `gate` doğrular ve atomik commit atar.
+3. **Uygulama:** Ardışık `core-smith -> shell-crafter` (ayrık dosya/kontratta paralel); uzmanlar `.ai/*` tekrar okumaz, yalnız `npm run gate:fast` + ilgili tekil `node --test <dosya>` koşar (tam `gate` YASAK).
+4. **Adversarial QA (`sentinel`):** Çapraz kiracı, yarış, sızan TX, `forge-qa-browser` E2E + tam `npm run gate` (`1x`, `PASS`/`FAIL`, maks 2 döngü).
+5. **Mühürleme (`/forge-seal`):** Yalnız `PASS` sonrası `core-smith` `.ai/*` günceller, `context:audit --strict` doğrular ve atomik commit atar (manuel `npm run gate` koşmaz; `.githooks/pre-commit` `1x` çalıştırır).
 
 ## 3. Caveman İletişim & `📌 Durum Panosu`
 - **Caveman (`core-smith`, `shell-crafter`, `radar`) / Caveman Lite (`keystone`, `sentinel`):** Ultra-kısa, sıfır dolgu, madde/tablo odaklı; kod, SQL, path, hata kodu ve gate/audit çıktısı asla kısaltılmaz.
