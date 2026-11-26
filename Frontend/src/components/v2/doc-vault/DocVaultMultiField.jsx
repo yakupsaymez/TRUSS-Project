@@ -19,6 +19,7 @@ export default function DocVaultMultiField({
   id = 'doc-vault-multi',
   label = 'Ek Belgeler',
   hint = 'En fazla 5 dosya · PDF, JPG, PNG veya WebP (maks. 10 MB)',
+  accept = ACCEPT_ATTR,
   maxFiles = 5,
   items = [],
   uploading = false,
@@ -55,7 +56,7 @@ export default function DocVaultMultiField({
         ref={inputRef}
         id={id}
         type="file"
-        accept={ACCEPT_ATTR}
+        accept={accept}
         disabled={disabled || uploading || !canAddMore}
         onChange={handleFileChange}
         className="sr-only"

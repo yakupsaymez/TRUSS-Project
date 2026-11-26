@@ -7,6 +7,7 @@ export const DATA_SCOPES = Object.freeze({
   BUDGET: 'budget',
   FUEL_ANOMALY: 'fuel-anomaly',
   WORK_ORDER: 'work-order',
+  HANDOVER: 'handover',
 });
 
 const VALID_SCOPES = new Set(Object.values(DATA_SCOPES));

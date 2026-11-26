@@ -4,62 +4,22 @@ const AppError = require('../utils/AppError');
 const { bugunTR } = require('../utils/dateUtils');
 const { buildVehicleAccessFilter } = require('../middlewares/rbacMiddleware');
 const { resolveDocVaultConfig } = require('../utils/validateEnv');
-const { presignPutObject, presignGetObject, sanitizeDispositionFilename } = require('../utils/s3Presigner');
-const { createLocalPutUrl, createLocalGetUrl, assertLocalFileUploaded } = require('../utils/localVaultDriver');
-const { ALLOWED_MIME_EXT, MAX_FILE_BYTES, WORKORDER_MAX_DOCS, isVaultKey, isPresignedUrl } = require('../utils/docVaultSchema');
-
-const isMgr = (a) => a?.role === 'SYSTEM_ADMIN' || a?.role === 'FLEET_MANAGER';
-const hasPermission = (a, key) => isMgr(a) || a?.yetkiler?.[key] === true;
-const hasFinanceAccess = (a) => isMgr(a) || a?.yetkiler?.finans === true;
-const assertActor = (a) => { if (!a?.user_id) throw new AppError(401, 'TOKEN_MISSING', 'Oturum bulunamadı.'); };
-const requireVaultDriver = () => {
-  const cfg = resolveDocVaultConfig(process.env);
-  if (cfg.driver === 'disabled') throw new AppError(503, 'DOC_VAULT_NOT_CONFIGURED', 'Belge kasası yapılandırılmamış.');
-  return cfg;
-};
-const assertNotArchivedDoc = (arac, islem = 'işlem yapılamaz') => {
-  if (arac?.arsivlendi_mi) throw new AppError(409, 'VEHICLE_ARCHIVED', `Arşivlenmiş araçta belge ${islem}.`);
-};
-const assertVehicleAccess = async (client, actor, aracId) => {
-  const { clause, params } = buildVehicleAccessFilter(actor, 2);
-  const res = await client.query(`SELECT a.arac_id, a.org_id, a.plaka, a.arsivlendi_mi FROM araclar a WHERE a.arac_id = $1 AND (${clause})`, [aracId, ...params]);
-  if (res.rowCount === 0) throw new AppError(403, 'FORBIDDEN_VEHICLE_ACCESS', 'Bu araca erişim yetkiniz yoktur.');
-  return res.rows[0];
-};
-const assertWoDocCapacity = async (client, woId, addCount = 1) => {
-  const cnt = await client.query("SELECT COUNT(*)::int AS c FROM belge_kasasi WHERE varlik_tipi = 'is_emri' AND varlik_id = $1 AND durum = 'aktif'", [woId]);
-  if (cnt.rows[0].c + addCount > WORKORDER_MAX_DOCS) throw new AppError(422, 'WORKORDER_DOC_LIMIT_EXCEEDED', 'İş emrine en fazla 5 belge eklenebilir.');
-};
-const lockParentEntity = async (client, varlikTipi, varlikId) => {
-  if (varlikTipi === 'is_emri') {
-    const r = await client.query('SELECT is_emri_id, org_id, arac_id, acan_user_id, durum FROM is_emirleri WHERE is_emri_id = $1 FOR UPDATE', [varlikId]);
-    if (r.rowCount === 0) throw new AppError(404, 'WORKORDER_NOT_FOUND', 'İş emri bulunamadı.');
-    if (r.rows[0].durum === 'tamamlandi' || r.rows[0].durum === 'iptal') throw new AppError(409, 'WORKORDER_ALREADY_CLOSED', 'Kapalı iş emri değiştirilemez.');
-    return r.rows[0];
-  }
-  const tbl = varlikTipi === 'yakit' ? 'yakitlar' : 'bakimlar';
-  const col = varlikTipi === 'yakit' ? 'yakit_id' : 'bakim_id';
-  const r = await client.query(`SELECT ${col} AS id, arac_id, olusturan_user_id, belge_url FROM ${tbl} WHERE ${col} = $1 FOR UPDATE`, [varlikId]);
-  if (r.rowCount === 0) throw new AppError(404, 'RECORD_NOT_FOUND', 'Hedef kayıt bulunamadı.');
-  return r.rows[0];
-};
-const signPutUrl = (cfg, { baseUrl, key, mime, boyut }) => (cfg.driver === 's3'
-  ? presignPutObject({ ...cfg.s3, key, contentType: mime, expiresIn: 300 })
-  : createLocalPutUrl({ baseUrl, key, contentType: mime, contentLength: boyut, expiresIn: 300 }));
-const signGetUrl = (cfg, { baseUrl, row, indir }) => {
-  const safeName = sanitizeDispositionFilename(row.orijinal_ad);
-  const mode = indir ? 'attachment' : 'inline';
-  return cfg.driver === 's3'
-    ? presignGetObject({ ...cfg.s3, key: row.nesne_anahtari, disposition: mode, filename: safeName, expiresIn: 300 })
-    : createLocalGetUrl({ baseUrl, key: row.nesne_anahtari, contentType: row.mime_tipi, disposition: `${mode}; filename="${safeName}"`, expiresIn: 300 });
-};
+const { assertLocalFileUploaded } = require('../utils/localVaultDriver');
+const { ALLOWED_MIME_EXT, HANDOVER_MIME_EXT, MAX_FILE_BYTES, isVaultKey, isPresignedUrl } = require('../utils/docVaultSchema');
+const {
+  isMgr, hasPermission, hasFinanceAccess, assertActor, requireVaultDriver, assertNotArchivedDoc,
+  assertVehicleAccess, assertWoDocCapacity, assertHandoverDocCapacity, lockParentEntity, signPutUrl, signGetUrl,
+} = require('./docVaultHelpers');
 
 const requestUploadUrlTx = async (client, actor, input, { baseUrl = '' } = {}) => {
   assertActor(actor);
   const cfg = requireVaultDriver();
+  const varlikTipi = input.varlik_tipi;
   const mime = String(input.mime_tipi || '').trim().toLowerCase();
-  const ext = ALLOWED_MIME_EXT[mime];
-  if (!ext) throw new AppError(400, 'INVALID_MIME_TYPE', 'Desteklenmeyen dosya türü.');
+  const ext = varlikTipi === 'zimmet' ? HANDOVER_MIME_EXT[mime] : ALLOWED_MIME_EXT[mime];
+  if (!ext) {
+    throw new AppError(400, 'INVALID_MIME_TYPE', varlikTipi === 'zimmet' ? 'Zimmet muayenesi için yalnızca JPG, PNG veya WEBP görseli yüklenebilir.' : 'Desteklenmeyen dosya türü.');
+  }
   const boyut = Number(input.boyut_bayt);
   if (!Number.isInteger(boyut) || boyut < 1 || boyut > MAX_FILE_BYTES) {
     throw new AppError(400, 'INVALID_FILE_SIZE', 'Dosya boyutu 1 bayt ile 10 MB arasında olmalıdır.');
@@ -69,7 +29,6 @@ const requestUploadUrlTx = async (client, actor, input, { baseUrl = '' } = {}) =
   if (!arac.org_id) throw new AppError(422, 'ORG_REQUIRED', 'Belge yüklemek için aracın organizasyonu tanımlı olmalıdır.');
   assertNotArchivedDoc(arac, 'yüklenemez');
 
-  const varlikTipi = input.varlik_tipi;
   if ((varlikTipi === 'yakit' || varlikTipi === 'bakim') && !hasPermission(actor, varlikTipi)) {
     throw new AppError(403, 'FORBIDDEN_PERMISSION', `Bu işlem için '${varlikTipi}' yetkiniz bulunmamaktadır.`);
   }
@@ -79,6 +38,11 @@ const requestUploadUrlTx = async (client, actor, input, { baseUrl = '' } = {}) =
     if (wo.rowCount === 0) throw new AppError(404, 'WORKORDER_NOT_FOUND', 'İş emri bulunamadı.');
     if (wo.rows[0].durum === 'tamamlandi' || wo.rows[0].durum === 'iptal') throw new AppError(409, 'WORKORDER_ALREADY_CLOSED', 'Kapalı iş emrine belge eklenemez.');
     await assertWoDocCapacity(client, varlikId, 1);
+  } else if (varlikTipi === 'zimmet' && varlikId) {
+    const zm = await client.query('SELECT muayene_id, sofor_user_id FROM zimmet_muayeneleri WHERE muayene_id = $1 AND arac_id = $2', [varlikId, aracId]);
+    if (zm.rowCount === 0) throw new AppError(404, 'HANDOVER_NOT_FOUND', 'Zimmet muayene kaydı bulunamadı.');
+    if (!isMgr(actor) && Number(zm.rows[0].sofor_user_id) !== Number(actor.user_id)) throw new AppError(403, 'FORBIDDEN_ROLE', 'Bu zimmet muayenesine görsel ekleme yetkiniz yoktur.');
+    await assertHandoverDocCapacity(client, varlikId, 1);
   }
   const key = `org_${arac.org_id}/${varlikTipi}/${bugunTR().slice(0, 7)}/${crypto.randomUUID()}.${ext}`;
   const orijinalAd = String(input.orijinal_ad || 'belge').trim().slice(0, 180) || 'belge';
@@ -98,7 +62,6 @@ const bindSingleDocumentTx = async (client, actor, { aracId, orgId, varlikTipi, 
   const prev = typeof prevKey === 'string' ? prevKey.trim() || null : null;
   if (!next && !prev) return;
   if (next && isPresignedUrl(next)) throw new AppError(400, 'PRESIGNED_URL_FORBIDDEN', 'Ön-imzalı belge URL’si kaydedilemez.');
-
   if (next) {
     if (!isVaultKey(next)) {
       if (next !== prev) throw new AppError(400, 'INVALID_DOCUMENT_KEY', 'Geçersiz belge anahtarı.');
@@ -129,14 +92,14 @@ const bindSingleDocumentTx = async (client, actor, { aracId, orgId, varlikTipi, 
   }
 };
 
-const bindWorkOrderKeysTx = async (client, actor, { isEmriId, aracId, orgId, keys }) => {
+const bindMultiKeysTx = async (client, { varlikTipi, varlikId, aracId, orgId, keys, assertCap }) => {
   const uniqueKeys = Array.isArray(keys) ? [...new Set(keys.map((k) => String(k || '').trim()).filter(Boolean))] : [];
   if (uniqueKeys.length === 0) return [];
   for (const k of uniqueKeys) {
     if (isPresignedUrl(k)) throw new AppError(400, 'PRESIGNED_URL_FORBIDDEN', 'Ön-imzalı belge URL’si kaydedilemez.');
     if (!isVaultKey(k)) throw new AppError(400, 'INVALID_DOCUMENT_KEY', 'Geçersiz belge anahtarı.');
   }
-  await assertWoDocCapacity(client, isEmriId, uniqueKeys.length);
+  await assertCap(client, varlikId, uniqueKeys.length);
   const isLocal = resolveDocVaultConfig(process.env).driver === 'local';
   const bound = [];
   for (const key of uniqueKeys) {
@@ -145,18 +108,24 @@ const bindWorkOrderKeysTx = async (client, actor, { isEmriId, aracId, orgId, key
     const row = r.rows[0];
     if (row.durum === 'silindi') throw new AppError(409, 'DOCUMENT_DELETED', 'Silinmiş belge bağlanamaz.');
     if (row.durum !== 'yukleniyor') throw new AppError(409, 'DOCUMENT_ALREADY_BOUND', 'Belge başka bir kayda zaten bağlanmış.');
-    if (Number(row.org_id) !== Number(orgId) || Number(row.arac_id) !== Number(aracId) || row.varlik_tipi !== 'is_emri') {
-      throw new AppError(422, 'DOCUMENT_BIND_MISMATCH', 'Belge hedef iş emri veya araç ile uyuşmuyor.');
+    if (Number(row.org_id) !== Number(orgId) || Number(row.arac_id) !== Number(aracId) || row.varlik_tipi !== varlikTipi) {
+      throw new AppError(422, 'DOCUMENT_BIND_MISMATCH', 'Belge hedef kayıt veya araç ile uyuşmuyor.');
     }
+    if (varlikTipi === 'zimmet' && !HANDOVER_MIME_EXT[row.mime_tipi]) throw new AppError(400, 'INVALID_MIME_TYPE', 'Zimmet muayenesine yalnızca görsel bağlanabilir.');
     if (isLocal) await assertLocalFileUploaded(key, row.boyut_bayt);
     const upd = await client.query(
       "UPDATE belge_kasasi SET durum = 'aktif', varlik_id = $2 WHERE belge_id = $1 RETURNING belge_id, varlik_id, nesne_anahtari, orijinal_ad, mime_tipi, boyut_bayt, olusturma_tarihi",
-      [row.belge_id, isEmriId]
+      [row.belge_id, varlikId]
     );
     bound.push(upd.rows[0]);
   }
   return bound;
 };
+
+const bindWorkOrderKeysTx = (c, _a, { isEmriId, aracId, orgId, keys }) =>
+  bindMultiKeysTx(c, { varlikTipi: 'is_emri', varlikId: isEmriId, aracId, orgId, keys, assertCap: assertWoDocCapacity });
+const bindHandoverKeysTx = (c, _a, { muayeneId, aracId, orgId, keys }) =>
+  bindMultiKeysTx(c, { varlikTipi: 'zimmet', varlikId: muayeneId, aracId, orgId, keys, assertCap: assertHandoverDocCapacity });
 
 const bindDocumentEndpointTx = async (client, actor, { belgeId, varlikTipi, varlikId }) => {
   assertActor(actor);
@@ -168,12 +137,13 @@ const bindDocumentEndpointTx = async (client, actor, { belgeId, varlikTipi, varl
   assertNotArchivedDoc(arac, 'bağlanamaz');
 
   const parent = await lockParentEntity(client, varlikTipi, varlikId);
-  if (varlikTipi === 'is_emri') {
-    if (actor.role === 'DRIVER' && parent.durum !== 'acik') throw new AppError(403, 'FORBIDDEN_ROLE', 'Şoförler yalnızca açık iş emirlerine belge bağlayabilir.');
-  } else if (!isMgr(actor) && (!hasPermission(actor, varlikTipi) || Number(parent.olusturan_user_id) !== Number(actor.user_id))) {
+  if (varlikTipi === 'is_emri' && actor.role === 'DRIVER' && parent.durum !== 'acik') {
+    throw new AppError(403, 'FORBIDDEN_ROLE', 'Şoförler yalnızca açık iş emirlerine belge bağlayabilir.');
+  } else if (varlikTipi === 'zimmet' && !isMgr(actor) && Number(parent.sofor_user_id) !== Number(actor.user_id)) {
+    throw new AppError(403, 'FORBIDDEN_ROLE', 'Bu zimmet muayenesine görsel bağlama yetkiniz yoktur.');
+  } else if (varlikTipi !== 'is_emri' && varlikTipi !== 'zimmet' && !isMgr(actor) && (!hasPermission(actor, varlikTipi) || Number(parent.olusturan_user_id) !== Number(actor.user_id))) {
     throw new AppError(403, 'FORBIDDEN_ROLE', 'Bu kayda belge bağlama yetkiniz yoktur.');
   }
-
   const bk = (await client.query('SELECT * FROM belge_kasasi WHERE belge_id = $1 FOR UPDATE', [belgeId])).rows[0];
   if (bk.varlik_tipi !== varlikTipi || Number(bk.arac_id) !== Number(parent.arac_id) || Number(bk.org_id) !== Number(arac.org_id)) {
     throw new AppError(422, 'DOCUMENT_BIND_MISMATCH', 'Belge hedef kayıt veya araç ile uyuşmuyor.');
@@ -181,6 +151,10 @@ const bindDocumentEndpointTx = async (client, actor, { belgeId, varlikTipi, varl
   if (bk.durum === 'silindi') throw new AppError(409, 'DOCUMENT_DELETED', 'Silinmiş belge bağlanamaz.');
   if (bk.durum !== 'yukleniyor') throw new AppError(409, 'DOCUMENT_ALREADY_BOUND', 'Belge zaten bağlanmış.');
   if (varlikTipi === 'is_emri') await assertWoDocCapacity(client, varlikId, 1);
+  if (varlikTipi === 'zimmet') {
+    if (!HANDOVER_MIME_EXT[bk.mime_tipi]) throw new AppError(400, 'INVALID_MIME_TYPE', 'Zimmet muayenesine yalnızca görsel bağlanabilir.');
+    await assertHandoverDocCapacity(client, varlikId, 1);
+  }
   if (resolveDocVaultConfig(process.env).driver === 'local') await assertLocalFileUploaded(bk.nesne_anahtari, bk.boyut_bayt);
 
   const upd = await client.query("UPDATE belge_kasasi SET durum = 'aktif', varlik_id = $2 WHERE belge_id = $1 RETURNING *", [belgeId, varlikId]);
@@ -202,9 +176,16 @@ const listDocuments = async (actor, filters = {}) => {
   }
   const access = buildVehicleAccessFilter(actor, 1);
   const params = [...access.params, filters.durum || 'aktif'];
-  const conds = [`(${access.clause})`, `bk.durum = $${params.length}`];
-  if (!hasFinanceAccess(actor)) {
-    conds.push("bk.varlik_tipi = 'is_emri' AND NOT EXISTS (SELECT 1 FROM bakimlar b WHERE b.belge_url = bk.nesne_anahtari)");
+  const conds = [`bk.durum = $${params.length}`];
+  if (isMgr(actor)) conds.push(`(${access.clause})`);
+  else {
+    params.push(actor.user_id);
+    const u = params.length;
+    const baseWo = hasFinanceAccess(actor)
+      ? `((${access.clause}) AND bk.varlik_tipi IN ('yakit','bakim','is_emri'))`
+      : `((${access.clause}) AND bk.varlik_tipi = 'is_emri' AND NOT EXISTS (SELECT 1 FROM bakimlar b WHERE b.belge_url = bk.nesne_anahtari))`;
+    conds.push(`(${baseWo} OR (bk.varlik_tipi = 'zimmet' AND ((bk.durum = 'aktif' AND zm.sofor_user_id = $${u}) OR (bk.durum = 'yukleniyor' AND bk.yukleyen_user_id = $${u}))))`);
+    if (actor.org_id) { params.push(actor.org_id); conds.push(`a.org_id = $${params.length}`); }
   }
   for (const k of ['arac_id', 'varlik_tipi', 'varlik_id']) {
     if (filters[k] !== undefined && filters[k] !== null && filters[k] !== '') {
@@ -213,12 +194,11 @@ const listDocuments = async (actor, filters = {}) => {
     }
   }
   const res = await pool.query(
-    `SELECT bk.belge_id, bk.org_id, bk.arac_id, bk.varlik_tipi, bk.varlik_id, bk.nesne_anahtari,
-            bk.orijinal_ad, bk.mime_tipi, bk.boyut_bayt, bk.durum, bk.yukleyen_user_id, bk.olusturma_tarihi,
-            a.plaka, a.arsivlendi_mi, u.ad_soyad AS yukleyen_ad
+    `SELECT bk.belge_id, bk.org_id, bk.arac_id, bk.varlik_tipi, bk.varlik_id, bk.nesne_anahtari, bk.orijinal_ad, bk.mime_tipi,
+            bk.boyut_bayt, bk.durum, bk.yukleyen_user_id, bk.olusturma_tarihi, a.plaka, a.arsivlendi_mi, u.ad_soyad AS yukleyen_ad
      FROM belge_kasasi bk INNER JOIN araclar a ON a.arac_id = bk.arac_id LEFT JOIN users u ON u.user_id = bk.yukleyen_user_id
-     WHERE ${conds.join(' AND ')} ORDER BY bk.olusturma_tarihi DESC, bk.belge_id DESC
-     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+     LEFT JOIN zimmet_muayeneleri zm ON bk.varlik_tipi = 'zimmet' AND zm.muayene_id = bk.varlik_id
+     WHERE ${conds.join(' AND ')} ORDER BY bk.olusturma_tarihi DESC, bk.belge_id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
     [...params, Number(filters.limit || 100), Number(filters.offset || 0)]
   );
   return res.rows;
@@ -228,34 +208,47 @@ const getDocumentAccess = async (actor, lookup, { indir = false, baseUrl = '' } 
   assertActor(actor);
   const byId = lookup.belgeId !== undefined;
   const res = await pool.query(
-    `SELECT bk.*, a.plaka FROM belge_kasasi bk INNER JOIN araclar a ON a.arac_id = bk.arac_id WHERE ${byId ? 'bk.belge_id = $1' : 'bk.nesne_anahtari = $1'}`,
+    `SELECT bk.*, a.plaka, a.org_id AS arac_org_id, zm.sofor_user_id AS zm_sofor_user_id FROM belge_kasasi bk
+     INNER JOIN araclar a ON a.arac_id = bk.arac_id LEFT JOIN zimmet_muayeneleri zm ON bk.varlik_tipi = 'zimmet' AND zm.muayene_id = bk.varlik_id
+     WHERE ${byId ? 'bk.belge_id = $1' : 'bk.nesne_anahtari = $1'}`,
     [byId ? Number(lookup.belgeId) : String(lookup.anahtar)]
   );
   if (res.rowCount === 0 || res.rows[0].durum === 'silindi') throw new AppError(404, 'DOCUMENT_NOT_FOUND', 'Belge bulunamadı.');
   const bk = res.rows[0];
-  await assertVehicleAccess(pool, actor, bk.arac_id);
-  if (bk.durum !== 'aktif') throw new AppError(409, 'DOCUMENT_NOT_READY', 'Belge henüz bağlanmamış.');
-  const bakimLinked = (await pool.query('SELECT 1 FROM bakimlar b WHERE b.belge_url = $1 LIMIT 1', [bk.nesne_anahtari])).rowCount > 0;
-  if ((bk.varlik_tipi === 'yakit' || bk.varlik_tipi === 'bakim' || bakimLinked) && !hasFinanceAccess(actor)) {
-    throw new AppError(403, 'FORBIDDEN_FINANCE_ACCESS', 'Finansal belgelere erişim yetkiniz bulunmamaktadır.');
+  if (bk.varlik_tipi === 'zimmet' && !isMgr(actor)) {
+    if (actor.org_id && Number(bk.arac_org_id) !== Number(actor.org_id)) throw new AppError(403, 'FORBIDDEN_VEHICLE_ACCESS', 'Bu belgeye erişim yetkiniz yoktur.');
+    if (bk.durum !== 'aktif') throw new AppError(409, 'DOCUMENT_NOT_READY', 'Belge henüz bağlanmamış.');
+    if (Number(bk.zm_sofor_user_id) !== Number(actor.user_id)) throw new AppError(403, 'FORBIDDEN_VEHICLE_ACCESS', 'Bu zimmet görseline erişim yetkiniz yoktur.');
+  } else {
+    await assertVehicleAccess(pool, actor, bk.arac_id);
+    if (bk.durum !== 'aktif') throw new AppError(409, 'DOCUMENT_NOT_READY', 'Belge henüz bağlanmamış.');
+    const bakimLinked = (await pool.query('SELECT 1 FROM bakimlar b WHERE b.belge_url = $1 LIMIT 1', [bk.nesne_anahtari])).rowCount > 0;
+    if ((bk.varlik_tipi === 'yakit' || bk.varlik_tipi === 'bakim' || bakimLinked) && !hasFinanceAccess(actor)) {
+      throw new AppError(403, 'FORBIDDEN_FINANCE_ACCESS', 'Finansal belgelere erişim yetkiniz bulunmamaktadır.');
+    }
   }
   const cfg = requireVaultDriver();
   return {
     belge_id: bk.belge_id, nesne_anahtari: bk.nesne_anahtari, orijinal_ad: bk.orijinal_ad,
-    mime_tipi: bk.mime_tipi, boyut_bayt: bk.boyut_bayt,
-    erisim_url: signGetUrl(cfg, { baseUrl, row: bk, indir }), expires_in: 300,
+    mime_tipi: bk.mime_tipi, boyut_bayt: bk.boyut_bayt, erisim_url: signGetUrl(cfg, { baseUrl, row: bk, indir }), expires_in: 300,
   };
 };
 
 const deleteDocumentTx = async (client, actor, { belgeId }) => {
   assertActor(actor);
   const preQ = await client.query(
-    'SELECT bk.belge_id, bk.org_id, bk.arac_id, bk.varlik_tipi, bk.varlik_id, bk.durum, a.plaka, a.arsivlendi_mi FROM belge_kasasi bk INNER JOIN araclar a ON a.arac_id = bk.arac_id WHERE bk.belge_id = $1',
+    'SELECT bk.belge_id, bk.org_id, bk.arac_id, bk.varlik_tipi, bk.varlik_id, bk.durum, bk.yukleyen_user_id, a.plaka, a.arsivlendi_mi FROM belge_kasasi bk INNER JOIN araclar a ON a.arac_id = bk.arac_id WHERE bk.belge_id = $1',
     [belgeId]
   );
   if (preQ.rowCount === 0 || preQ.rows[0].durum === 'silindi') throw new AppError(404, 'DOCUMENT_NOT_FOUND', 'Belge bulunamadı.');
   const pre = preQ.rows[0];
-  await assertVehicleAccess(client, actor, pre.arac_id);
+  const sameOrg = !actor.org_id || Number(actor.org_id) === Number(pre.org_id);
+  const isOwnZimmetDraft = pre.varlik_tipi === 'zimmet' && pre.durum === 'yukleniyor' && Number(pre.yukleyen_user_id) === Number(actor.user_id) && sameOrg;
+  if (pre.varlik_tipi === 'zimmet' && pre.durum === 'aktif' && !isMgr(actor)) {
+    if (!sameOrg) throw new AppError(403, 'FORBIDDEN_VEHICLE_ACCESS', 'Bu araca erişim yetkiniz yoktur.');
+    throw new AppError(403, 'FORBIDDEN_ROLE', 'Aktif zimmet görsellerini yalnız yöneticiler silebilir.');
+  }
+  if (!isOwnZimmetDraft) await assertVehicleAccess(client, actor, pre.arac_id);
   await client.query('SELECT arac_id FROM araclar WHERE arac_id = $1 FOR UPDATE', [pre.arac_id]);
   assertNotArchivedDoc(pre, 'silinemez');
   const parent = pre.varlik_id ? await lockParentEntity(client, pre.varlik_tipi, pre.varlik_id) : null;
@@ -267,6 +260,8 @@ const deleteDocumentTx = async (client, actor, { belgeId }) => {
     if (bk.varlik_tipi === 'is_emri') {
       const driverOk = Number(bk.yukleyen_user_id) === Number(actor.user_id) && (!parent || parent.durum === 'acik');
       if (!isMgr(actor) && !driverOk) throw new AppError(403, 'FORBIDDEN_ROLE', 'Bu belgeyi silme yetkiniz yoktur.');
+    } else if (bk.varlik_tipi === 'zimmet') {
+      if (!isMgr(actor)) throw new AppError(403, 'FORBIDDEN_ROLE', 'Aktif zimmet görsellerini yalnız yöneticiler silebilir.');
     } else if (!isMgr(actor)) {
       throw new AppError(403, 'FORBIDDEN_ROLE', 'Aktif yakıt/bakım belgelerini yalnız yöneticiler silebilir.');
     } else {
@@ -277,11 +272,7 @@ const deleteDocumentTx = async (client, actor, { belgeId }) => {
   await client.query("UPDATE belge_kasasi SET durum = 'silindi' WHERE belge_id = $1", [belgeId]);
   return {
     row: bk,
-    auditCtx: {
-      eylem: 'BELGE_SILINDI', varlik_tipi: 'belge', varlik_id: bk.belge_id, org_id: bk.org_id,
-      ozet: `${pre.plaka} aracı için "${bk.orijinal_ad}" belgesi silindi.`,
-      detay: { plaka: pre.plaka, varlik_tipi: bk.varlik_tipi, varlik_id: bk.varlik_id, nesne_anahtari: bk.nesne_anahtari },
-    },
+    auditCtx: { eylem: 'BELGE_SILINDI', varlik_tipi: 'belge', varlik_id: bk.belge_id, org_id: bk.org_id, ozet: `${pre.plaka} aracı için "${bk.orijinal_ad}" belgesi silindi.`, detay: { plaka: pre.plaka, varlik_tipi: bk.varlik_tipi, varlik_id: bk.varlik_id, nesne_anahtari: bk.nesne_anahtari } },
   };
 };
 
@@ -290,6 +281,6 @@ const softDeleteEntityDocumentsTx = async (client, { varlikTipi, varlikId }) => 
 };
 
 module.exports = {
-  hasPermission, hasFinanceAccess, requestUploadUrlTx, bindSingleDocumentTx, bindWorkOrderKeysTx,
+  hasPermission, hasFinanceAccess, requestUploadUrlTx, bindSingleDocumentTx, bindWorkOrderKeysTx, bindHandoverKeysTx,
   bindDocumentEndpointTx, listDocuments, getDocumentAccess, deleteDocumentTx, softDeleteEntityDocumentsTx,
 };

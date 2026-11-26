@@ -252,7 +252,7 @@ describe('FORGE-C0 Production Shield & Bootstrap Tests', () => {
     assert.deepEqual(events, ['down:true', 'sched', 'rl', 'http:close', 'http:idle', 'pool:end', 'exit:0']);
   });
 
-  it('6) Izole bos-sema bootstrap: 000..009 2x idempotent, 18 tablo ve FK/indeks dogrulamasi', async () => {
+  it('6) Izole bos-sema bootstrap: 000..010 2x idempotent, 19 tablo ve FK/indeks dogrulamasi', async () => {
     const tmpSchema = `forge_ci_boot_${Date.now()}`;
     await pool.query(`CREATE SCHEMA "${tmpSchema}"`);
     try {
@@ -268,7 +268,7 @@ describe('FORGE-C0 Production Shield & Bootstrap Tests', () => {
         `SELECT COUNT(*)::int AS c FROM information_schema.tables WHERE table_schema = $1 AND table_type = 'BASE TABLE'`,
         [tmpSchema]
       );
-      assert.equal(tblRes.rows[0].c, 18);
+      assert.equal(tblRes.rows[0].c, 19);
 
       const fkRes = await pool.query(
         `SELECT c.conname, c.confdeltype::text AS dt

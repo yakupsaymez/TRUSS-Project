@@ -37,6 +37,7 @@ export function buildFleetColumns({
   onEditClick,
   onDeleteRequest,
   onRestoreClick,
+  onHandoverClick,
 }) {
   return [
     {
@@ -209,6 +210,7 @@ export function buildFleetColumns({
           onEditClick={onEditClick}
           onDeleteRequest={onDeleteRequest}
           onRestoreClick={onRestoreClick}
+          onHandoverClick={onHandoverClick}
         />
       ),
     },

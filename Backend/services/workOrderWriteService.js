@@ -70,20 +70,23 @@ const buildNotifyCtx = (wo, row, actor, plaka) => {
   };
 };
 
-const createWorkOrderTx = async (client, actor, input) => {
+const createWorkOrderTx = async (client, actor, input, options = {}) => {
   assertActor(actor);
   if (actor.role === 'DRIVER' && MGR_FIELDS.some((k) => input[k] !== undefined && input[k] !== null && input[k] !== '')) {
     throw new AppError(403, 'FORBIDDEN_ROLE', 'Şoförler servis, maliyet veya planlanan tarih atayamaz.');
   }
   const aracId = Number(input.arac_id);
   const planTarih = parseOptDate(input.planlanan_tarih);
-  const aracQ = await client.query('SELECT arac_id, org_id, plaka, sayac_tipi FROM araclar WHERE arac_id = $1', [aracId]);
-  const arac = aracQ.rows[0];
+  let arac = options.lockedArac || null;
+  if (!arac) {
+    const aracQ = await client.query('SELECT arac_id, org_id, plaka, sayac_tipi, arsivlendi_mi FROM araclar WHERE arac_id = $1', [aracId]);
+    arac = aracQ.rows[0];
+  }
   if (!arac || (actor.org_id && Number(arac.org_id) !== Number(actor.org_id))) throw new AppError(404, 'VEHICLE_NOT_FOUND', 'Araç bulunamadı.');
   if (!arac.org_id) throw new AppError(409, 'VEHICLE_ORG_MISSING', 'Aracın organizasyon bilgisi eksik.');
-  if (actor.role === 'DRIVER') await assertDriverAssigned(client, aracId, actor.user_id);
+  if (!options.lockedArac && actor.role === 'DRIVER') await assertDriverAssigned(client, aracId, actor.user_id);
 
-  const [hedef] = await araclariKilitle(client, [aracId]);
+  const hedef = options.lockedArac || (await araclariKilitle(client, [aracId]))[0];
   if (!hedef) throw new AppError(404, 'VEHICLE_NOT_FOUND', 'Araç bulunamadı.');
   assertNotArchived(hedef, 'iş emri', 'açılamaz');
 

@@ -1,4 +1,5 @@
 const { BASE_SCHEMA_SQL } = require('./baseSchemaSql');
+const { HANDOVER_SCHEMA_SQL } = require('./handoverSchemaSql');
 
 const MIGRATIONS = [
   {
@@ -251,6 +252,10 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_belge_kasasi_varlik ON belge_kasasi (varlik_tipi, varlik_id) WHERE durum = 'aktif';
       CREATE INDEX IF NOT EXISTS idx_belge_kasasi_arac ON belge_kasasi (arac_id) WHERE durum = 'aktif';
     `,
+  },
+  {
+    version: '010_v23_handover_inspection',
+    sql: HANDOVER_SCHEMA_SQL,
   },
 ];
 

@@ -11,6 +11,7 @@ import FleetDataTable from '@/components/v2/FleetDataTable';
 import VehicleArchiveDialog from '@/components/v2/fleet-data-table/VehicleArchiveDialog';
 import useFleetArchive from '@/components/v2/fleet-data-table/useFleetArchive';
 import VehicleSheet from '@/components/v2/VehicleSheet';
+import HandoverInspectionSheet from '@/components/v2/assign-vehicle/HandoverInspectionSheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -39,6 +40,7 @@ export default function Filo() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
+  const [handoverVehicle, setHandoverVehicle] = useState(null);
   const [tcoByAracId, setTcoByAracId] = useState(null);
   const [loadingTco, setLoadingTco] = useState(false);
   const fetchAttemptedRef = useRef(false);
@@ -267,6 +269,14 @@ export default function Filo() {
         onEditClick={handleEditClick}
         onDeleteRequest={handleDeleteRequest}
         onRestoreClick={handleRestoreArac}
+        onHandoverClick={setHandoverVehicle}
+      />
+
+      <HandoverInspectionSheet
+        open={handoverVehicle !== null}
+        onOpenChange={(next) => { if (!next) setHandoverVehicle(null); }}
+        arac={handoverVehicle}
+        onSuccess={() => fetchAraclar()}
       />
 
       {canManage && (

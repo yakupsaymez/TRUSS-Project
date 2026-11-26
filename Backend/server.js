@@ -18,6 +18,7 @@ const bildirimRoutes = require('./routes/bildirimRoutes');
 const denetimRoutes = require('./routes/denetimRoutes');
 const isEmriRoutes = require('./routes/isEmriRoutes');
 const belgeRoutes = require('./routes/belgeRoutes');
+const zimmetRoutes = require('./routes/zimmetRoutes');
 
 getJwtSecret();
 
@@ -113,6 +114,7 @@ function createApp({
   app.use('/api/denetim-kayitlari', denetimRoutes);
   app.use('/api/is-emirleri', isEmriRoutes);
   app.use('/api/belgeler', belgeRoutes);
+  app.use('/api/zimmetler', zimmetRoutes);
 
   return app;
 }

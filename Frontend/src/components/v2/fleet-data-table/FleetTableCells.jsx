@@ -3,6 +3,7 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  ClipboardCheck,
   ExternalLink,
   Loader2,
   MoreVertical,
@@ -188,6 +189,7 @@ export function FleetRowActions({
   onEditClick,
   onDeleteRequest,
   onRestoreClick,
+  onHandoverClick,
 }) {
   if (isArchivedView) {
     if (!canManage) {
@@ -217,6 +219,18 @@ export function FleetRowActions({
 
   return (
     <div className="flex items-center justify-end gap-1">
+      {!canManage && onHandoverClick && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => onHandoverClick?.(arac)}
+          className="h-8 gap-1 px-2 text-xs"
+        >
+          <ClipboardCheck className="size-3.5" />
+          <span>Muayene</span>
+        </Button>
+      )}
       <Button
         type="button"
         variant="ghost"
@@ -240,12 +254,18 @@ export function FleetRowActions({
               <MoreVertical className="size-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuGroup>
               <DropdownMenuItem onSelect={() => onEditClick?.(arac)}>
                 <Pencil className="size-4" />
                 <span>Düzenle</span>
               </DropdownMenuItem>
+              {onHandoverClick && arac?.zimmetli_sofor_id && (
+                <DropdownMenuItem onSelect={() => onHandoverClick?.(arac)}>
+                  <ClipboardCheck className="size-4" />
+                  <span>Zimmet Muayenesi</span>
+                </DropdownMenuItem>
+              )}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>

@@ -47,6 +47,7 @@ export default function FleetDataTable({
   onEditClick,
   onDeleteRequest,
   onRestoreClick,
+  onHandoverClick,
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sayacFilter, setSayacFilter] = useState('all');
@@ -128,6 +129,7 @@ export default function FleetDataTable({
         onEditClick,
         onDeleteRequest,
         onRestoreClick,
+        onHandoverClick,
       }),
     [
       canManage,
@@ -139,6 +141,7 @@ export default function FleetDataTable({
       onEditClick,
       onDeleteRequest,
       onRestoreClick,
+      onHandoverClick,
     ]
   );
 

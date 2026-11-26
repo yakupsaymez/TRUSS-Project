@@ -7,10 +7,17 @@ const ALLOWED_MIME_EXT = Object.freeze({
   'image/webp': 'webp',
 });
 
+const HANDOVER_MIME_EXT = Object.freeze({
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+});
+
 const MAX_FILE_BYTES = 10485760;
 const WORKORDER_MAX_DOCS = 5;
+const HANDOVER_MAX_DOCS = 4;
 
-const VAULT_KEY_RE = /^org_[1-9]\d*\/(yakit|bakim|is_emri)\/\d{4}-\d{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(pdf|jpg|png|webp)$/i;
+const VAULT_KEY_RE = /^org_[1-9]\d*\/(yakit|bakim|is_emri|zimmet)\/\d{4}-\d{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(pdf|jpg|png|webp)$/i;
 const PRESIGNED_URL_RE = /([?&](X-Amz-Signature|X-Amz-Credential|X-Amz-Algorithm|sig)=|\/api\/belgeler\/local-nesne\b)/i;
 
 const isVaultKey = (val) => typeof val === 'string' && VAULT_KEY_RE.test(val.trim());
@@ -47,7 +54,7 @@ const vaultKeyJoiField = Joi.string()
 
 const presignUploadSchema = Joi.object({
   arac_id: Joi.number().integer().positive().required(),
-  varlik_tipi: Joi.string().valid('yakit', 'bakim', 'is_emri').required(),
+  varlik_tipi: Joi.string().valid('yakit', 'bakim', 'is_emri', 'zimmet').required(),
   varlik_id: Joi.number().integer().positive().allow(null, '').optional(),
   orijinal_ad: Joi.string().trim().min(1).max(180).required(),
   mime_tipi: Joi.string().trim().lowercase().max(64).required(),
@@ -55,13 +62,13 @@ const presignUploadSchema = Joi.object({
 });
 
 const bindDocumentSchema = Joi.object({
-  varlik_tipi: Joi.string().valid('yakit', 'bakim', 'is_emri').required(),
+  varlik_tipi: Joi.string().valid('yakit', 'bakim', 'is_emri', 'zimmet').required(),
   varlik_id: Joi.number().integer().positive().required(),
 });
 
 const listDocumentsSchema = Joi.object({
   arac_id: Joi.number().integer().positive().optional(),
-  varlik_tipi: Joi.string().valid('yakit', 'bakim', 'is_emri').optional(),
+  varlik_tipi: Joi.string().valid('yakit', 'bakim', 'is_emri', 'zimmet').optional(),
   varlik_id: Joi.number().integer().positive().optional(),
   durum: Joi.string().valid('yukleniyor', 'aktif').default('aktif'),
   limit: Joi.number().integer().min(1).max(200).default(100),
@@ -75,8 +82,10 @@ const accessQuerySchema = Joi.object({
 
 module.exports = {
   ALLOWED_MIME_EXT,
+  HANDOVER_MIME_EXT,
   MAX_FILE_BYTES,
   WORKORDER_MAX_DOCS,
+  HANDOVER_MAX_DOCS,
   VAULT_KEY_RE,
   PRESIGNED_URL_RE,
   isVaultKey,

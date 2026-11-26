@@ -3,7 +3,7 @@ const { bugunTR } = require('./dateUtils');
 const AppError = require('./AppError');
 
 // Tablo ve kolon adları YALNIZCA bu whitelist'ten gelir, request'ten asla
-const SAYAC_KAYNAKLARI = { bakimlar: 'bakim_id', yakitlar: 'yakit_id' };
+const SAYAC_KAYNAKLARI = { bakimlar: 'bakim_id', yakitlar: 'yakit_id', zimmet_muayeneleri: 'muayene_id' };
 
 // Sayaç tipine göre birim: 'SMH' ise saat, değilse km
 const sayacBirimi = (sayacTipi) => (sayacTipi === 'SMH' ? 'saat' : 'km');
@@ -60,11 +60,14 @@ const sayacSinirlari = async (client, { aracId, tarih, haricTablo = null, haricI
 
   const result = await client.query(
     `WITH kayitlar AS (
-       SELECT tarih, km FROM yakitlar
+       SELECT tarih, km::numeric AS km FROM yakitlar
        WHERE arac_id = $1 AND km IS NOT NULL ${haricFiltre('yakitlar')}
        UNION ALL
-       SELECT tarih, km FROM bakimlar
+       SELECT tarih, km::numeric AS km FROM bakimlar
        WHERE arac_id = $1 AND km IS NOT NULL ${haricFiltre('bakimlar')}
+       UNION ALL
+       SELECT muayene_tarihi AS tarih, sayac_degeri::numeric AS km FROM zimmet_muayeneleri
+       WHERE arac_id = $1 AND sayac_degeri IS NOT NULL ${haricFiltre('zimmet_muayeneleri')}
      )
      SELECT
        COALESCE(MAX(km) FILTER (WHERE tarih <= $2::date), 0) AS alt_sinir,
@@ -136,11 +139,13 @@ const aracSayaciniSenkronizeEt = async (client, { aracId, eskiKm = null }) => {
 
   const ozetRes = await client.query(
     `SELECT COUNT(*)::int AS kayit_sayisi,
-            COALESCE(MAX(km), 0)::int AS max_kayit
+            COALESCE(MAX(km), 0)::numeric AS max_kayit
      FROM (
-       SELECT km FROM yakitlar WHERE arac_id = $1 AND km IS NOT NULL
+       SELECT km::numeric AS km FROM yakitlar WHERE arac_id = $1 AND km IS NOT NULL
        UNION ALL
-       SELECT km FROM bakimlar WHERE arac_id = $1 AND km IS NOT NULL
+       SELECT km::numeric AS km FROM bakimlar WHERE arac_id = $1 AND km IS NOT NULL
+       UNION ALL
+       SELECT sayac_degeri::numeric AS km FROM zimmet_muayeneleri WHERE arac_id = $1 AND sayac_degeri IS NOT NULL
      ) t`,
     [aracId]
   );
@@ -150,7 +155,7 @@ const aracSayaciniSenkronizeEt = async (client, { aracId, eskiKm = null }) => {
   const mevcutSayac = Number(isSmh ? arac.guncel_calisma_saati : arac.guncel_km);
   const eski = eskiKm != null ? Number(eskiKm) : null;
   const kayitSayisi = Number(ozetRes.rows[0]?.kayit_sayisi || 0);
-  const maxKayit = Number(ozetRes.rows[0]?.max_kayit || 0);
+  const maxKayit = Math.round(Number(ozetRes.rows[0]?.max_kayit || 0));
 
   let yeniSayac;
   if (eski !== null && mevcutSayac === eski) {

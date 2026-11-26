@@ -116,3 +116,7 @@
 ### ADR-29: Kiracı-İzole DOC-VAULT, Sıfır-Paket SigV4 & Yerel HMAC Sürücü (`FORGE-C1`)
 - **2026-11-26 (`FORGE-C1`) · Neden:** Dış URL yapıştırma kırılganlığı, finansal belge sızıntısı ve SDK bağımlılığı olmadan güvenli belge yükleme/erişim gerekti.
 - **Kural:** `belge_kasasi` (`belge_id SERIAL PK`, `org_<id>/<varlik>/<YYYY-MM>/<uuid>.<ext>`), sıfır-npm SigV4 `UNSIGNED-PAYLOAD` + ASCII sorgu sırası (`prod`da `local` sürücü yasak, dev `local`da `fs.stat` zorunlu) kullanılır; `DRIVER` yalnızca yükleme/taslak silme yapar, finansal belge indirme/görüntüleme `hasFinanceAccess` ile kısıtlanır ve `WorkOrderComplete -> bakimlar.belge_url` bağlanır.
+
+### ADR-30: Dijital Zimmet Muayenesi, Yeni `atama_id` & Tek-TX İş Emri (`FORGE-C2`)
+- **2026-11-26 (`FORGE-C2`) · Neden:** `ON CONFLICT DO UPDATE` zimmet tarihçesini eziyor, kusurlu teslimlerde konsolide arıza iş emri ve `doc-vault` görsel kotası ayrı kalıyordu.
+- **Kural:** `arac_sofor_atamalari` kısmi indeksle (`WHERE aktif = TRUE`) her atamada aktif zimmeti kapatıp yeni `atama_id` üretir; `recordHandoverInspectionTx` tek TX'te `zimmet_muayeneleri` (`19.` tablo) + en fazla `4` görsel (`image/jpeg|png|webp`) + kusurda `options.lockedArac` ile yalnız `1` konsolide `ariza` iş emri (`KRITIK->kritik`, `KUSURLU->yuksek`) + `aracSayaciniSenkronizeEt` çalıştırır.
