@@ -8,7 +8,6 @@
     "Frontend/src/components/ui/**"
   ],
   "files": {
-    "Backend/controllers/parcaController.js": 411,
     "Frontend/src/components/v2/CostTrendChart.jsx": 345,
     "Frontend/src/components/v2/CreateMemberSheet.jsx": 464,
     "Frontend/src/components/v2/FleetHealthWidget.jsx": 378,
