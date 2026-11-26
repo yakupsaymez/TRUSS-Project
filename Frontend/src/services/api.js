@@ -32,14 +32,17 @@ const AUTH_ENDPOINTS = ['/users/login', '/users/register', '/users/settings/pass
 // Aynı anda birden fazla 401/ACCOUNT_DISABLED gelirse yalnızca TEK yönlendirme yapılır.
 let isRedirecting = false;
 
-function clearSessionAndRedirect(reasonExpired) {
+function clearSessionAndRedirect(reason) {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
 
     const isOnLogin = window.location.pathname.startsWith('/login');
     if (!isOnLogin && !isRedirecting) {
         isRedirecting = true;
-        window.location.href = reasonExpired ? '/login?reason=expired' : '/login';
+        const query = reason === 'disabled' || reason === 'expired' ? `?reason=${reason}` : '';
+        window.location.href = `/login${query}`;
     }
 }
 
@@ -57,12 +60,13 @@ api.interceptors.response.use(
 
         // 401 = oturum geçersiz. Login/Register'daki 401 "hatalı şifre" demektir; forma iletilir.
         if (status === 401 && !isAuthEndpoint) {
-            clearSessionAndRedirect(data?.code === 'TOKEN_EXPIRED');
+            clearSessionAndRedirect('expired');
+            return Promise.reject(error);
         }
 
         // 403 ACCOUNT_DISABLED = hesap devre dışı bırakıldı; oturumu temizle ve girişe yönlendir.
         if (status === 403 && data?.code === 'ACCOUNT_DISABLED') {
-            clearSessionAndRedirect(true);
+            clearSessionAndRedirect('disabled');
             return Promise.reject(error);
         }
 

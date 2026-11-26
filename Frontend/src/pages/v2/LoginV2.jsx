@@ -13,10 +13,26 @@ import { Label } from '@/components/ui/label';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const REASON_BANNERS = {
+  expired: {
+    role: 'status',
+    tone: 'border-primary/40 bg-primary/10 text-foreground',
+    iconTone: 'text-primary',
+    text: 'Güvenliğiniz için oturumunuz sonlandırıldı veya geçerliliğini yitirdi. Devam etmek için lütfen tekrar giriş yapın.',
+  },
+  disabled: {
+    role: 'alert',
+    tone: 'border-destructive/40 bg-destructive/10 text-destructive',
+    iconTone: 'text-destructive',
+    text: 'Hesabınız organizasyon yöneticisi tarafından devre dışı bırakıldı. Erişim için kurumsal sistem yöneticinizle iletişime geçin.',
+  },
+};
+
 export default function LoginV2() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const sessionExpired = searchParams.get('reason') === 'expired';
+  const [searchParams, setSearchParams] = useSearchParams();
+  const reason = searchParams.get('reason');
+  const activeReasonBanner = reason && REASON_BANNERS[reason] ? REASON_BANNERS[reason] : null;
 
   const login = useAuthStore((s) => s.login);
 
@@ -46,6 +62,9 @@ export default function LoginV2() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (reason) {
+      setSearchParams({}, { replace: true });
+    }
 
     const trimmedEmail = email.trim();
     const errors = {};
@@ -84,13 +103,13 @@ export default function LoginV2() {
     }
   };
 
-  const expiredBanner = sessionExpired ? (
+  const reasonBanner = activeReasonBanner ? (
     <div
-      role="status"
-      className="flex w-full items-start gap-2.5 rounded-lg border border-primary/40 bg-primary/10 px-3.5 py-3 text-xs leading-relaxed text-foreground"
+      role={activeReasonBanner.role}
+      className={`flex w-full items-start gap-2.5 rounded-lg border px-3.5 py-3 text-xs leading-relaxed ${activeReasonBanner.tone}`}
     >
-      <ShieldAlert className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-      <span>Güvenliğiniz için oturumunuz sonlandırıldı, lütfen tekrar giriş yapın.</span>
+      <ShieldAlert className={`mt-0.5 size-4 shrink-0 ${activeReasonBanner.iconTone}`} aria-hidden="true" />
+      <span>{activeReasonBanner.text}</span>
     </div>
   ) : null;
 
@@ -120,7 +139,7 @@ export default function LoginV2() {
     <AuthFrame
       title="Hesabınıza giriş yapın"
       description="Filo operasyon paneline devam etmek için bilgilerinizi girin."
-      banner={expiredBanner}
+      banner={reasonBanner}
       footer={footerContent}
     >
       <form onSubmit={handleSubmit} noValidate className="grid gap-4">

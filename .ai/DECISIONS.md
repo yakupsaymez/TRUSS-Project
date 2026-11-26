@@ -81,3 +81,5 @@
 - **2026-11-26:** `requestIdMiddleware` + steril 4-arg `errorHandler`/`apiNotFoundHandler` + `100kb` JSON; `parseTrustProxy` prod'da `'true'` yasaklar (`1..5`/IP/CIDR); `bakim/yakit` `CROSS_TENANT_FORBIDDEN`; `assignVehicleTx` `DRIVER_ALREADY_ASSIGNED`; `notifyWorkOrderRequester` org eşleşmesi.
 ### ADR-40: `geri_bildirimler`, `users.aktif_mi`, Tek-Zimmet & Destek/Yasal Kabuk (`FORGE-E2`)
 - **2026-11-26:** `011` `geri_bildirimler` (20. tablo), `users.aktif_mi` (`403 ACCOUNT_DISABLED` -> oturum temizle `/login?reason=expired`), `uq_sofor_tek_aktif_zimmet`, `SupportFeedbackSheet` (`DATA_SCOPES.SUPPORT`, `getLastRequestId`), `ErrorBoundary`, `NotFoundV2`, `LegalDocsModal`, `CorporateContactCard` (`supportConfig` boşsa nötr).
+### ADR-41: `LandingV2` Kurumsal Vitrin, Ölü Kod Temizliği & `reason=disabled|expired` (`FORGE-E3`)
+- **2026-11-26:** `LandingV2` + `components/v2/landing/*` (`0` API/Recharts/dış URL, `LegalDocsModal key={legalTab}`), eski `HomePage`/`pages/home/*` silindi, `robots.txt` & OG meta eklendi, `api.js` + `LoginV2` `/login?reason=expired|disabled` ayrıştırır.

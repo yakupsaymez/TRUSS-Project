@@ -7,7 +7,7 @@ import useAuthStore from '@/store/useAuthStore';
 import ChannelGuard from '@/components/v2/ChannelGuard';
 import ErrorBoundary from '@/components/v2/ErrorBoundary';
 
-const HomePage = lazy(() => import('@/pages/HomePage'));
+const LandingV2 = lazy(() => import('@/pages/v2/LandingV2'));
 const NotFoundV2 = lazy(() => import('@/pages/v2/NotFoundV2'));
 const AppShell = lazy(() => import('@/components/v2/AppShell'));
 const GenelBakis = lazy(() => import('@/pages/v2/GenelBakis'));
@@ -74,7 +74,7 @@ function App() {
         />
         <Suspense fallback={<RouteFallback />}>
           <Routes>
-            <Route path="/" element={<HomePage />} />
+            <Route path="/" element={<LandingV2 />} />
             <Route path="/login" element={<LoginV2 />} />
             <Route path="/register" element={<RegisterV2 />} />
             <Route path="/forgot-password" element={<ForgotPasswordV2 />} />
