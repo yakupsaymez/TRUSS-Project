@@ -4,6 +4,7 @@
     "prepare": "git config core.hooksPath .githooks",
     "context:pack": "node scripts/context-pack.mjs",
     "context:audit": "node scripts/context-audit.mjs",
+    "forge:meter": "node scripts/forge-meter.mjs",
     "gate": "node scripts/ai-gate.mjs",
     "gate:fast": "node scripts/ai-gate.mjs --fast",
     "db:migrate": "node Backend/scripts/migrate.js",

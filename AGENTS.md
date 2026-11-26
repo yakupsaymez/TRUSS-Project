@@ -9,7 +9,7 @@
   - **FE:** 3 Katmanlı Dikey Dilim (`Sayfa <= 180`L + `use*Controller <= 200`L + `Saf Görünüm <= 200`L; yaprakta API importu yasak) + `radix-luma` OKLCH.
 
 ## 2. Zorunlu Boot Protokolü (Her Oturum Başlangıcı)
-İşlem öncesi sırayla oku: `AGENTS.md` -> `.ai/PROGRESS.md` -> `.ai/SWARM_PLAYBOOK.md` -> `.ai/ENGINEERING_GUARDRAILS.md` -> `.ai/DECISIONS.md` (`ADR-01..27`).
+İşlem öncesi sırayla oku: `AGENTS.md` -> `.ai/PROGRESS.md` -> `.ai/SWARM_PLAYBOOK.md` -> `.ai/ENGINEERING_GUARDRAILS.md` -> `.ai/DECISIONS.md` (`ADR-01..29`).
 
 ## 3. FORGE Topolojisi (5 Uzman — Rol Tablosu: `.agent/rules/00-truss-core.md`)
 - `keystone` (Baş Mimar, `READ-ONLY`), `core-smith` (BE/Veri/Mühür), `shell-crafter` (FE/UI Kabuk), `sentinel` (Düşman QA, `READ-ONLY`), `radar` (Sistemik Röntgen, `READ-ONLY`).
@@ -20,8 +20,8 @@
 | `.ai/PROGRESS.md` | 120 | Canlı sprint, `FORGE-M0..M4` yol haritası, riskler ve 5 uzman panosu |
 | `.ai/SWARM_PLAYBOOK.md` | 150 | `FORGE` işletim kılavuzu, Frozen Contract, ardışık/paralel akış, Caveman |
 | `.ai/ENGINEERING_GUARDRAILS.md` | 140 | `radix-luma`, RBAC, `422 SAYAC_KRONOLOJI_IHLALI`, çekirdek/UI sınırları |
-| `.ai/ARCHITECTURE_MAP.md` | 160 | Gerçek FE rotaları/modülleri, BE uçları, `17` PostgreSQL tablosu & indeksler |
-| `.ai/DECISIONS.md` | 180 | `ADR-01..27` kalıcı mimari kararlar (`P0-to-Rule` hafızası) |
+| `.ai/ARCHITECTURE_MAP.md` | 160 | Gerçek FE rotaları/modülleri, BE uçları, `18` PostgreSQL tablosu & indeksler |
+| `.ai/DECISIONS.md` | 180 | `ADR-01..29` kalıcı mimari kararlar (`P0-to-Rule` hafızası) |
 | `.ai/HANDOFF_TEMPLATE.md` | 60 | `FORGE` 5 uzman boot komutları ve Frozen Contract devir şablonu |
 | `.ai/archive/` | — | Arşivlenmiş eski planlar (`.aiignore` ile hariç tutulur) |
 

@@ -22,3 +22,5 @@ description: sentinel canlı v2 E2E protokolü; Light/Dark OKLCH, 422 inline, RB
    - **`0 console.error`** ve beklenmeyen **`0` adet `4xx/5xx`** (kasıtlı `422` validasyon testi hariç).
 5. **Test Sonrası Zorunlu Temizlik:**
    - Testte açılan aktif zimmetleri kapat / test kayıtlarını temizle, test DB snapshot'ını geri yükle ve açılan dev sunucu portlarını kapat.
+6. **15-Adım Tarayıcı Bütçe Sınırı:**
+   - Canlı tarayıcı E2E en fazla **`15` adım** koşar; aşılırsa durulur, `STEP_BUDGET_EXCEEDED` raporlanır ve tarayıcı kapatılır (`[!browser:<N>>15]`).
