@@ -337,6 +337,7 @@ function runCli() {
       execSync('npm --prefix Frontend run build', {
         cwd: ROOT_DIR,
         stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env, NODE_ENV: 'production' },
       });
       measuredChunk = measureDistMaxChunkKb();
     } catch (err) {

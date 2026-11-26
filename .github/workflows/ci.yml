@@ -65,8 +65,10 @@ jobs:
       - name: Run core backend test suite
         run: npm run test:core
 
-      - name: Run AI quality gate
-        run: npm run gate
-
       - name: Run strict context audit
         run: npm run context:audit -- --strict
+
+      - name: Run AI quality gate
+        env:
+          NODE_ENV: production
+        run: npm run gate
