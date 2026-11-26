@@ -29,7 +29,7 @@ export default function LedgerDataTable({
   rows = [],
   araclar = [],
   seciliAracId = null,
-  onVehicleChange,
+  onVehicleChange, onFiltersChange,
   loading = false,
   hasLoaded = false,
   canManage = false,
@@ -44,7 +44,7 @@ export default function LedgerDataTable({
   onImportFuel,
   onOpenBelge,
 }) {
-  const state = useLedgerTableState({ rows, araclar, seciliAracId, onVehicleChange });
+  const state = useLedgerTableState({ rows, araclar, seciliAracId, onVehicleChange, onFiltersChange });
 
   const columns = useMemo(
     () =>

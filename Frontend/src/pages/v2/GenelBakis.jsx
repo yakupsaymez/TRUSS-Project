@@ -1,13 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React from 'react';
 import { Truck, X } from 'lucide-react';
-import useAuthStore from '@/store/useAuthStore';
-import useVehicleStore from '@/store/useVehicleStore';
-import raporService from '@/services/raporService';
-import { canAccessChannel, resolveRole, ROLES } from '@/components/v2/channelAccess';
-import { notifyApiError } from '@/utils/apiError';
-import { DATA_SCOPES, emitDataChanged, subscribeDataChanged } from '@/utils/dataEvents';
 import { formatTurkishPlate } from '@/utils/formatters';
+import useGenelBakisController from '@/components/v2/overview/useGenelBakisController';
 import OverviewKpiStrip from '@/components/v2/OverviewKpiStrip';
 import ActionCenterCard from '@/components/v2/ActionCenterCard';
 import CostTrendChart from '@/components/v2/CostTrendChart';
@@ -15,131 +9,18 @@ import FleetHealthWidget from '@/components/v2/FleetHealthWidget';
 import DocumentComplianceCard from '@/components/v2/DocumentComplianceCard';
 import BudgetVarianceCard from '@/components/v2/BudgetVarianceCard';
 import FleetEfficiencyCard from '@/components/v2/FleetEfficiencyCard';
+import ExecExportMenu from '@/components/v2/ExecExportMenu';
 import EmptyState from '@/components/v2/EmptyState';
 import VehicleSheet from '@/components/v2/VehicleSheet';
 import { Button } from '@/components/ui/button';
 
 export default function GenelBakis() {
-  const navigate = useNavigate();
-
-  const user = useAuthStore((s) => s.user);
-  const role = resolveRole(user);
-  const canManage = [ROLES.SYSTEM_ADMIN, ROLES.FLEET_MANAGER].includes(role);
-  const canViewAnalytics = canAccessChannel(user, 'analytics');
-
-  const araclar = useVehicleStore((s) => s.araclar);
-  const loading = useVehicleStore((s) => s.loading);
-  const hasLoaded = useVehicleStore((s) => s.hasLoaded);
-  const fetchAraclar = useVehicleStore((s) => s.fetchAraclar);
-  const seciliAracId = useVehicleStore((s) => s.seciliAracId);
-  const setSeciliAracId = useVehicleStore((s) => s.setSeciliAracId);
-
-  const [aylikTrend, setAylikTrend] = useState([]);
-  const [aracMaliyet, setAracMaliyet] = useState([]);
-  const [butceAnalizi, setButceAnalizi] = useState(null);
-  const [loadingFinance, setLoadingFinance] = useState(false);
-  const [vehicleSheetOpen, setVehicleSheetOpen] = useState(false);
-
-  const vehicleFetchAttemptedRef = useRef(false);
-  const mountedRef = useRef(true);
-  const financeRequestIdRef = useRef(0);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!hasLoaded && !loading && !vehicleFetchAttemptedRef.current) {
-      vehicleFetchAttemptedRef.current = true;
-      fetchAraclar();
-    }
-  }, [hasLoaded, loading, fetchAraclar]);
-
-  // P0 RBAC: Finansal rapor istekleri YALNIZCA analytics yetkisi olan kullanıcılarda atılır
-  const fetchFinanceData = useCallback(async () => {
-    if (!canViewAnalytics) {
-      financeRequestIdRef.current += 1;
-      setAylikTrend([]);
-      setAracMaliyet([]);
-      setButceAnalizi(null);
-      setLoadingFinance(false);
-      return;
-    }
-
-    const reqId = ++financeRequestIdRef.current;
-    setLoadingFinance(true);
-    try {
-      const [trendRes, maliyetRes, butceRes] = await Promise.all([
-        raporService.getAylikHarcamaTrendi(),
-        raporService.getAracMaliyetDagilimi(),
-        raporService.getButceAnalizi(),
-      ]);
-      if (!mountedRef.current || reqId !== financeRequestIdRef.current) return;
-      setAylikTrend(Array.isArray(trendRes) ? trendRes : []);
-      setAracMaliyet(Array.isArray(maliyetRes) ? maliyetRes : []);
-      setButceAnalizi(butceRes || null);
-    } catch (err) {
-      if (!mountedRef.current || reqId !== financeRequestIdRef.current) return;
-      notifyApiError(err, 'Finansal özet yüklenemedi.');
-    } finally {
-      if (mountedRef.current && reqId === financeRequestIdRef.current) setLoadingFinance(false);
-    }
-  }, [canViewAnalytics]);
-
-  useEffect(() => {
-    fetchFinanceData();
-  }, [fetchFinanceData]);
-
-  useEffect(() => {
-    return subscribeDataChanged([DATA_SCOPES.MOVEMENT], () => {
-      if (canViewAnalytics) fetchFinanceData();
-    });
-  }, [canViewAnalytics, fetchFinanceData]);
-
-  const isSingleVehicle = Boolean(seciliAracId && seciliAracId !== 'tum');
-
-  const filtreliAraclar = useMemo(
-    () =>
-      !isSingleVehicle
-        ? araclar
-        : araclar.filter((arac) => String(arac.arac_id) === String(seciliAracId)),
-    [araclar, isSingleVehicle, seciliAracId]
-  );
-
-  const selectedVehicle = isSingleVehicle ? filtreliAraclar[0] || null : null;
-
-  const handleSelectVehicle = useCallback(
-    (arac) => {
-      if (!arac?.arac_id) return;
-      setSeciliAracId(String(arac.arac_id));
-      navigate('/app/filo');
-    },
-    [setSeciliAracId, navigate]
-  );
-
-  const handleSelectComplianceStatus = useCallback(
-    (segmentKey) => {
-      if (segmentKey === 'yaklasiyor' || segmentKey === 'suresi_dolmus') {
-        navigate('/app/filo?durum=riskli_evrak');
-        return;
-      }
-      if (segmentKey === 'gecerli') {
-        navigate('/app/filo?durum=sorunsuz');
-        return;
-      }
-      if (segmentKey === 'eksik') {
-        navigate('/app/filo?durum=eksik_evrak');
-        return;
-      }
-      navigate('/app/filo');
-    },
-    [navigate]
-  );
-
-  const isFleetEmpty = hasLoaded && !loading && araclar.length === 0;
+  const {
+    user, canManage, canViewAnalytics, loading, hasLoaded, seciliAracId, setSeciliAracId,
+    aylikTrend, aracMaliyet, butceAnalizi, loadingFinance, vehicleSheetOpen, setVehicleSheetOpen,
+    donemGun, setDonemGun, exportingKey, isSingleVehicle, filtreliAraclar, selectedVehicle, isFleetEmpty,
+    handleSelectVehicle, handleSelectComplianceStatus, handleBudgetUpdated, handleExportCsv,
+  } = useGenelBakisController();
 
   return (
     <div className="space-y-4">
@@ -152,26 +33,36 @@ export default function GenelBakis() {
           </p>
         </div>
 
-        {isSingleVehicle && !isFleetEmpty && (
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 py-1 pl-3 pr-1.5 text-xs font-medium text-primary">
-            <span className="tabular-nums">
-              Tek araç görünümü
-              {selectedVehicle?.plaka
-                ? ` · ${formatTurkishPlate(selectedVehicle.plaka)}`
-                : ''}
-            </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setSeciliAracId('tum')}
-              className="h-6 gap-1 rounded-full px-2 text-xs text-primary hover:bg-primary/15 hover:text-primary"
-            >
-              <span>Tümünü Göster</span>
-              <X className="size-3" aria-hidden="true" />
-            </Button>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {isSingleVehicle && !isFleetEmpty && (
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 py-1 pl-3 pr-1.5 text-xs font-medium text-primary">
+              <span className="tabular-nums">
+                Tek araç görünümü
+                {selectedVehicle?.plaka ? ` · ${formatTurkishPlate(selectedVehicle.plaka)}` : ''}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setSeciliAracId('tum')}
+                className="h-6 gap-1 rounded-full px-2 text-xs text-primary hover:bg-primary/15 hover:text-primary"
+              >
+                <span>Tümünü Göster</span>
+                <X className="size-3" aria-hidden="true" />
+              </Button>
+            </div>
+          )}
+
+          {canViewAnalytics && !isFleetEmpty && (
+            <ExecExportMenu
+              user={user}
+              donemGun={donemGun}
+              isSingleVehicle={isSingleVehicle}
+              exportingKey={exportingKey}
+              onExport={handleExportCsv}
+            />
+          )}
+        </div>
       </div>
 
       {isFleetEmpty ? (
@@ -201,12 +92,7 @@ export default function GenelBakis() {
             loadingVehicles={loading && !hasLoaded}
             loadingFinance={loadingFinance}
           />
-
-          <ActionCenterCard
-            seciliAracId={seciliAracId}
-            canViewAnalytics={canViewAnalytics}
-          />
-
+          <ActionCenterCard seciliAracId={seciliAracId} canViewAnalytics={canViewAnalytics} />
           {canViewAnalytics ? (
             <>
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
@@ -224,16 +110,12 @@ export default function GenelBakis() {
                   className="lg:col-span-5"
                 />
               </div>
-
               <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-12">
                 <BudgetVarianceCard
                   butceData={butceAnalizi}
                   canManage={canManage}
                   loading={loadingFinance}
-                  onBudgetUpdated={() => {
-                    fetchFinanceData();
-                    emitDataChanged(DATA_SCOPES.BUDGET);
-                  }}
+                  onBudgetUpdated={handleBudgetUpdated}
                   className="lg:col-span-6"
                 />
                 <DocumentComplianceCard
@@ -243,10 +125,11 @@ export default function GenelBakis() {
                   className="lg:col-span-6"
                 />
               </div>
-
               <FleetEfficiencyCard
                 canViewAnalytics={canViewAnalytics}
                 seciliAracId={seciliAracId}
+                donemGun={donemGun}
+                onDonemGunChange={setDonemGun}
                 onSelectVehicle={handleSelectVehicle}
               />
             </>
@@ -268,11 +151,7 @@ export default function GenelBakis() {
       )}
 
       {canManage && (
-        <VehicleSheet
-          open={vehicleSheetOpen}
-          onOpenChange={setVehicleSheetOpen}
-          arac={null}
-        />
+        <VehicleSheet open={vehicleSheetOpen} onOpenChange={setVehicleSheetOpen} arac={null} />
       )}
     </div>
   );

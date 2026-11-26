@@ -6,7 +6,7 @@ import {
   summarizeLedgerRows,
 } from './ledgerTableHelpers';
 
-export default function useLedgerTableState({ rows, araclar, seciliAracId, onVehicleChange }) {
+export default function useLedgerTableState({ rows, araclar, seciliAracId, onVehicleChange, onFiltersChange }) {
   const [activeTab, setActiveTab] = useState(ALL_VALUE);
   const [searchQuery, setSearchQuery] = useState('');
   const [altTurFilter, setAltTurFilter] = useState(ALL_VALUE);
@@ -14,6 +14,10 @@ export default function useLedgerTableState({ rows, araclar, seciliAracId, onVeh
   const [bitisTarihi, setBitisTarihi] = useState('');
   const [sorting, setSorting] = useState([]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
+
+  useEffect(() => {
+    onFiltersChange?.({ activeTab, baslangicTarihi, bitisTarihi });
+  }, [activeTab, baslangicTarihi, bitisTarihi, onFiltersChange]);
 
   const isVehicleFiltered = Boolean(seciliAracId && seciliAracId !== 'tum');
   const vehicleSelectValue = isVehicleFiltered ? String(seciliAracId) : ALL_VALUE;

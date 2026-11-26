@@ -5,47 +5,13 @@ import useVehicleStore from '@/store/useVehicleStore';
 import yakitService from '@/services/yakitService';
 import bakimService from '@/services/bakimService';
 import belgeService from '@/services/belgeService';
+import raporService from '@/services/raporService';
 import { canAccessChannel, resolveRole, ROLES } from '@/components/v2/channelAccess';
-import { isSmhArac } from '@/utils/aracDurum';
 import { notifyApiError } from '@/utils/apiError';
 import { DATA_SCOPES, emitDataChanged, subscribeDataChanged } from '@/utils/dataEvents';
-import { toLocalIsoDate } from '@/utils/dateUtils';
+import { ALL_VALUE, buildUnifiedLedgerRows } from './ledgerTableHelpers';
 
-function cozumleNotVeFatura(rawNotlar, rawFatura) {
-  const ham = String(rawNotlar || '').trim();
-  if (rawFatura) return { fatura_bilgisi: String(rawFatura).trim(), notlar: ham };
-  const match = ham.match(/^\[Fatura:\s*([^\]]+)\]\s*(.*)$/i);
-  if (match) return { fatura_bilgisi: match[1].trim(), notlar: match[2].trim() };
-  return { fatura_bilgisi: '', notlar: ham };
-}
-
-function parseRecordDate(raw) {
-  if (!raw) return { tarih: '', timestamp: 0 };
-  const str = String(raw).trim();
-  const pureDateMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (pureDateMatch) {
-    const [, y, m, d] = pureDateMatch;
-    return { tarih: `${y}-${m}-${d}`, timestamp: new Date(Number(y), Number(m) - 1, Number(d)).getTime() };
-  }
-  const dateObj = new Date(str);
-  if (Number.isNaN(dateObj.getTime())) return { tarih: '', timestamp: 0 };
-  const iso = toLocalIsoDate(dateObj);
-  const [y, m, d] = iso.split('-').map(Number);
-  return { tarih: iso, timestamp: new Date(y, m - 1, d).getTime() };
-}
-
-function parseNullableNumber(value) {
-  if (value === null || value === undefined || value === '') return null;
-  const num = Number(value);
-  return Number.isFinite(num) ? num : null;
-}
-
-export function formatTrDateShort(isoDate) {
-  if (!isoDate) return '—';
-  const parts = String(isoDate).slice(0, 10).split('-');
-  if (parts.length !== 3) return '—';
-  return `${parts[2]}.${parts[1]}.${parts[0]}`;
-}
+export { formatTrDate as formatTrDateShort } from './ledgerTableHelpers';
 
 export default function useHareketlerController() {
   const user = useAuthStore((s) => s.user);
@@ -62,12 +28,15 @@ export default function useHareketlerController() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
   const [importSheetOpen, setImportSheetOpen] = useState(false);
   const [sheetState, setSheetState] = useState({ open: false, mode: 'create', initialTip: 'YAKIT', record: null });
+  const [exportFilters, setExportFilters] = useState({ activeTab: ALL_VALUE, baslangicTarihi: '', bitisTarihi: '' });
 
   const vehicleFetchAttemptedRef = useRef(false);
   const mountedRef = useRef(true);
   const requestIdRef = useRef(0);
+  const exportLockRef = useRef(false);
 
   const role = resolveRole(user);
   const canManage = [ROLES.SYSTEM_ADMIN, ROLES.FLEET_MANAGER].includes(role);
@@ -76,10 +45,7 @@ export default function useHareketlerController() {
   const canAddMaintenance = canManage || user?.yetkiler?.bakim === true;
   const canViewFinance = canAccessChannel(user, 'analytics');
 
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => { mountedRef.current = false; };
-  }, []);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
   useEffect(() => {
     if (!vehiclesHasLoaded && !vehiclesLoading && !vehicleFetchAttemptedRef.current) {
@@ -119,42 +85,10 @@ export default function useHareketlerController() {
     return map;
   }, [araclar]);
 
-  const rows = useMemo(() => {
-    const unified = [];
-    yakitlar.forEach((y) => {
-      const matched = aracMap.get(String(y.arac_id)) || null;
-      const { tarih, timestamp } = parseRecordDate(y.tarih);
-      const litre = Number(y.litre || 0);
-      const tutar = Number(y.tutar || 0);
-      const { fatura_bilgisi, notlar } = cozumleNotVeFatura(y.notlar, y.fatura_no || y.fatura_bilgisi);
-      const isSmh = y.sayac_tipi ? y.sayac_tipi === 'SMH' : isSmhArac(matched);
-      unified.push({
-        id: `yakit-${y.yakit_id}`, rawId: Number(y.yakit_id), tip: 'YAKIT', arac_id: y.arac_id,
-        plaka: y.plaka || matched?.plaka || `#${y.arac_id}`, marka: y.marka || matched?.marka || '',
-        model: y.model || matched?.model || '', sayac_tipi: isSmh ? 'SMH' : 'KM',
-        tarih, timestamp, km: parseNullableNumber(y.km), tutar, litre,
-        birimFiyat: litre > 0 ? tutar / litre : null, altTur: y.yakit_tipi || 'Dizel',
-        fatura_bilgisi, notlar, belge_url: canViewFinance ? (y.belge_url || null) : null, raw: y,
-      });
-    });
-    bakimlar.forEach((b) => {
-      const matched = aracMap.get(String(b.arac_id)) || null;
-      const { tarih, timestamp } = parseRecordDate(b.tarih);
-      const tutar = Number(b.maliyet ?? b.tutar ?? 0);
-      const { fatura_bilgisi, notlar } = cozumleNotVeFatura(b.notlar || b.aciklama, b.fatura_no || b.fatura_bilgisi);
-      const isSmh = b.sayac_tipi ? b.sayac_tipi === 'SMH' : isSmhArac(matched);
-      unified.push({
-        id: `bakim-${b.bakim_id}`, rawId: Number(b.bakim_id), tip: 'BAKIM', arac_id: b.arac_id,
-        plaka: b.plaka || matched?.plaka || `#${b.arac_id}`, marka: b.marka || matched?.marka || '',
-        model: b.model || matched?.model || '', sayac_tipi: isSmh ? 'SMH' : 'KM',
-        tarih, timestamp, km: parseNullableNumber(b.km), tutar, litre: null, birimFiyat: null,
-        altTur: b.bakim_tipi || b.islem_turu || b.bakim_turu || 'Periyodik Bakım',
-        fatura_bilgisi, notlar, belge_url: canViewFinance ? (b.belge_url || null) : null, raw: b,
-      });
-    });
-    unified.sort((a, b) => (b.timestamp !== a.timestamp ? b.timestamp - a.timestamp : (b.rawId || 0) - (a.rawId || 0)));
-    return unified;
-  }, [yakitlar, bakimlar, aracMap, canViewFinance]);
+  const rows = useMemo(
+    () => buildUnifiedLedgerRows(yakitlar, bakimlar, aracMap, canViewFinance),
+    [yakitlar, bakimlar, aracMap, canViewFinance]
+  );
 
   const isVehicleScoped = Boolean(seciliAracId && seciliAracId !== 'tum');
   const scopedCount = useMemo(
@@ -208,6 +142,33 @@ export default function useHareketlerController() {
     }
   }, [canViewFinance]);
 
+  const handleExportCsv = useCallback(async () => {
+    if (!canViewFinance || exportLockRef.current) return;
+    exportLockRef.current = true;
+    setExportingCsv(true);
+    try {
+      const tip = exportFilters.activeTab === 'YAKIT' || exportFilters.activeTab === 'BAKIM'
+        ? exportFilters.activeTab
+        : 'TUMU';
+      const params = { tip };
+      if (isVehicleScoped && Number(seciliAracId) > 0) params.arac_id = Number(seciliAracId);
+      if (exportFilters.baslangicTarihi) params.baslangic = exportFilters.baslangicTarihi;
+      if (exportFilters.bitisTarihi) params.bitis = exportFilters.bitisTarihi;
+      const res = await raporService.exportHareketlerCsv(params);
+      if (!mountedRef.current) return;
+      if (res?.truncated) {
+        toast('Kayıt sayısı sınırı aşıldığı için ilk 10.000 kayıt dışa aktarıldı.', { icon: '⚠️', duration: 6000 });
+      } else {
+        toast.success('Hareket defteri CSV dosyası indirildi.');
+      }
+    } catch (err) {
+      if (mountedRef.current) notifyApiError(err, 'Hareketler CSV dışa aktarılamadı.');
+    } finally {
+      exportLockRef.current = false;
+      if (mountedRef.current) setExportingCsv(false);
+    }
+  }, [canViewFinance, exportFilters, isVehicleScoped, seciliAracId]);
+
   const handleConfirmDelete = async () => {
     if (!deleteTarget || !canManage) return;
     setIsDeleting(true);
@@ -227,10 +188,11 @@ export default function useHareketlerController() {
 
   return {
     araclar, seciliAracId, setSeciliAracId, rows, loading, hasLoaded,
-    isVehicleScoped, scopedCount, deleteTarget, setDeleteTarget, isDeleting,
-    importSheetOpen, setImportSheetOpen, sheetState,
+    isVehicleScoped, scopedCount, deleteTarget, setDeleteTarget, isDeleting, exportingCsv,
+    importSheetOpen, setImportSheetOpen, sheetState, setExportFilters,
     canManage, canImportFuel, canAddFuel, canAddMaintenance, canViewFinance,
     handleCreateYakit, handleCreateBakim, handleRepeatRow, handleEditRow,
-    handleSheetOpenChange, handleSheetSuccess, handleDeleteRequest, handleConfirmDelete, handleOpenBelge,
+    handleSheetOpenChange, handleSheetSuccess, handleDeleteRequest, handleConfirmDelete,
+    handleOpenBelge, handleExportCsv,
   };
 }

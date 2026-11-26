@@ -9,7 +9,6 @@
   ],
   "files": {
     "Backend/controllers/parcaController.js": 411,
-    "Backend/controllers/raporController.js": 334,
     "Backend/routes/userRoutes.js": 359,
     "Backend/scripts/qaSeed.js": 396,
     "Frontend/src/components/v2/CostTrendChart.jsx": 345,

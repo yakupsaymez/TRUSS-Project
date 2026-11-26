@@ -27,19 +27,20 @@ export default function FleetEfficiencyCard({
   canViewAnalytics = false,
   seciliAracId = 'tum',
   onSelectVehicle,
+  donemGun: controlledDonemGun,
+  onDonemGunChange,
   className,
 }) {
-  const [donemGun, setDonemGun] = useState(90);
+  const [internalDonemGun, setInternalDonemGun] = useState(90);
+  const donemGun = controlledDonemGun ?? internalDonemGun;
+  const setDonemGun = onDonemGunChange || setInternalDonemGun;
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const mountedRef = useRef(true);
   const requestIdRef = useRef(0);
 
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => { mountedRef.current = false; };
-  }, []);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
   const fetchTco = useCallback(async (gun) => {
     if (!canViewAnalytics) return;
@@ -69,10 +70,7 @@ export default function FleetEfficiencyCard({
 
   useEffect(() => {
     if (!canViewAnalytics) return undefined;
-    return subscribeDataChanged(
-      [DATA_SCOPES.MOVEMENT, DATA_SCOPES.VEHICLE, DATA_SCOPES.COMPONENT],
-      () => fetchTco(donemGun)
-    );
+    return subscribeDataChanged([DATA_SCOPES.MOVEMENT, DATA_SCOPES.VEHICLE, DATA_SCOPES.COMPONENT], () => fetchTco(donemGun));
   }, [canViewAnalytics, donemGun, fetchTco]);
 
   useEffect(() => { setExpanded(false); }, [seciliAracId, donemGun]);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Fuel, Plus, Wrench } from 'lucide-react';
+import { Download, Fuel, Loader2, Plus, Wrench } from 'lucide-react';
 import { formatCurrency, formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import useHareketlerController, { formatTrDateShort } from '@/components/v2/ledger-data-table/useHareketlerController';
 import LedgerDataTable from '@/components/v2/LedgerDataTable';
@@ -23,9 +23,11 @@ export default function Hareketler() {
     deleteTarget,
     setDeleteTarget,
     isDeleting,
+    exportingCsv,
     importSheetOpen,
     setImportSheetOpen,
     sheetState,
+    setExportFilters,
     canManage,
     canImportFuel,
     canAddFuel,
@@ -40,6 +42,7 @@ export default function Hareketler() {
     handleDeleteRequest,
     handleConfirmDelete,
     handleOpenBelge,
+    handleExportCsv,
   } = useHareketlerController();
 
   return (
@@ -59,8 +62,25 @@ export default function Hareketler() {
           </p>
         </div>
 
-        {(canAddFuel || canAddMaintenance) && (
+        {(canViewFinance || canAddFuel || canAddMaintenance) && (
           <div className="flex flex-wrap items-center gap-2">
+            {canViewFinance && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={exportingCsv}
+                onClick={handleExportCsv}
+                className="gap-1.5 border-border bg-card text-foreground hover:bg-muted/50"
+              >
+                {exportingCsv ? (
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Download className="size-3.5" aria-hidden="true" />
+                )}
+                <span>{exportingCsv ? 'Aktarılıyor...' : 'CSV Dışa Aktar'}</span>
+              </Button>
+            )}
             {canAddFuel && (
               <Button
                 type="button"
@@ -97,6 +117,7 @@ export default function Hareketler() {
         araclar={araclar}
         seciliAracId={seciliAracId}
         onVehicleChange={setSeciliAracId}
+        onFiltersChange={setExportFilters}
         loading={loading}
         hasLoaded={hasLoaded}
         canManage={canManage}
