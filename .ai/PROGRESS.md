@@ -1,9 +1,9 @@
 # TRUSS — Canlı İlerleme & Durum (`PROGRESS.md`)
 
-## 1. Aktif Durum (`main` — `FORGE-D2 FE DİLİMİ`)
+## 1. Aktif Durum (`main` — `FORGE-D3 FE DİLİMİ`)
 - **`V2.1..FORGE-C4` (`ADR-01..32`) — QA PASS:** `radix-luma`, `a.org_id` + `SYSTEM_ADMIN`, TCO/anomali/CSV/denetim/arşiv, `*WriteService` + `schema_migrations` + `token_version` + `is_emirleri`, prod zırhı + PG 16 CI, `belge_kasasi`, `zimmet_muayeneleri`, BOM CSV + `raporController` slim, `userSettings` + `V2.3` X-Ray mührü.
-- **`FORGE-D0..D1` (`ADR-33..34`) — QA BEKLİYOR:** `parcaQuery/WriteService` + `parcaController` (`84`L), `complianceUtils` (`<=120`L), `FleetHealthWidget` + `Takvim` 3-katman, `IsEmirleri` `prefillWorkOrder`, ratchet `6 -> 3`.
-- **`FORGE-D2` (`ADR-35`) — QA BEKLİYOR:** `CreateMemberSheet` (`59`L) + `useCreateMemberController` (`useRef` kilit, `arsivlendi_mi` filtre, `DATA_SCOPES.VEHICLE/HANDOVER`) + 2 saf yaprak; `CostTrendChart` (`33`L) + `useCostTrendController` (`effectiveTab`, sıfır-bölme koruması) + `CostTrendChartView`, ratchet `3 -> 1`.
+- **`FORGE-D0..D2` (`ADR-33..35`) — QA BEKLİYOR:** `parcaQuery/WriteService` + `parcaController` (`84`L), `complianceUtils`, `FleetHealthWidget`/`Takvim` 3-katman, `CreateMemberSheet`/`CostTrendChart` 3-katman, ratchet `6 -> 1`.
+- **`FORGE-D3` (`ADR-36`) — QA BEKLİYOR:** `Harita` 3-katman (`useHaritaController`, `haritaUtils`, `HaritaHeader`, `HaritaUnpositionedPanel`, `HaritaCheckInDialog`), `(0,0)`/arşiv/uçuş koruması, `FleetMapDetailBar` `İş Emri Aç` + `prefillWorkOrder`, ratchet `1 -> 0`.
 
 ## 2. Yol Haritası & Ratchet
-- **`FORGE-C0..C4` [TAMAM]; `FORGE-D0..D2` [UYGULANDI]:** Gate 1 `1` ratchet (`Harita.jsx: 483`, `0` BE, `vendor-charts <= 228 KB`), PG 16 CI aktif.
+- **`FORGE-C0..C4` [TAMAM]; `FORGE-D0..D3` [UYGULANDI]:** Gate 1 **`0` ratchet** (`"files": {}`, `0` BE/FE, `vendor-charts <= 228 KB`), PG 16 CI aktif.

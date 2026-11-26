@@ -114,9 +114,14 @@ export function useIsEmirleriController() {
   useEffect(() => {
     const prefill = location.state?.prefillWorkOrder;
     if (!prefill) return;
-    if (!isMissingManagerOrg) {
-      setFormSheet({ open: true, mode: 'create', record: null, defaultDurum: null, prefill });
-    }
+    const normalizedPrefill = {
+      arac_id: prefill.arac_id != null && Number.isFinite(Number(prefill.arac_id)) ? Number(prefill.arac_id) : undefined,
+      kategori: typeof prefill.kategori === 'string' ? prefill.kategori : undefined,
+      oncelik: typeof prefill.oncelik === 'string' ? prefill.oncelik : undefined,
+      baslik: typeof prefill.baslik === 'string' ? prefill.baslik.trim() : undefined,
+      ...(typeof prefill.aciklama === 'string' ? { aciklama: prefill.aciklama.trim() } : {}),
+    };
+    if (!isMissingManagerOrg) setFormSheet({ open: true, mode: 'create', record: null, defaultDurum: null, prefill: normalizedPrefill });
     navigate(location.pathname, { replace: true, state: null });
   }, [location.pathname, location.state, navigate, isMissingManagerOrg]);
 

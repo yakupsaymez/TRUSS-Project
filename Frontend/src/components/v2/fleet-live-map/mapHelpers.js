@@ -84,6 +84,7 @@ export function hasValidCoordinates(arac) {
     arac?.son_boylam !== '' &&
     Number.isFinite(lat) &&
     Number.isFinite(lng) &&
+    !(lat === 0 && lng === 0) &&
     lat >= -90 &&
     lat <= 90 &&
     lng >= -180 &&

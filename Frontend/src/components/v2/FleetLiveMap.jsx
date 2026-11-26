@@ -31,6 +31,8 @@ export default function FleetLiveMap({
   onSelectArac,
   onOpenCheckIn,
   onOpenInFleet,
+  onCreateWorkOrder,
+  canCreateWorkOrder = false,
   loading = false,
   className,
 }) {
@@ -65,6 +67,8 @@ export default function FleetLiveMap({
         activeVehicle={activeVehicle}
         onOpenCheckIn={onOpenCheckIn}
         onOpenInFleet={onOpenInFleet}
+        onCreateWorkOrder={onCreateWorkOrder}
+        canCreateWorkOrder={canCreateWorkOrder}
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">

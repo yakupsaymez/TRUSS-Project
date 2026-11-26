@@ -7,7 +7,7 @@
 |`/login`, `/register`, `/forgot-password`|`pages/v2/{Login,Register,ForgotPassword}V2.jsx`|Açık|`AuthFrame`|
 |`/app`|`pages/v2/GenelBakis.jsx`|`horizon`|`useGenelBakisController`, `OverviewKpiStrip`, `CostTrendChart`, `BudgetVarianceCard`, `FleetHealthWidget`, `ExecExportMenu`|
 |`/app/filo`|`pages/v2/Filo.jsx`|`horizon`|`FleetDataTable`, `VehicleSheet`, `AssignVehicleSheet`, `HandoverInspectionSheet`|
-|`/app/harita`|`pages/v2/Harita.jsx`|`horizon`|`FleetLiveMap`, check-in|
+|`/app/harita`|`pages/v2/Harita.jsx`|`horizon`|`FleetLiveMap`, `harita/{useHaritaController,HaritaHeader,HaritaUnpositionedPanel,HaritaCheckInDialog,haritaUtils}`|
 |`/app/hareketler`|`pages/v2/Hareketler.jsx`|`ledger`|`useHareketlerController`, `LedgerDataTable`, `MovementSheet`, `FuelAnomalyPanel`, `FuelImportSheet`|
 |`/app/parcalar`|`pages/v2/Parcalar.jsx`|`components`|`ComponentDataTable`, `ComponentSheet`|
 |`/app/is-emirleri`|`pages/v2/IsEmirleri.jsx`|`ProtectedRoute`|`work-orders/{WorkOrderTable,WorkOrderFormSheet,WorkOrderCompleteDialog,WorkOrderCancelDialog,useIsEmirleriController}`|
@@ -30,5 +30,5 @@
 - **İndeksler:** `idx_araclar_org_id`, `idx_araclar_org_aktif`, `idx_yakitlar_arac_tarih_km`, `idx_bakimlar_arac_tarih_km`, `idx_parca_takip_arac_id`, `idx_atamalar_aktif_arac`, `idx_bildirim_user_okundu`, `idx_yakit_anomalileri_org_durum`, `idx_denetim_org_tarih`, `idx_is_emirleri_org_durum`, `idx_belge_kasasi_varlik`, `idx_zimmet_muayeneleri_org_tarih`.
 
 ## 4. AI-OS, FORGE & CI (`.ai/`, `.agent/`, `.github/`)
-- **`.ai/` & CI:** `PROGRESS`, `SWARM_PLAYBOOK`, `ENGINEERING_GUARDRAILS`, `ARCHITECTURE_MAP`, `DECISIONS` (`ADR-01..34`), `HANDOFF_TEMPLATE`.md, `gate-baseline.json` (`3` ratchet); `scripts/{ai-gate,context-pack,context-audit,forge-meter}.mjs`; `.github/workflows/ci.yml`.
+- **`.ai/` & CI:** `PROGRESS`, `SWARM_PLAYBOOK`, `ENGINEERING_GUARDRAILS`, `ARCHITECTURE_MAP`, `DECISIONS` (`ADR-01..36`), `HANDOFF_TEMPLATE`.md, `gate-baseline.json` (`0` ratchet); `scripts/{ai-gate,context-pack,context-audit,forge-meter}.mjs`; `.github/workflows/ci.yml`.
 - **`.agent/`:** `rules/{00-truss-core,10-frontend-luma,20-backend-sql,30-ops-gate}.md`; `skills/{forge,critic,forge-seal,forge-qa-browser,forge-xray}/SKILL.md`; `agents/{keystone,sentinel,core-smith,shell-crafter,radar}.md`.

@@ -7,7 +7,5 @@
     "Backend/scripts/seedKatalog.js",
     "Frontend/src/components/ui/**"
   ],
-  "files": {
-    "Frontend/src/pages/v2/Harita.jsx": 483
-  }
+  "files": {}
 }

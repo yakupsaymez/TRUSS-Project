@@ -71,3 +71,5 @@
 - **2026-11-26:** `complianceUtils` (`UTC+3` kaymasız `YYYY-MM-DD`, `getComplianceUrgency` yalnız vade tarihlerine, `bakim` geçmiş hareket), `FleetHealthWidget`/`Takvim` 3-katman (`AbortController`+`requestIdRef`, deterministik `TakvimEventDialog`, `DRIVER`/arşivde mutasyon gizli), `IsEmirleri` `prefillWorkOrder` (`navigate(..., { state: null })`), ratchet `5 -> 3`.
 ### ADR-35: `CreateMemberSheet` & `CostTrendChart` 3-Katman + Ratchet `3 -> 1` (`FORGE-D2`)
 - **2026-11-26:** `CreateMemberSheet` (`useRef` submit kilidi, `arsivlendi_mi` filtre, `DATA_SCOPES.VEHICLE/HANDOVER`) ve `CostTrendChart` (`0`-lazy, `effectiveTab = isSingleVehicle ? 'aylik' : activeTab`, sıfır-bölme koruması) 3 katmana ayrıldı; ratchet `3 -> 1` (yalnız `Harita.jsx`).
+### ADR-36: `Harita` 3-Katman, `(0,0)`/Arşiv Koruması & Sıfır-Ratchet (`FORGE-D3`)
+- **2026-11-26:** `Harita` (`useHaritaController` + `haritaUtils` + 3 saf yaprak; `isMountedRef`/`requestIdRef`/`submitLockRef`, `DATA_SCOPES.VEHICLE/HANDOVER`, `(0,0)` & `arsivlendi_mi` koruması, `canManage && !arsivlendi_mi` `İş Emri Aç` -> `prefillWorkOrder`) ayrıldı; `gate-baseline.json` `"files": {}` (`0` ratchet).

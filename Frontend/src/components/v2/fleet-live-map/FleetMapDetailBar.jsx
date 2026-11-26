@@ -1,5 +1,5 @@
 import React from 'react';
-import { ExternalLink, MapPin, Truck } from 'lucide-react';
+import { ExternalLink, MapPin, Truck, Wrench } from 'lucide-react';
 import { getGuncelSayac, getSayacBirimi } from '@/utils/aracDurum';
 import { formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,8 @@ export default function FleetMapDetailBar({
   activeVehicle,
   onOpenCheckIn,
   onOpenInFleet,
+  onCreateWorkOrder,
+  canCreateWorkOrder = false,
 }) {
   if (!activeVehicle) return null;
 
@@ -96,15 +98,29 @@ export default function FleetMapDetailBar({
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            size="sm"
-            className="h-8 gap-1.5 text-xs"
-            onClick={() => onOpenCheckIn?.(activeVehicle)}
-          >
-            <MapPin className="size-3.5" aria-hidden="true" />
-            <span>Konum Bildir (Check-In)</span>
-          </Button>
+          {activeVehicle.arsivlendi_mi !== true && (
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => onOpenCheckIn?.(activeVehicle)}
+            >
+              <MapPin className="size-3.5" aria-hidden="true" />
+              <span>Konum Bildir (Check-In)</span>
+            </Button>
+          )}
+          {canCreateWorkOrder && activeVehicle.arsivlendi_mi !== true && onCreateWorkOrder && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => onCreateWorkOrder(activeVehicle)}
+            >
+              <Wrench className="size-3.5 text-primary" aria-hidden="true" />
+              <span>İş Emri Aç</span>
+            </Button>
+          )}
           <Button
             type="button"
             variant="outline"
