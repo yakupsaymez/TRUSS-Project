@@ -9,6 +9,7 @@ const {
   aracSayaciniSenkronizeEt,
   sayacBirimi,
 } = require('../utils/odometerGuard');
+const { bindSingleDocumentTx, softDeleteEntityDocumentsTx } = require('./docVaultService');
 
 const extractFaturaFromNotlar = (rawNotlar) => {
   if (!rawNotlar) return null;
@@ -44,7 +45,7 @@ const createYakitTx = async (client, actor, input) => {
 
   const { clause, params } = buildVehicleAccessFilter(actor, 2);
   const ownership = await client.query(
-    `SELECT a.arac_id FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
+    `SELECT a.arac_id, a.org_id FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
     [aracId, ...params]
   );
   if (ownership.rowCount === 0) {
@@ -81,8 +82,16 @@ const createYakitTx = async (client, actor, input) => {
     ]
   );
 
-  await syncVehicleOdometer(client, { aracId, sayacTipi: hedefArac.sayac_tipi, km: sayisalKm });
   const row = inserted.rows[0];
+  await bindSingleDocumentTx(client, actor, {
+    aracId,
+    orgId: ownership.rows[0].org_id,
+    varlikTipi: 'yakit',
+    varlikId: row.yakit_id,
+    nextKey: belgeUrl,
+    prevKey: null,
+  });
+  await syncVehicleOdometer(client, { aracId, sayacTipi: hedefArac.sayac_tipi, km: sayisalKm });
   return { row, anomalyCtx: { yakitId: row.yakit_id, mode: 'create' }, auditCtx: null };
 };
 
@@ -116,7 +125,7 @@ const updateYakitTx = async (client, actor, input) => {
   }
 
   const hedefCheck = await client.query(
-    `SELECT a.arac_id FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
+    `SELECT a.arac_id, a.org_id FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
     [hedefAracId, ...params]
   );
   if (hedefCheck.rowCount === 0) {
@@ -182,6 +191,15 @@ const updateYakitTx = async (client, actor, input) => {
   if (kaynakAracId !== hedefAracId) {
     await aracSayaciniSenkronizeEt(client, { aracId: kaynakAracId, eskiKm });
   }
+  await bindSingleDocumentTx(client, actor, {
+    aracId: hedefAracId,
+    orgId: hedefCheck.rows[0].org_id,
+    varlikTipi: 'yakit',
+    varlikId: yakitId,
+    nextKey: belgeUrl,
+    prevKey: mevcutBelgeUrl,
+    kaynakAracId,
+  });
 
   return { row: updated.rows[0], anomalyCtx: { yakitId, mode: 'update' }, auditCtx: null };
 };
@@ -206,6 +224,7 @@ const deleteYakitTx = async (client, actor, input) => {
   const [hedefArac] = await araclariKilitle(client, [aracId]);
   assertNotArchived(hedefArac, 'yakıt kaydı', 'silinemez');
 
+  await softDeleteEntityDocumentsTx(client, { varlikTipi: 'yakit', varlikId: yakitId });
   await client.query('DELETE FROM yakitlar WHERE yakit_id = $1', [yakitId]);
   await aracSayaciniSenkronizeEt(client, { aracId, eskiKm: row.km });
 

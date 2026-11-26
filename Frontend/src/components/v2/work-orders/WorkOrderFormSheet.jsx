@@ -1,53 +1,46 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { formatTurkishPlate } from '@/utils/formatters';
 import AppSheet, { SheetField, SheetFormGrid, SheetFormSection } from '@/components/v2/AppSheet';
+import DocVaultMultiField from '@/components/v2/doc-vault/DocVaultMultiField';
+import useDocVaultUpload from '@/components/v2/doc-vault/useDocVaultUpload';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { TrussDatePicker } from '@/components/ui/truss-date-picker';
-import { DURUM_META, isHourOdometer, KATEGORI_OPTIONS, ONCELIK_OPTIONS } from './workOrderConstants';
-
-function buildInitialForm({ mode, record, defaultDurum, araclar, defaultAracId }) {
-  if (mode === 'edit' && record) {
-    const isHour = isHourOdometer(record.sayac_tipi);
-    const hasSayac = record.bildirilen_sayac !== null && record.bildirilen_sayac !== undefined && record.bildirilen_sayac !== '';
-    const hasCost = record.tahmini_maliyet !== null && record.tahmini_maliyet !== undefined && record.tahmini_maliyet !== '';
-    return {
-      arac_id: String(record.arac_id),
-      baslik: record.baslik || '',
-      kategori: record.kategori || 'ariza',
-      oncelik: record.oncelik || 'normal',
-      durum: defaultDurum || record.durum || 'acik',
-      bildirilen_sayac: hasSayac ? String(isHour ? Number(record.bildirilen_sayac) : Math.round(Number(record.bildirilen_sayac))) : '',
-      aciklama: record.aciklama || '',
-      servis_adi: record.servis_adi || '',
-      tahmini_maliyet: hasCost ? String(Number(record.tahmini_maliyet)) : '',
-      planlanan_tarih: record.planlanan_tarih ? String(record.planlanan_tarih).slice(0, 10) : '',
-    };
-  }
-  const initialAracId = defaultAracId && defaultAracId !== 'tum' ? String(defaultAracId) : (araclar[0]?.arac_id ? String(araclar[0].arac_id) : '');
-  return {
-    arac_id: initialAracId, baslik: '', kategori: 'ariza', oncelik: 'normal', durum: 'acik',
-    bildirilen_sayac: '', aciklama: '', servis_adi: '', tahmini_maliyet: '', planlanan_tarih: '',
-  };
-}
+import {
+  buildInitialWorkOrderForm, buildWorkOrderDocItems, DURUM_META, isHourOdometer,
+  KATEGORI_OPTIONS, ONCELIK_OPTIONS, validateAndBuildWorkOrderPayload, WORKORDER_MAX_DOCS,
+} from './workOrderConstants';
 
 export default function WorkOrderFormSheet({
   open, onOpenChange, mode = 'create', record = null, defaultDurum = null,
-  araclar = [], defaultAracId = 'tum', canManage = false, submitting = false, onCreate, onUpdate,
+  araclar = [], defaultAracId = 'tum', canManage = false, currentUserId = null,
+  submitting = false, onCreate, onUpdate, onDocsChanged,
 }) {
-  const [form, setForm] = useState(() => buildInitialForm({ mode, record, defaultDurum, araclar, defaultAracId }));
+  const [form, setForm] = useState(() => buildInitialWorkOrderForm({ mode, record, defaultDurum, araclar, defaultAracId }));
   const [initialJson, setInitialJson] = useState('');
   const [errors, setErrors] = useState({});
+  const [draftDocs, setDraftDocs] = useState([]);
+  const [boundDocs, setBoundDocs] = useState([]);
+
+  const docUpload = useDocVaultUpload();
+  const draftDocsRef = useRef([]);
+  draftDocsRef.current = draftDocs;
   const isEdit = mode === 'edit' && Boolean(record);
+  const isClosedWo = isEdit && (record?.durum === 'tamamlandi' || record?.durum === 'iptal');
 
   useEffect(() => {
-    if (!open) return;
-    const init = buildInitialForm({ mode, record, defaultDurum, araclar, defaultAracId });
-    setForm(init);
-    setInitialJson(JSON.stringify(init));
-    setErrors({});
+    if (!open) {
+      docUpload.abortUpload(); docUpload.clearError(); setDraftDocs([]); setBoundDocs([]);
+      return;
+    }
+    const init = buildInitialWorkOrderForm({ mode, record, defaultDurum, araclar, defaultAracId });
+    setForm(init); setInitialJson(JSON.stringify(init)); setErrors({});
+    setDraftDocs([]);
+    setBoundDocs(isEdit && Array.isArray(record?.belgeler) ? record.belgeler : []);
+    docUpload.clearError();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode, record, defaultDurum, araclar, defaultAracId]);
 
   const selectedVehicle = useMemo(
@@ -55,56 +48,62 @@ export default function WorkOrderFormSheet({
     [araclar, form.arac_id]
   );
   const isHour = isHourOdometer(record?.sayac_tipi || selectedVehicle?.sayac_tipi);
-  const isDirty = open && JSON.stringify(form) !== initialJson;
+  const isDirty = open && (JSON.stringify(form) !== initialJson || draftDocs.length > 0);
   const setField = (key, val) => {
     setForm((prev) => ({ ...prev, [key]: val }));
     setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const nextErr = {};
-    if (!isEdit && !form.arac_id) nextErr.arac_id = 'Araç seçimi zorunludur.';
-    if (form.baslik.trim().length < 2) nextErr.baslik = 'Başlık en az 2 karakter olmalıdır.';
-    const sayacRaw = String(form.bildirilen_sayac ?? '').trim();
-    if (sayacRaw !== '') {
-      const sNum = Number(sayacRaw);
-      if (!Number.isFinite(sNum) || sNum < 0) nextErr.bildirilen_sayac = 'Geçerli bir sayaç değeri girin.';
+  const handleVehicleChange = (nextAracId) => {
+    if (!isEdit && (draftDocsRef.current.length > 0 || docUpload.uploading)) {
+      docUpload.abortUpload(); docUpload.clearError();
+      draftDocsRef.current.forEach((d) => { if (d.belge_id) docUpload.removeDraftOrDoc(d.belge_id, { silent: true }); });
+      setDraftDocs([]);
     }
-    const costRaw = String(form.tahmini_maliyet ?? '').trim();
-    if (canManage && costRaw !== '') {
-      const cNum = Number(costRaw);
-      if (!Number.isFinite(cNum) || cNum < 0) nextErr.tahmini_maliyet = 'Geçerli bir maliyet tutarı girin.';
-    }
-    if (Object.keys(nextErr).length > 0) { setErrors(nextErr); return; }
+    setField('arac_id', nextAracId);
+  };
 
-    const trimmedAciklama = form.aciklama.trim();
-    const trimmedServis = form.servis_adi.trim();
-    if (!isEdit) {
-      const payload = {
-        arac_id: Number(form.arac_id), baslik: form.baslik.trim(), kategori: form.kategori, oncelik: form.oncelik,
-        aciklama: trimmedAciklama || undefined,
-        bildirilen_sayac: sayacRaw !== '' ? Number(sayacRaw) : undefined,
-      };
-      if (canManage) {
-        payload.servis_adi = trimmedServis || undefined;
-        payload.tahmini_maliyet = costRaw !== '' ? Number(costRaw) : undefined;
-        payload.planlanan_tarih = form.planlanan_tarih || undefined;
-      }
-      await onCreate(payload);
+  const handleSelectDoc = async (file) => {
+    if (isClosedWo || (isEdit ? boundDocs.length : draftDocs.length) >= WORKORDER_MAX_DOCS) return;
+    const uploaded = await docUpload.uploadFile({
+      aracId: isEdit ? record.arac_id : form.arac_id, varlikTipi: 'is_emri',
+      varlikId: isEdit ? record.is_emri_id : null, file, bindImmediately: isEdit,
+    });
+    if (!uploaded) return;
+    if (isEdit) { setBoundDocs((prev) => [...prev, uploaded]); onDocsChanged?.(); }
+    else setDraftDocs((prev) => [...prev, uploaded]);
+  };
+
+  const handleRemoveDoc = async (item) => {
+    if (item.isDraft) {
+      if (item.belge_id) await docUpload.removeDraftOrDoc(item.belge_id, { silent: true });
+      setDraftDocs((prev) => prev.filter((d) => d.belge_id !== item.belge_id));
       return;
     }
+    if (await docUpload.removeDraftOrDoc(item.belge_id)) {
+      setBoundDocs((prev) => prev.filter((d) => d.belge_id !== item.belge_id));
+      onDocsChanged?.();
+    }
+  };
 
-    const patchPayload = {
-      baslik: form.baslik.trim(), kategori: form.kategori, oncelik: form.oncelik,
-      aciklama: trimmedAciklama || null,
-      bildirilen_sayac: sayacRaw !== '' ? Number(sayacRaw) : null,
-      servis_adi: trimmedServis || null,
-      tahmini_maliyet: costRaw !== '' ? Number(costRaw) : null,
-      planlanan_tarih: form.planlanan_tarih || null,
-    };
-    if (record.durum === 'acik' && form.durum === 'serviste') patchPayload.durum = 'serviste';
-    await onUpdate(record.is_emri_id, patchPayload);
+  const docItems = useMemo(
+    () => buildWorkOrderDocItems({ isEdit, draftDocs, boundDocs, isClosedWo, canManage, currentUserId, recordDurum: record?.durum }),
+    [isEdit, draftDocs, boundDocs, isClosedWo, canManage, currentUserId, record?.durum]
+  );
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (submitting || docUpload.uploading) return;
+    const { errors: nextErr, payload } = validateAndBuildWorkOrderPayload({
+      form, isEdit, canManage, record, draftKeys: draftDocs.map((d) => d.nesne_anahtari),
+    });
+    if (nextErr) { setErrors(nextErr); return; }
+    if (!isEdit) {
+      const ok = await onCreate(payload);
+      if (ok) setDraftDocs([]);
+      return;
+    }
+    await onUpdate(record.is_emri_id, payload);
   };
 
   return (
@@ -113,7 +112,8 @@ export default function WorkOrderFormSheet({
       title={isEdit ? 'İş Emrini Güncelle' : 'Yeni İş Emri Talebi'}
       description={isEdit ? 'Servis planlaması, durum ve maliyet bilgilerini güncelleyin.' : 'Arıza, bakım veya servis talebi oluşturun.'}
       badge={isEdit && record ? formatTurkishPlate(record.plaka || '') : undefined}
-      submitLabel={isEdit ? 'Güncelle' : 'Talep Oluştur'} isSubmitting={submitting} isDirty={isDirty} onSubmit={handleSubmit}
+      submitLabel={isEdit ? 'Güncelle' : 'Talep Oluştur'} isSubmitting={submitting} submitDisabled={docUpload.uploading}
+      isDirty={isDirty} onSubmit={handleSubmit}
     >
       <SheetFormSection title="Talep Bilgileri">
         <SheetField label="Araç" htmlFor="wo-arac" required={!isEdit} error={errors.arac_id}>
@@ -122,7 +122,7 @@ export default function WorkOrderFormSheet({
               {formatTurkishPlate(record?.plaka || '')} · {[record?.marka, record?.model].filter(Boolean).join(' ')}
             </div>
           ) : (
-            <Select value={form.arac_id} onValueChange={(v) => setField('arac_id', v)}>
+            <Select value={form.arac_id} onValueChange={handleVehicleChange}>
               <SelectTrigger id="wo-arac" className="w-full"><SelectValue placeholder="Araç seçin" /></SelectTrigger>
               <SelectContent>
                 {araclar.map((a) => <SelectItem key={a.arac_id} value={String(a.arac_id)}>{formatTurkishPlate(a.plaka)} — {a.marka} {a.model}</SelectItem>)}
@@ -156,10 +156,7 @@ export default function WorkOrderFormSheet({
               {record?.durum === 'acik' ? (
                 <Select value={form.durum} onValueChange={(v) => setField('durum', v)}>
                   <SelectTrigger id="wo-durum" className="w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="acik">Açık</SelectItem>
-                    <SelectItem value="serviste">Serviste</SelectItem>
-                  </SelectContent>
+                  <SelectContent><SelectItem value="acik">Açık</SelectItem><SelectItem value="serviste">Serviste</SelectItem></SelectContent>
                 </Select>
               ) : (
                 <div className="flex h-9 items-center">
@@ -172,6 +169,13 @@ export default function WorkOrderFormSheet({
         <SheetField label="Açıklama" htmlFor="wo-aciklama">
           <Textarea id="wo-aciklama" rows={3} maxLength={2000} value={form.aciklama} onChange={(e) => setField('aciklama', e.target.value)} placeholder="Arıza belirtisi, ses veya gözlem notları (opsiyonel)" className="resize-none" />
         </SheetField>
+        <DocVaultMultiField
+          id="wo-belgeler" label="Arıza / Talep Belgeleri" maxFiles={WORKORDER_MAX_DOCS}
+          items={docItems} uploading={docUpload.uploading} error={docUpload.error}
+          disabled={!isEdit && !form.arac_id} readOnly={isClosedWo}
+          onSelectFile={handleSelectDoc} onRemoveItem={handleRemoveDoc}
+          onOpenItem={(item) => docUpload.openDocument({ belgeId: item.belge_id })}
+        />
       </SheetFormSection>
       {canManage && (
         <SheetFormSection title="Servis & Planlama" description="Yönetici tarafından atanan servis ve bütçe alanları">

@@ -5,6 +5,8 @@ const AppError = require('../utils/AppError');
 const withTransaction = require('../utils/withTransaction');
 const { createBakimTx, updateBakimTx, deleteBakimTx } = require('../services/bakimWriteService');
 const { logAuditEvent } = require('../services/auditService');
+const { belgeUrlJoiField } = require('../utils/docVaultSchema');
+const { hasFinanceAccess } = require('../services/docVaultService');
 
 const bakimBaseFields = {
   bakim_tipi: Joi.string().trim().min(1).max(150).required(),
@@ -15,8 +17,19 @@ const bakimBaseFields = {
   aciklama: Joi.string().max(2000).allow('', null).optional(),
   sifirla_parcalar: Joi.boolean().optional(),
   fatura_no: Joi.string().trim().max(80).allow('', null).optional(),
-  belge_url: Joi.string().trim().max(2048).pattern(/^(https?:\/\/|\/)/i).allow('', null).optional(),
+  belge_url: belgeUrlJoiField,
 };
+
+const sendJoiError = (res, error) => {
+  const detail = error.details[0];
+  if (detail?.type === 'belge.presigned') {
+    return res.status(400).json({ code: 'PRESIGNED_URL_FORBIDDEN', message: detail.message });
+  }
+  return res.status(400).json({ message: detail.message });
+};
+
+const maskBakimRows = (user, rows) =>
+  hasFinanceAccess(user) ? rows : rows.map((r) => ({ ...r, belge_url: null }));
 
 const bakimCreateSchema = Joi.object({
   ...bakimBaseFields,
@@ -47,7 +60,7 @@ const getAllBakimlar = async (req, res) => {
        ORDER BY b.tarih DESC, b.bakim_id DESC`,
       params
     );
-    return res.status(200).json({ message: 'Bakımlar listelendi', bakimlar: result.rows });
+    return res.status(200).json({ message: 'Bakımlar listelendi', bakimlar: maskBakimRows(req.user, result.rows) });
   } catch (err) {
     console.error('Bakım listeleme hatası:', err);
     return res.status(500).json({ message: 'Sunucu hatası' });
@@ -80,7 +93,7 @@ const getBakimlarByArac = async (req, res) => {
        ORDER BY b.tarih DESC, b.bakim_id DESC`,
       [aracId, ...params]
     );
-    return res.status(200).json({ message: 'Bakimlar listelendi', bakimlar: result.rows });
+    return res.status(200).json({ message: 'Bakimlar listelendi', bakimlar: maskBakimRows(req.user, result.rows) });
   } catch (err) {
     console.error('Araç bakımları listeleme hatası:', err);
     return res.status(500).json({ message: 'Sunucu hatasi' });
@@ -90,7 +103,7 @@ const getBakimlarByArac = async (req, res) => {
 // YENİ BAKIM KAYDI EKLE
 const createBakim = async (req, res) => {
   const { error, value } = bakimCreateSchema.validate(req.body || {}, { convert: true, stripUnknown: true });
-  if (error) return res.status(400).json({ message: error.details[0].message });
+  if (error) return sendJoiError(res, error);
 
   try {
     const out = await withTransaction((client) => createBakimTx(client, req.user, value));
@@ -107,7 +120,7 @@ const updateBakim = async (req, res) => {
     return res.status(400).json({ message: 'Geçersiz bakım kimliği.' });
   }
   const { error, value } = bakimUpdateSchema.validate(req.body || {}, { convert: true, stripUnknown: true });
-  if (error) return res.status(400).json({ message: error.details[0].message });
+  if (error) return sendJoiError(res, error);
 
   try {
     const out = await withTransaction((client) => updateBakimTx(client, req.user, { ...value, bakimId }));

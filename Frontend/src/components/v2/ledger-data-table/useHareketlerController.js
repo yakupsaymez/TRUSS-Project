@@ -4,6 +4,7 @@ import useAuthStore from '@/store/useAuthStore';
 import useVehicleStore from '@/store/useVehicleStore';
 import yakitService from '@/services/yakitService';
 import bakimService from '@/services/bakimService';
+import belgeService from '@/services/belgeService';
 import { canAccessChannel, resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { isSmhArac } from '@/utils/aracDurum';
 import { notifyApiError } from '@/utils/apiError';
@@ -133,7 +134,7 @@ export default function useHareketlerController() {
         model: y.model || matched?.model || '', sayac_tipi: isSmh ? 'SMH' : 'KM',
         tarih, timestamp, km: parseNullableNumber(y.km), tutar, litre,
         birimFiyat: litre > 0 ? tutar / litre : null, altTur: y.yakit_tipi || 'Dizel',
-        fatura_bilgisi, notlar, raw: y,
+        fatura_bilgisi, notlar, belge_url: canViewFinance ? (y.belge_url || null) : null, raw: y,
       });
     });
     bakimlar.forEach((b) => {
@@ -148,12 +149,12 @@ export default function useHareketlerController() {
         model: b.model || matched?.model || '', sayac_tipi: isSmh ? 'SMH' : 'KM',
         tarih, timestamp, km: parseNullableNumber(b.km), tutar, litre: null, birimFiyat: null,
         altTur: b.bakim_tipi || b.islem_turu || b.bakim_turu || 'Periyodik Bakım',
-        fatura_bilgisi, notlar, raw: b,
+        fatura_bilgisi, notlar, belge_url: canViewFinance ? (b.belge_url || null) : null, raw: b,
       });
     });
     unified.sort((a, b) => (b.timestamp !== a.timestamp ? b.timestamp - a.timestamp : (b.rawId || 0) - (a.rawId || 0)));
     return unified;
-  }, [yakitlar, bakimlar, aracMap]);
+  }, [yakitlar, bakimlar, aracMap, canViewFinance]);
 
   const isVehicleScoped = Boolean(seciliAracId && seciliAracId !== 'tum');
   const scopedCount = useMemo(
@@ -192,6 +193,21 @@ export default function useHareketlerController() {
     if (canManage) setDeleteTarget(row);
   }, [canManage]);
 
+  const handleOpenBelge = useCallback(async (row) => {
+    if (!canViewFinance || !row?.belge_url) return;
+    const raw = String(row.belge_url).trim();
+    if (/^https?:\/\//i.test(raw)) {
+      belgeService.openUrlSafely(raw);
+      return;
+    }
+    try {
+      const data = await belgeService.getAccessUrlByKey(raw, 'inline');
+      if (data?.erisim_url) belgeService.openUrlSafely(data.erisim_url);
+    } catch (err) {
+      notifyApiError(err, 'Belge açılamadı.');
+    }
+  }, [canViewFinance]);
+
   const handleConfirmDelete = async () => {
     if (!deleteTarget || !canManage) return;
     setIsDeleting(true);
@@ -215,6 +231,6 @@ export default function useHareketlerController() {
     importSheetOpen, setImportSheetOpen, sheetState,
     canManage, canImportFuel, canAddFuel, canAddMaintenance, canViewFinance,
     handleCreateYakit, handleCreateBakim, handleRepeatRow, handleEditRow,
-    handleSheetOpenChange, handleSheetSuccess, handleDeleteRequest, handleConfirmDelete,
+    handleSheetOpenChange, handleSheetSuccess, handleDeleteRequest, handleConfirmDelete, handleOpenBelge,
   };
 }

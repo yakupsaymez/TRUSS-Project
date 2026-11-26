@@ -97,6 +97,7 @@ export function buildInitialForm({
           : '',
       fatura_bilgisi,
       notlar,
+      belge_url: record.belge_url || record.raw?.belge_url || '',
     };
   }
 
@@ -122,6 +123,7 @@ export function buildInitialForm({
       tutar: '',
       fatura_bilgisi: '',
       notlar: '',
+      belge_url: '',
     };
   }
 
@@ -154,6 +156,7 @@ export function buildInitialForm({
         : '',
     fatura_bilgisi: prefill?.fatura_bilgisi ? String(prefill.fatura_bilgisi) : '',
     notlar: prefill?.notlar ? String(prefill.notlar) : '',
+    belge_url: prefill?.belge_url ? String(prefill.belge_url) : '',
   };
 }
 
@@ -221,6 +224,7 @@ export function validateAndBuildMovementPayload({ form, isYakit }) {
 
   const combinedNotes = birlestirNotVeFatura(form.notlar, form.fatura_bilgisi);
   const aracIdNum = Number(form.arac_id);
+  const belgeUrl = form.belge_url ? String(form.belge_url).trim() : null;
 
   if (isYakit) {
     return {
@@ -233,6 +237,7 @@ export function validateAndBuildMovementPayload({ form, isYakit }) {
         tutar: tutarRes.value,
         km: kmRes.value,
         notlar: combinedNotes,
+        belge_url: belgeUrl,
       },
     };
   }
@@ -246,6 +251,7 @@ export function validateAndBuildMovementPayload({ form, isYakit }) {
       km: kmRes.value,
       maliyet: tutarRes.value,
       notlar: combinedNotes,
+      belge_url: belgeUrl,
     },
   };
 }

@@ -2,6 +2,7 @@ const pool = require('../db');
 const AppError = require('../utils/AppError');
 const { bugunTR } = require('../utils/dateUtils');
 const { buildVehicleAccessFilter } = require('../middlewares/rbacMiddleware');
+const { hasFinanceAccess } = require('./docVaultService');
 
 const listWorkOrders = async (actor, filters = {}) => {
   if (actor?.role === 'FLEET_MANAGER' && !actor?.org_id) {
@@ -43,11 +44,13 @@ const listWorkOrders = async (actor, filters = {}) => {
               ie.kapanis_tarihi, ie.olusturma_tarihi, ie.guncelleme_tarihi,
               a.plaka, a.marka, a.model, a.sayac_tipi,
               au.ad_soyad AS acan_ad_soyad,
-              ou.ad_soyad AS onaylayan_ad_soyad
+              ou.ad_soyad AS onaylayan_ad_soyad,
+              b.belge_url AS bakim_belge_url
        FROM is_emirleri ie
        INNER JOIN araclar a ON a.arac_id = ie.arac_id
        LEFT JOIN users au ON au.user_id = ie.acan_user_id
        LEFT JOIN users ou ON ou.user_id = ie.onaylayan_user_id
+       LEFT JOIN bakimlar b ON b.bakim_id = ie.olusulan_bakim_id
        WHERE ${whereClause}
        ORDER BY ie.olusturma_tarihi DESC, ie.is_emri_id DESC
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
@@ -75,8 +78,31 @@ const listWorkOrders = async (actor, filters = {}) => {
     ),
   ]);
 
+  const woIds = listRes.rows.map((r) => r.is_emri_id);
+  const docMap = new Map();
+  if (woIds.length > 0) {
+    const docRes = await pool.query(
+      `SELECT belge_id, varlik_id, nesne_anahtari, orijinal_ad, mime_tipi, boyut_bayt, olusturma_tarihi
+       FROM belge_kasasi
+       WHERE varlik_tipi = 'is_emri' AND varlik_id = ANY($1::int[]) AND durum = 'aktif'
+       ORDER BY olusturma_tarihi ASC, belge_id ASC`,
+      [woIds]
+    );
+    for (const d of docRes.rows) {
+      const arr = docMap.get(d.varlik_id) || [];
+      arr.push(d);
+      docMap.set(d.varlik_id, arr);
+    }
+  }
+  const canSeeFinance = hasFinanceAccess(actor);
+  const isEmirleri = listRes.rows.map((r) => ({
+    ...r,
+    bakim_belge_url: canSeeFinance ? (r.bakim_belge_url || null) : null,
+    belgeler: docMap.get(r.is_emri_id) || [],
+  }));
+
   return {
-    is_emirleri: listRes.rows,
+    is_emirleri: isEmirleri,
     toplam: countRes.rows[0]?.toplam || 0,
     ozet: summaryRes.rows[0] || { acik: 0, serviste: 0, tamamlandi_bu_ay: 0 },
   };

@@ -1,4 +1,67 @@
 const ALLOWED_TRUST_PROXY_KEYWORDS = new Set(['loopback', 'linklocal', 'uniquelocal']);
+const S3_REQUIRED_KEYS = ['S3_ENDPOINT', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'];
+
+/**
+ * Belge kasası sürücüsünü ve S3/local yapılandırmasını ortam değişkenlerinden çözümler.
+ */
+function resolveDocVaultConfig(env = process.env) {
+  const nodeEnv = String(env.NODE_ENV || 'development').trim() || 'development';
+  const driverRaw = typeof env.DOC_VAULT_DRIVER === 'string' ? env.DOC_VAULT_DRIVER.trim().toLowerCase() : '';
+  const errors = [];
+
+  if (driverRaw && driverRaw !== 's3' && driverRaw !== 'local') {
+    errors.push({ key: 'DOC_VAULT_DRIVER', reason: "DOC_VAULT_DRIVER yalnız 's3' veya 'local' olabilir." });
+  }
+  if (nodeEnv === 'production' && driverRaw === 'local') {
+    errors.push({ key: 'DOC_VAULT_DRIVER', reason: "Production ortamında 'local' belge kasası sürücüsü yasaktır." });
+  }
+
+  const s3 = {
+    endpoint: typeof env.S3_ENDPOINT === 'string' ? env.S3_ENDPOINT.trim() : '',
+    bucket: typeof env.S3_BUCKET === 'string' ? env.S3_BUCKET.trim() : '',
+    accessKeyId: typeof env.S3_ACCESS_KEY_ID === 'string' ? env.S3_ACCESS_KEY_ID.trim() : '',
+    secretAccessKey: typeof env.S3_SECRET_ACCESS_KEY === 'string' ? env.S3_SECRET_ACCESS_KEY.trim() : '',
+    region: typeof env.S3_REGION === 'string' && env.S3_REGION.trim() ? env.S3_REGION.trim() : 'auto',
+  };
+
+  if (s3.endpoint) {
+    let validEp = false;
+    try {
+      const parsed = new URL(s3.endpoint);
+      validEp = (parsed.protocol === 'http:' || parsed.protocol === 'https:') && Boolean(parsed.hostname);
+    } catch {
+      validEp = false;
+    }
+    if (!validEp) {
+      errors.push({ key: 'S3_ENDPOINT', reason: 'Geçerli bir http:// veya https:// URL olmalıdır.' });
+    }
+  }
+
+  const s3KeyMap = {
+    S3_ENDPOINT: s3.endpoint,
+    S3_BUCKET: s3.bucket,
+    S3_ACCESS_KEY_ID: s3.accessKeyId,
+    S3_SECRET_ACCESS_KEY: s3.secretAccessKey,
+  };
+  const setCount = S3_REQUIRED_KEYS.filter((k) => Boolean(s3KeyMap[k])).length;
+
+  if (driverRaw === 's3' || (setCount > 0 && setCount < S3_REQUIRED_KEYS.length)) {
+    for (const k of S3_REQUIRED_KEYS) {
+      if (!s3KeyMap[k]) {
+        errors.push({ key: k, reason: 'S3 belge kasası için zorunludur.' });
+      }
+    }
+  }
+
+  let driver = 'disabled';
+  if (setCount === S3_REQUIRED_KEYS.length && driverRaw !== 'local') {
+    driver = 's3';
+  } else if (nodeEnv !== 'production' && (driverRaw === '' || driverRaw === 'local')) {
+    driver = 'local';
+  }
+
+  return { driver, s3, errors };
+}
 
 /**
  * TRUST_PROXY ortam değişkenini güvenli Express değerine ayrıştırır.
@@ -119,6 +182,11 @@ function validateEnv(env = process.env) {
     }
   }
 
+  const docVault = resolveDocVaultConfig(env);
+  for (const e of docVault.errors) {
+    addError(e.key, e.reason);
+  }
+
   if (invalidKeys.length > 0) {
     const err = new Error(
       `Ortam değişkeni doğrulama hatası [${invalidKeys.join(', ')}]: ${details.join(' | ')}`
@@ -135,7 +203,8 @@ function validateEnv(env = process.env) {
     trustProxy: trustParsed.value,
     corsOrigins,
     hasDatabaseUrl,
+    docVaultDriver: docVault.driver,
   };
 }
 
-module.exports = { validateEnv, parseTrustProxy };
+module.exports = { validateEnv, parseTrustProxy, resolveDocVaultConfig };

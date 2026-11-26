@@ -39,6 +39,7 @@ export default function Hareketler() {
     handleSheetSuccess,
     handleDeleteRequest,
     handleConfirmDelete,
+    handleOpenBelge,
   } = useHareketlerController();
 
   return (
@@ -108,6 +109,7 @@ export default function Hareketler() {
         onEditRow={canManage ? handleEditRow : undefined}
         onDeleteRequest={handleDeleteRequest}
         onImportFuel={canImportFuel ? () => setImportSheetOpen(true) : undefined}
+        onOpenBelge={canViewFinance ? handleOpenBelge : undefined}
       />
       {canImportFuel && <FuelImportSheet open={importSheetOpen} onOpenChange={setImportSheetOpen} onImported={handleSheetSuccess} />}
 

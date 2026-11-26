@@ -112,3 +112,7 @@
 ### ADR-28: Üretim Zırhı, Boş-DB Bootstrap & PG 16 CI (`FORGE-C0`)
 - **2026-11-26 (`FORGE-C0`) · Neden:** Fail-fast env doğrulaması, rate limit, security headers, single-flight `/api/health`, graceful shutdown ve sıfırdan DB bootstrap/CI yoktu.
 - **Kural:** Sıfır yeni npm paketiyle `validateEnv` (`DATABASE_URL`/prod `JWT_SECRET>=32`/CORS), `securityHeaders`, NAT-dostu 2 katmanlı `rateLimiter` (`429 RATE_LIMITED`), single-flight `GET /api/health` + DI `gracefulShutdown`, `000_base_schema` (`typnamespace = current_schema()::regnamespace`) + `runMigrations(..., { schema })` ve `.github/workflows/ci.yml` PG 16 CI zorunludur.
+
+### ADR-29: Kiracı-İzole DOC-VAULT, Sıfır-Paket SigV4 & Yerel HMAC Sürücü (`FORGE-C1`)
+- **2026-11-26 (`FORGE-C1`) · Neden:** Dış URL yapıştırma kırılganlığı, finansal belge sızıntısı ve SDK bağımlılığı olmadan güvenli belge yükleme/erişim gerekti.
+- **Kural:** `belge_kasasi` (`belge_id SERIAL PK`, `org_<id>/<varlik>/<YYYY-MM>/<uuid>.<ext>`), sıfır-npm SigV4 `UNSIGNED-PAYLOAD` + ASCII sorgu sırası (`prod`da `local` sürücü yasak, dev `local`da `fs.stat` zorunlu) kullanılır; `DRIVER` yalnızca yükleme/taslak silme yapar, finansal belge indirme/görüntüleme `hasFinanceAccess` ile kısıtlanır ve `WorkOrderComplete -> bakimlar.belge_url` bağlanır.

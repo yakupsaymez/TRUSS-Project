@@ -6,6 +6,8 @@ const withTransaction = require('../utils/withTransaction');
 const { createYakitTx, updateYakitTx, deleteYakitTx } = require('../services/yakitWriteService');
 const { evaluateFuelRecordAnomalies } = require('../services/fuelAnomalyService');
 const { logAuditEvent } = require('../services/auditService');
+const { belgeUrlJoiField } = require('../utils/docVaultSchema');
+const { hasFinanceAccess } = require('../services/docVaultService');
 
 const yakitBaseFields = {
   yakit_tipi: Joi.string().trim().max(50).allow('', null).optional(),
@@ -15,12 +17,23 @@ const yakitBaseFields = {
   km: Joi.number().integer().min(0).max(2147483647).allow(null, '').optional(),
   notlar: Joi.string().max(2000).allow('', null).optional(),
   fatura_no: Joi.string().trim().max(80).allow('', null).optional(),
-  belge_url: Joi.string().trim().max(2048).pattern(/^(https?:\/\/|\/)/i).allow('', null).optional(),
+  belge_url: belgeUrlJoiField,
 };
 
 const yakitCreateSchema = Joi.object({ ...yakitBaseFields, arac_id: Joi.number().integer().positive().required() });
 
 const yakitUpdateSchema = Joi.object({ ...yakitBaseFields, arac_id: Joi.number().integer().positive().allow(null, '').optional() });
+
+const sendJoiError = (res, error) => {
+  const detail = error.details[0];
+  if (detail?.type === 'belge.presigned') {
+    return res.status(400).json({ code: 'PRESIGNED_URL_FORBIDDEN', message: detail.message });
+  }
+  return res.status(400).json({ message: detail.message });
+};
+
+const maskYakitRows = (user, rows) =>
+  hasFinanceAccess(user) ? rows : rows.map((r) => ({ ...r, belge_url: null }));
 
 const handleWriteError = (res, err, label) => {
   if (err instanceof AppError) return res.status(err.statusCode).json(err.toBody());
@@ -50,7 +63,7 @@ const getAllYakitlar = async (req, res) => {
        ORDER BY y.tarih DESC, y.yakit_id DESC`,
       params
     );
-    return res.status(200).json({ message: 'Yakit kayitlari listelendi', yakitlar: result.rows });
+    return res.status(200).json({ message: 'Yakit kayitlari listelendi', yakitlar: maskYakitRows(req.user, result.rows) });
   } catch (err) {
     console.error('Yakıt listeleme hatası:', err);
     return res.status(500).json({ message: 'Sunucu hatasi' });
@@ -83,7 +96,7 @@ const getYakitlarByArac = async (req, res) => {
        ORDER BY y.tarih DESC, y.yakit_id DESC`,
       [aracId, ...params]
     );
-    return res.status(200).json({ message: 'Yakit kayitlari listelendi', yakitlar: result.rows });
+    return res.status(200).json({ message: 'Yakit kayitlari listelendi', yakitlar: maskYakitRows(req.user, result.rows) });
   } catch (err) {
     console.error('Araç yakıt kayıtları listeleme hatası:', err);
     return res.status(500).json({ message: 'Sunucu hatasi' });
@@ -93,7 +106,7 @@ const getYakitlarByArac = async (req, res) => {
 // YENİ YAKIT KAYDI EKLE
 const createYakit = async (req, res) => {
   const { error, value } = yakitCreateSchema.validate(req.body || {}, { convert: true, stripUnknown: true });
-  if (error) return res.status(400).json({ message: error.details[0].message });
+  if (error) return sendJoiError(res, error);
 
   try {
     const out = await withTransaction((client) => createYakitTx(client, req.user, value));
@@ -111,7 +124,7 @@ const updateYakit = async (req, res) => {
     return res.status(400).json({ message: 'Geçersiz yakıt kimliği.' });
   }
   const { error, value } = yakitUpdateSchema.validate(req.body || {}, { convert: true, stripUnknown: true });
-  if (error) return res.status(400).json({ message: error.details[0].message });
+  if (error) return sendJoiError(res, error);
 
   try {
     const out = await withTransaction((client) => updateYakitTx(client, req.user, { ...value, yakitId }));

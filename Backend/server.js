@@ -17,6 +17,7 @@ const katalogRoutes = require('./routes/katalogRoutes');
 const bildirimRoutes = require('./routes/bildirimRoutes');
 const denetimRoutes = require('./routes/denetimRoutes');
 const isEmriRoutes = require('./routes/isEmriRoutes');
+const belgeRoutes = require('./routes/belgeRoutes');
 
 getJwtSecret();
 
@@ -53,7 +54,12 @@ function createApp({
 
   const defaultJsonParser = express.json();
   app.use((req, res, next) => {
-    if (req.originalUrl && req.originalUrl.startsWith('/api/yakitlar/toplu-')) return next();
+    if (
+      req.originalUrl
+      && (req.originalUrl.startsWith('/api/yakitlar/toplu-') || req.originalUrl.startsWith('/api/belgeler/local-nesne'))
+    ) {
+      return next();
+    }
     return defaultJsonParser(req, res, next);
   });
 
@@ -106,6 +112,7 @@ function createApp({
   app.use('/api/bildirimler', bildirimRoutes);
   app.use('/api/denetim-kayitlari', denetimRoutes);
   app.use('/api/is-emirleri', isEmriRoutes);
+  app.use('/api/belgeler', belgeRoutes);
 
   return app;
 }

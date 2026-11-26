@@ -4,6 +4,7 @@ const { tarihStr, ileriTarihMi } = require('../utils/dateUtils');
 const { araclariKilitle, assertNotArchived, assertOdometerChronology } = require('../utils/odometerGuard');
 const { createBakimTx } = require('./bakimWriteService');
 const { dispatchNotificationToUser } = require('./notificationService');
+const { bindWorkOrderKeysTx } = require('./docVaultService');
 
 const WORKORDER_COLS = `is_emri_id, org_id, arac_id, acan_user_id, onaylayan_user_id, olusulan_bakim_id,
   baslik, aciklama, kategori, oncelik, durum, bildirilen_sayac, servis_adi, tahmini_maliyet,
@@ -98,6 +99,12 @@ const createWorkOrderTx = async (client, actor, input) => {
     ]
   );
   const row = ins.rows[0];
+  row.belgeler = await bindWorkOrderKeysTx(client, actor, {
+    isEmriId: row.is_emri_id,
+    aracId,
+    orgId: arac.org_id,
+    keys: input.belge_anahtarlari,
+  });
   return {
     row, notifyCtx: null,
     auditCtx: { eylem: 'IS_EMRI_ACILDI', varlik_tipi: 'is_emri', varlik_id: row.is_emri_id, org_id: row.org_id, ozet: `${arac.plaka} aracı için "${row.baslik}" iş emri açıldı.`, detay: { plaka: arac.plaka, kategori: row.kategori, oncelik: row.oncelik } },
@@ -163,9 +170,16 @@ const completeWorkOrderTx = async (client, actor, input) => {
   const bakimTipi = cleanStr(input.islem_tipi, 150) || (wo.kategori === 'periyodik_bakim' ? 'Periyodik Bakım' : wo.baslik.slice(0, 150));
   const tutar = Number(input.tutar);
 
+  await bindWorkOrderKeysTx(client, actor, {
+    isEmriId: id,
+    aracId: wo.arac_id,
+    orgId: wo.org_id,
+    keys: input.belge_anahtarlari,
+  });
+
   const { row: bakim } = await createBakimTx(client, actor, {
     arac_id: wo.arac_id, bakim_tipi: bakimTipi, tarih: gun, km: Math.round(sayac),
-    maliyet: tutar, fatura_no: input.fatura_no, notlar, sifirla_parcalar: input.sifirla_parcalar,
+    maliyet: tutar, fatura_no: input.fatura_no, belge_url: input.belge_url, notlar, sifirla_parcalar: input.sifirla_parcalar,
   });
 
   const upd = await client.query(

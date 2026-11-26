@@ -42,6 +42,7 @@ export default function LedgerDataTable({
   onEditRow,
   onDeleteRequest,
   onImportFuel,
+  onOpenBelge,
 }) {
   const state = useLedgerTableState({ rows, araclar, seciliAracId, onVehicleChange });
 
@@ -55,8 +56,9 @@ export default function LedgerDataTable({
         onRepeatRow,
         onEditRow,
         onDeleteRequest,
+        onOpenBelge,
       }),
-    [canManage, canAddFuel, canAddMaintenance, canViewFinance, onRepeatRow, onEditRow, onDeleteRequest]
+    [canManage, canAddFuel, canAddMaintenance, canViewFinance, onRepeatRow, onEditRow, onDeleteRequest, onOpenBelge]
   );
 
   const table = useReactTable({

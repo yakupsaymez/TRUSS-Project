@@ -9,6 +9,7 @@ const {
   aracSayaciniSenkronizeEt,
   sayacBirimi,
 } = require('../utils/odometerGuard');
+const { bindSingleDocumentTx, softDeleteEntityDocumentsTx } = require('./docVaultService');
 
 const PERIYODIK_SIFIRLAMA_HARITASI = {
   'Periyodik Bakım': [
@@ -63,7 +64,7 @@ const createBakimTx = async (client, actor, input) => {
 
   const { clause, params } = buildVehicleAccessFilter(actor, 2);
   const ownership = await client.query(
-    `SELECT a.arac_id FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
+    `SELECT a.arac_id, a.org_id FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
     [aracId, ...params]
   );
   if (ownership.rowCount === 0) {
@@ -89,6 +90,16 @@ const createBakimTx = async (client, actor, input) => {
     [aracId, bakim_tipi, gun, km, maliyet, notlarDegeri, faturaNo, belgeUrl, olusturanUserId]
   );
 
+  const row = inserted.rows[0];
+  await bindSingleDocumentTx(client, actor, {
+    aracId,
+    orgId: ownership.rows[0].org_id,
+    varlikTipi: 'bakim',
+    varlikId: row.bakim_id,
+    nextKey: belgeUrl,
+    prevKey: null,
+  });
+
   const sifirlanacakParcalar = PERIYODIK_SIFIRLAMA_HARITASI[bakim_tipi] || null;
   if (sifirla_parcalar !== false && sifirlanacakParcalar) {
     await client.query(
@@ -103,7 +114,7 @@ const createBakimTx = async (client, actor, input) => {
   }
 
   await syncVehicleOdometer(client, { aracId, sayacTipi: hedefArac.sayac_tipi, km });
-  return { row: inserted.rows[0], anomalyCtx: null, auditCtx: null };
+  return { row, anomalyCtx: null, auditCtx: null };
 };
 
 const updateBakimTx = async (client, actor, input) => {
@@ -135,7 +146,7 @@ const updateBakimTx = async (client, actor, input) => {
   }
 
   const hedefCheck = await client.query(
-    `SELECT a.arac_id FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
+    `SELECT a.arac_id, a.org_id FROM araclar a WHERE a.arac_id = $1 AND (${clause})`,
     [hedefAracId, ...params]
   );
   if (hedefCheck.rowCount === 0) {
@@ -190,6 +201,15 @@ const updateBakimTx = async (client, actor, input) => {
   if (kaynakAracId !== hedefAracId) {
     await aracSayaciniSenkronizeEt(client, { aracId: kaynakAracId, eskiKm });
   }
+  await bindSingleDocumentTx(client, actor, {
+    aracId: hedefAracId,
+    orgId: hedefCheck.rows[0].org_id,
+    varlikTipi: 'bakim',
+    varlikId: bakimId,
+    nextKey: belgeUrl,
+    prevKey: mevcutBelgeUrl,
+    kaynakAracId,
+  });
 
   return { row: updated.rows[0], anomalyCtx: null, auditCtx: null };
 };
@@ -214,6 +234,7 @@ const deleteBakimTx = async (client, actor, input) => {
   const [hedefArac] = await araclariKilitle(client, [aracId]);
   assertNotArchived(hedefArac, 'bakım kaydı', 'silinemez');
 
+  await softDeleteEntityDocumentsTx(client, { varlikTipi: 'bakim', varlikId: bakimId });
   await client.query('DELETE FROM bakimlar WHERE bakim_id = $1', [bakimId]);
   await aracSayaciniSenkronizeEt(client, { aracId, eskiKm: row.km });
 

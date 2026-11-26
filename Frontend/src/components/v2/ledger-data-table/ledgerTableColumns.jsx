@@ -13,6 +13,7 @@ import {
 import { formatCurrency, formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import DocVaultTriggerBadge from '@/components/v2/doc-vault/DocVaultTriggerBadge';
 import { cn } from '@/lib/utils';
 import { formatTrDate } from './ledgerTableHelpers';
 
@@ -49,6 +50,7 @@ export default function createLedgerColumns({
   onRepeatRow,
   onEditRow,
   onDeleteRequest,
+  onOpenBelge,
 }) {
   const cols = [
     {
@@ -191,33 +193,33 @@ export default function createLedgerColumns({
     {
       id: 'notlar',
       accessorFn: (row) => `${row.fatura_bilgisi || ''} ${row.notlar || ''}`,
-      header: () => (
-        <span className="text-xs font-medium text-muted-foreground">Not / Fatura</span>
-      ),
+      header: () => <span className="text-xs font-medium text-muted-foreground">Not / Fatura</span>,
       enableSorting: false,
       cell: ({ row }) => {
-        const { fatura_bilgisi: fatura, notlar } = row.original;
-        if (!fatura && !notlar) {
+        const { fatura_bilgisi: fatura, notlar, belge_url: belgeUrl } = row.original;
+        const showBelge = canViewFinance && Boolean(belgeUrl);
+        if (!fatura && !notlar && !showBelge) {
           return <span className="text-xs text-muted-foreground">—</span>;
         }
-        const fullTitle = [fatura ? `Fatura: ${fatura}` : '', notlar]
-          .filter(Boolean)
-          .join(' • ');
-
+        const fullTitle = [fatura ? `Fatura: ${fatura}` : '', notlar].filter(Boolean).join(' • ');
         return (
           <div className="flex max-w-52 flex-col items-start gap-1" title={fullTitle}>
-            {fatura && (
-              <Badge
-                variant="outline"
-                className="h-5 max-w-full gap-1 border-border bg-background px-1.5 font-mono text-[10px] text-foreground"
-              >
-                <FileText className="size-3 shrink-0 text-muted-foreground" />
-                <span className="truncate">{fatura}</span>
-              </Badge>
-            )}
-            {notlar && (
-              <span className="w-full truncate text-xs text-muted-foreground">{notlar}</span>
-            )}
+            <div className="flex flex-wrap items-center gap-1">
+              {fatura && (
+                <Badge variant="outline" className="h-5 max-w-full gap-1 border-border bg-background px-1.5 font-mono text-[10px] text-foreground">
+                  <FileText className="size-3 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{fatura}</span>
+                </Badge>
+              )}
+              {showBelge && (
+                <DocVaultTriggerBadge
+                  label="Fatura Eki"
+                  title="Ekli faturayı / belgeyi aç"
+                  onClick={() => onOpenBelge?.(row.original)}
+                />
+              )}
+            </div>
+            {notlar && <span className="w-full truncate text-xs text-muted-foreground">{notlar}</span>}
           </div>
         );
       },

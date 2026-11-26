@@ -3,6 +3,7 @@ import { CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Pencil, Wrench,
 import { formatCurrency, formatLocaleNumber, formatTurkishPlate } from '@/utils/formatters';
 import { cn } from '@/lib/utils';
 import EmptyState from '@/components/v2/EmptyState';
+import DocVaultTriggerBadge from '@/components/v2/doc-vault/DocVaultTriggerBadge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -49,7 +50,7 @@ function RowActions({ row, canManage, currentUserId, onTakeToService, onEdit, on
 export default function WorkOrderTable({
   rows, toplam, offset, loading, hasLoaded, hasActiveFilters,
   canManage, canViewFinance, canCreate, currentUserId,
-  onClearFilters, onCreateClick, onTakeToService, onEdit, onComplete, onCancel, onPageChange,
+  onClearFilters, onCreateClick, onTakeToService, onEdit, onComplete, onCancel, onPageChange, onOpenDoc,
 }) {
   const rangeStart = toplam === 0 ? 0 : offset + 1;
   const rangeEnd = Math.min(offset + rows.length, toplam);
@@ -109,6 +110,23 @@ export default function WorkOrderTable({
                     )}
                     {row.durum === 'iptal' && row.red_iptal_nedeni && (
                       <p className="mt-1 text-[11px] text-muted-foreground">Neden: {row.red_iptal_nedeni}</p>
+                    )}
+                    {((Array.isArray(row.belgeler) && row.belgeler.length > 0) || (canViewFinance && row.bakim_belge_url)) && (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {(row.belgeler || []).map((doc) => (
+                          <DocVaultTriggerBadge
+                            key={doc.belge_id} variant="multi" label={doc.orijinal_ad}
+                            title={`${doc.orijinal_ad} belgesini aç`}
+                            onClick={() => onOpenDoc?.({ belgeId: doc.belge_id })}
+                          />
+                        ))}
+                        {canViewFinance && row.bakim_belge_url && (
+                          <DocVaultTriggerBadge
+                            variant="single" label="Bakım Faturası" title="Tamamlanan bakım faturasını aç"
+                            onClick={() => onOpenDoc?.({ anahtar: row.bakim_belge_url })}
+                          />
+                        )}
+                      </div>
                     )}
                   </TableCell>
                   <TableCell className="align-top">

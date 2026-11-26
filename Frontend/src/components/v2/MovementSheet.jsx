@@ -30,6 +30,11 @@ export default function MovementSheet({
     isSmh,
     canAddFuel,
     canAddMaintenance,
+    canViewFinance,
+    canUploadBelge,
+    belgeDraft,
+    belgeUploading,
+    belgeError,
     yakitOptions,
     bakimOptions,
     selectedAracInList,
@@ -39,6 +44,9 @@ export default function MovementSheet({
     handleAracChange,
     handleTarihChange,
     handleKmChange,
+    handleSelectBelge,
+    handleRemoveBelge,
+    handleOpenBelge,
     updateField,
     handleSubmit,
   } = useMovementSheetForm({
@@ -65,6 +73,7 @@ export default function MovementSheet({
       submitLabel={meta.submitLabel}
       isDirty={isDirty}
       isSubmitting={isSubmitting}
+      submitDisabled={belgeUploading}
       onSubmit={handleSubmit}
     >
       {/* Kayıt Türü Seçimi (Yalnızca Yeni Kayıt Modunda ve Her İki Yetki Açıkken) */}
@@ -116,6 +125,14 @@ export default function MovementSheet({
         isYakit={isYakit}
         fieldErrors={fieldErrors}
         updateField={updateField}
+        canUploadBelge={canUploadBelge}
+        canViewFinance={canViewFinance}
+        belgeDraft={belgeDraft}
+        belgeUploading={belgeUploading}
+        belgeError={belgeError}
+        onSelectBelge={handleSelectBelge}
+        onRemoveBelge={handleRemoveBelge}
+        onOpenBelge={handleOpenBelge}
       />
     </AppSheet>
   );

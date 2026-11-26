@@ -230,6 +230,28 @@ const MIGRATIONS = [
         WHERE olusulan_bakim_id IS NOT NULL;
     `,
   },
+  {
+    version: '009_v23_doc_vault',
+    sql: `
+      CREATE TABLE IF NOT EXISTS belge_kasasi (
+        belge_id SERIAL PRIMARY KEY,
+        org_id INT NOT NULL REFERENCES organizations(org_id) ON DELETE RESTRICT,
+        arac_id INT NOT NULL REFERENCES araclar(arac_id) ON DELETE CASCADE,
+        varlik_tipi VARCHAR(24) NOT NULL CHECK (varlik_tipi IN ('yakit', 'bakim', 'is_emri')),
+        varlik_id INT NULL,
+        nesne_anahtari VARCHAR(255) NOT NULL UNIQUE,
+        orijinal_ad VARCHAR(180) NOT NULL,
+        mime_tipi VARCHAR(64) NOT NULL CHECK (mime_tipi IN ('application/pdf', 'image/jpeg', 'image/png', 'image/webp')),
+        boyut_bayt INT NOT NULL CHECK (boyut_bayt >= 1 AND boyut_bayt <= 10485760),
+        durum VARCHAR(16) NOT NULL DEFAULT 'yukleniyor' CHECK (durum IN ('yukleniyor', 'aktif', 'silindi')),
+        yukleyen_user_id INT NULL REFERENCES users(user_id) ON DELETE SET NULL,
+        olusturma_tarihi TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_belge_kasasi_org_durum ON belge_kasasi (org_id, durum);
+      CREATE INDEX IF NOT EXISTS idx_belge_kasasi_varlik ON belge_kasasi (varlik_tipi, varlik_id) WHERE durum = 'aktif';
+      CREATE INDEX IF NOT EXISTS idx_belge_kasasi_arac ON belge_kasasi (arac_id) WHERE durum = 'aktif';
+    `,
+  },
 ];
 
 module.exports = { MIGRATIONS };

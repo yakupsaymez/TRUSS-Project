@@ -21,7 +21,7 @@ export default function IsEmirleri() {
     rows, toplam, ozet, loading, hasLoaded, submitting, loadWorkOrders,
     formSheet, openCreate, openEdit, closeFormSheet,
     completeTarget, setCompleteTarget, cancelTarget, setCancelTarget,
-    submitCreate, submitUpdate, submitComplete, submitCancel,
+    submitCreate, submitUpdate, submitComplete, submitCancel, handleOpenDoc,
   } = useIsEmirleriController();
 
   const hasNoVehicles = !isMissingManagerOrg && vehiclesHasLoaded && araclar.length === 0;
@@ -146,13 +146,14 @@ export default function IsEmirleri() {
         onComplete={(row) => setCompleteTarget(row)}
         onCancel={(row) => setCancelTarget(row)}
         onPageChange={setOffset}
+        onOpenDoc={handleOpenDoc}
       />
 
       <WorkOrderFormSheet
         open={formSheet.open} onOpenChange={(next) => !next && closeFormSheet()}
         mode={formSheet.mode} record={formSheet.record} defaultDurum={formSheet.defaultDurum}
-        araclar={araclar} defaultAracId={seciliAracId} canManage={canManage} submitting={submitting}
-        onCreate={submitCreate} onUpdate={submitUpdate}
+        araclar={araclar} defaultAracId={seciliAracId} canManage={canManage} currentUserId={currentUserId}
+        submitting={submitting} onCreate={submitCreate} onUpdate={submitUpdate} onDocsChanged={loadWorkOrders}
       />
 
       {canManage && (

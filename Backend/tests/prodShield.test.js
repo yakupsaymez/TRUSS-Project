@@ -70,6 +70,24 @@ describe('FORGE-C0 Production Shield & Bootstrap Tests', () => {
     assert.equal(okUrl.hasDatabaseUrl, true);
     assert.equal(okUrl.trustProxy, 1);
     assert.equal(okUrl.corsOrigins.length, 2);
+    assert.equal(okUrl.docVaultDriver, 'disabled');
+
+    assert.throws(
+      () => validateEnv({ NODE_ENV: 'production', DATABASE_URL: 'postgresql://u:p@db.internal:5432/truss', JWT_SECRET: 'a'.repeat(32), CORS_ORIGIN: 'https://app.truss.io', DOC_VAULT_DRIVER: 'local' }),
+      (err) => err.code === 'ENV_VALIDATION_FAILED' && err.invalidKeys.includes('DOC_VAULT_DRIVER')
+    );
+    assert.throws(
+      () => validateEnv({ NODE_ENV: 'development', DB_HOST: 'localhost', DB_USER: 'u', DB_NAME: 'd', DB_PORT: '5432', JWT_SECRET: 'devsecret', S3_ENDPOINT: 'not-a-url', S3_BUCKET: 'b' }),
+      (err) => err.code === 'ENV_VALIDATION_FAILED' && ['S3_ENDPOINT', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'].every((k) => err.invalidKeys.includes(k))
+    );
+    const s3Cfg = validateEnv({
+      NODE_ENV: 'production', DATABASE_URL: 'postgresql://u:p@db.internal:5432/truss', JWT_SECRET: 'a'.repeat(32),
+      CORS_ORIGIN: 'https://app.truss.io', S3_ENDPOINT: 'https://acc.r2.cloudflarestorage.com',
+      S3_BUCKET: 'truss-docs', S3_ACCESS_KEY_ID: 'key123', S3_SECRET_ACCESS_KEY: 'sec123',
+    });
+    assert.equal(s3Cfg.docVaultDriver, 's3');
+    const devLocal = validateEnv({ NODE_ENV: 'development', DB_HOST: 'localhost', DB_USER: 'u', DB_NAME: 'd', DB_PORT: '5432', JWT_SECRET: 'devsecret' });
+    assert.equal(devLocal.docVaultDriver, 'local');
   });
 
   it('2) securityHeaders: x-powered-by yok, CSP, no-store ve dev vs prod/secure HSTS', async () => {
@@ -234,7 +252,7 @@ describe('FORGE-C0 Production Shield & Bootstrap Tests', () => {
     assert.deepEqual(events, ['down:true', 'sched', 'rl', 'http:close', 'http:idle', 'pool:end', 'exit:0']);
   });
 
-  it('6) Izole bos-sema bootstrap: 000..008 2x idempotent, 17 tablo ve FK/indeks dogrulamasi', async () => {
+  it('6) Izole bos-sema bootstrap: 000..009 2x idempotent, 18 tablo ve FK/indeks dogrulamasi', async () => {
     const tmpSchema = `forge_ci_boot_${Date.now()}`;
     await pool.query(`CREATE SCHEMA "${tmpSchema}"`);
     try {
@@ -250,7 +268,7 @@ describe('FORGE-C0 Production Shield & Bootstrap Tests', () => {
         `SELECT COUNT(*)::int AS c FROM information_schema.tables WHERE table_schema = $1 AND table_type = 'BASE TABLE'`,
         [tmpSchema]
       );
-      assert.equal(tblRes.rows[0].c, 17);
+      assert.equal(tblRes.rows[0].c, 18);
 
       const fkRes = await pool.query(
         `SELECT c.conname, c.confdeltype::text AS dt
@@ -266,10 +284,10 @@ describe('FORGE-C0 Production Shield & Bootstrap Tests', () => {
       ]);
 
       const idxRes = await pool.query(
-        `SELECT indexname FROM pg_indexes WHERE schemaname = $1 AND indexname = 'uq_is_emirleri_bakim'`,
+        `SELECT indexname FROM pg_indexes WHERE schemaname = $1 AND indexname IN ('uq_is_emirleri_bakim', 'idx_belge_kasasi_org_durum', 'idx_belge_kasasi_varlik', 'idx_belge_kasasi_arac')`,
         [tmpSchema]
       );
-      assert.equal(idxRes.rowCount, 1);
+      assert.equal(idxRes.rowCount, 4);
     } finally {
       await pool.query(`DROP SCHEMA IF EXISTS "${tmpSchema}" CASCADE`);
     }

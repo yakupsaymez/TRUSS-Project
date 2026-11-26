@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import useAuthStore from '@/store/useAuthStore';
 import useVehicleStore from '@/store/useVehicleStore';
 import isEmriService from '@/services/isEmriService';
+import belgeService from '@/services/belgeService';
 import { canAccessChannel, resolveRole, ROLES } from '@/components/v2/channelAccess';
 import { notifyApiError } from '@/utils/apiError';
 import { DATA_SCOPES, emitDataChanged, subscribeDataChanged } from '@/utils/dataEvents';
@@ -153,6 +154,23 @@ export function useIsEmirleriController() {
     }
   };
 
+  const handleOpenDoc = useCallback(async ({ belgeId, anahtar } = {}) => {
+    if (anahtar && /^https?:\/\//i.test(String(anahtar).trim())) {
+      belgeService.openUrlSafely(anahtar);
+      return;
+    }
+    try {
+      const data = belgeId
+        ? await belgeService.getAccessUrlById(belgeId, 'inline')
+        : anahtar
+          ? await belgeService.getAccessUrlByKey(anahtar, 'inline')
+          : null;
+      if (data?.erisim_url) belgeService.openUrlSafely(data.erisim_url);
+    } catch (err) {
+      notifyApiError(err, 'Belge açılamadı.');
+    }
+  }, []);
+
   return {
     araclar, vehiclesHasLoaded, seciliAracId, isMissingManagerOrg, canManage, canViewFinance, currentUserId,
     durum, oncelik, kategori, offset, setOffset,
@@ -160,6 +178,6 @@ export function useIsEmirleriController() {
     rows, toplam, ozet, loading, hasLoaded, submitting, loadWorkOrders,
     formSheet, openCreate, openEdit, closeFormSheet,
     completeTarget, setCompleteTarget, cancelTarget, setCancelTarget,
-    submitCreate, submitUpdate, submitComplete, submitCancel,
+    submitCreate, submitUpdate, submitComplete, submitCancel, handleOpenDoc,
   };
 }
