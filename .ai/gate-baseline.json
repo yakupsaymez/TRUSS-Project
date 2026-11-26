@@ -8,8 +8,6 @@
     "Frontend/src/components/ui/**"
   ],
   "files": {
-    "Frontend/src/components/v2/CostTrendChart.jsx": 345,
-    "Frontend/src/components/v2/CreateMemberSheet.jsx": 464,
     "Frontend/src/pages/v2/Harita.jsx": 483
   }
 }

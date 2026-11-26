@@ -69,3 +69,5 @@
 - **2026-11-26:** `parcaQueryService` (`73`L) + `parcaWriteService` (`188`L: `araclar -> parca_takip` kilit, `ADR-09`, `!hasFinanceAccess` `maliyet` koruma/maskeleme, `23505 -> 409`, `PARCA_*` audit) ayrıldı; `parcaController` (`84`L) slim + ratchet `6 -> 5` (`0` BE ratchet).
 ### ADR-34: `complianceUtils`, `FleetHealthWidget`/`Takvim` 3-Katman & Ratchet `5 -> 3` (`FORGE-D1`)
 - **2026-11-26:** `complianceUtils` (`UTC+3` kaymasız `YYYY-MM-DD`, `getComplianceUrgency` yalnız vade tarihlerine, `bakim` geçmiş hareket), `FleetHealthWidget`/`Takvim` 3-katman (`AbortController`+`requestIdRef`, deterministik `TakvimEventDialog`, `DRIVER`/arşivde mutasyon gizli), `IsEmirleri` `prefillWorkOrder` (`navigate(..., { state: null })`), ratchet `5 -> 3`.
+### ADR-35: `CreateMemberSheet` & `CostTrendChart` 3-Katman + Ratchet `3 -> 1` (`FORGE-D2`)
+- **2026-11-26:** `CreateMemberSheet` (`useRef` submit kilidi, `arsivlendi_mi` filtre, `DATA_SCOPES.VEHICLE/HANDOVER`) ve `CostTrendChart` (`0`-lazy, `effectiveTab = isSingleVehicle ? 'aylik' : activeTab`, sıfır-bölme koruması) 3 katmana ayrıldı; ratchet `3 -> 1` (yalnız `Harita.jsx`).
