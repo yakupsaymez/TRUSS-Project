@@ -100,7 +100,7 @@ ON CONFLICT (arac_id, parca_adi) DO NOTHING;
 -- FAZ 2: GELISMIS RBAC VE MULTI-TENANT MIMARISI
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role_type') THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role_type' AND typnamespace = current_schema()::regnamespace) THEN
         CREATE TYPE user_role_type AS ENUM ('SYSTEM_ADMIN', 'FLEET_MANAGER', 'DRIVER');
     END IF;
 END$$;

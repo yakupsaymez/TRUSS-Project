@@ -124,3 +124,7 @@
 ### ADR-31: `0`-Paket UTF-8 BOM CSV, `raporController` Slim & `GenelBakis` (`FORGE-C3`)
 - **2026-11-26 (`FORGE-C3`) · Neden:** `raporController` (`334`L)/`GenelBakis` (`209`L) şişkindi, formula-safe CSV export yoktu.
 - **Kural:** `0`-npm `csvSerializer` (`\uFEFF`, `\r\n`, OWASP `'`, RFC 4180, sayısal `-` korunur) + `raporQueryService` (`MAX_EXPORT_ROWS=10000`, `LIMIT 10001`, `buildVehicleAccessFilter`, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `X-Export-*`); `raporController` (`76`L) slim, `GenelBakis` (`158`L) + `useGenelBakisController` (`144`L) + `ExecExportMenu` (`86`L).
+
+### ADR-32: `userSettings` Ayrımı, `V2.3` X-Ray Dikişleri & Ratchet `12 -> 6` (`FORGE-C4`)
+- **2026-11-26 (`FORGE-C4`) · Neden:** `userRoutes`/`qaSeed`/4 FE modülü şişkindi; `database.sql` şema kilidi ve `forge-meter` 1M kalibrasyonu eksikti.
+- **Kural:** `userSettingsController` (`76`L) + `req/res`-bağımsız `userSettingsService` (`237`L, `ADR-14`/`token_version` korunur); `database.sql` `typnamespace = current_schema()::regnamespace`; `forge-meter` `ctx > 200k` cezası kalktı + salt-okunur `xray/audit` `$0.90` zarfı; 6 dosya daraltılıp ratchet `12 -> 6` (`14 -> 6`) kilitlendi (`0` P0 X-Ray).

@@ -90,10 +90,15 @@ export function downloadSampleFuelCsv() {
   });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
-  link.href = url;
-  link.download = 'truss-yakit-ekstre-sablonu.csv';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  try {
+    link.href = url;
+    link.download = 'truss-yakit-ekstre-sablonu.csv';
+    document.body.appendChild(link);
+    link.click();
+  } finally {
+    if (link.parentNode) {
+      link.parentNode.removeChild(link);
+    }
+    URL.revokeObjectURL(url);
+  }
 }

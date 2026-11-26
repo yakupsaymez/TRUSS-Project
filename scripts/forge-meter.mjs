@@ -79,10 +79,10 @@ function gradeTurn(t) {
   if (t.browser_steps > 0 || t.hasBrowserTool) env = { steps: 28, net: 220_000, usd: 0.95 };
   else if (t.subagents >= 2) env = { steps: 45, net: 320_000, usd: 1.35 };
   else if (t.hasEditCmd) env = { steps: 24, net: 160_000, usd: 0.65 };
+  else if (!t.hasEditCmd && t.in > 180_000 && t.out < 30_000) env = { steps: 24, net: 300_000, usd: 0.90 };
   const ratio = Math.max(t.steps / env.steps, (t.in + t.out) / env.net, t.turn_usd / env.usd);
   let idx = ratio <= 0.75 ? 0 : ratio <= 1.05 ? 1 : ratio <= 1.35 ? 2 : ratio <= 1.75 ? 3 : 4;
   if (t.steps >= 4 && (t.in + t.cache) >= 20_000 && t.cache / (t.in + t.cache) < 0.30) idx = Math.max(idx, 2);
-  if (t.ctx > 200_000) idx = Math.max(idx, 3);
   if (t.browser_steps > 15) idx = 4;
   return GRADES[idx];
 }
