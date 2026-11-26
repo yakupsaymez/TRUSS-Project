@@ -36,3 +36,6 @@ Thumbs.db
 scratch/
 *.tgz
 Backend/.local-vault/
+
+# Google Drive temp sync files
+**/.tmp.driveupload/
