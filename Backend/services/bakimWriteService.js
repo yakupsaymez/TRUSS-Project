@@ -124,7 +124,7 @@ const updateBakimTx = async (client, actor, input) => {
 
   const { clause, params } = buildVehicleAccessFilter(actor, 2);
   const existingQ = await client.query(
-    `SELECT b.bakim_id, b.arac_id, b.km, b.fatura_no, b.belge_url
+    `SELECT b.bakim_id, b.arac_id, b.km, b.fatura_no, b.belge_url, a.org_id AS kaynak_org_id
      FROM bakimlar b
      INNER JOIN araclar a ON b.arac_id = a.arac_id
      WHERE b.bakim_id = $1 AND (${clause})
@@ -151,6 +151,11 @@ const updateBakimTx = async (client, actor, input) => {
   );
   if (hedefCheck.rowCount === 0) {
     throw new AppError(403, null, 'Hedef araca erişim yetkiniz yoktur.');
+  }
+  const kaynakOrg = existing.kaynak_org_id;
+  const hedefOrg = hedefCheck.rows[0].org_id;
+  if (kaynakAracId !== hedefAracId && (kaynakOrg == null || hedefOrg == null || Number(kaynakOrg) !== Number(hedefOrg))) {
+    throw new AppError(403, 'CROSS_TENANT_FORBIDDEN', 'Kayıt farklı bir organizasyonun aracına taşınamaz.');
   }
 
   const kilitler = await araclariKilitle(client, [kaynakAracId, hedefAracId]);

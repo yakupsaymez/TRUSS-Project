@@ -133,7 +133,8 @@ describe('FORGE-C2 Handover & Inspection E2E Tests', () => {
     const kmRow = await pool.query('SELECT guncel_km FROM araclar WHERE arac_id = $1', [aracKm]);
     assert.equal(kmRow.rows[0].guncel_km, 5250);
 
-    // SMH ondalik testi
+    // SMH ondalik testi (once onceki KM zimmetini kapat)
+    await requestJson(srv.baseUrl, `/api/admin/assign/${aracKm}`, { method: 'DELETE', token: tokMgrA });
     const smhAsg = await requestJson(srv.baseUrl, '/api/admin/assign', {
       method: 'POST', token: tokMgrA, body: { arac_id: aracSmh, sofor_user_id: drv1.user_id },
     });
@@ -149,6 +150,8 @@ describe('FORGE-C2 Handover & Inspection E2E Tests', () => {
     });
     assert.equal(backSmh.status, 422);
     assert.equal(backSmh.body.alt_sinir, 125.5);
+    await requestJson(srv.baseUrl, `/api/admin/assign/${aracSmh}`, { method: 'DELETE', token: tokMgrA });
+    await requestJson(srv.baseUrl, '/api/admin/assign', { method: 'POST', token: tokMgrA, body: { arac_id: aracKm, sofor_user_id: drv1.user_id } });
   });
 
   it('3) PDF reddi, >4 gorsel 422, DRIVER zimmet gorsel okuma/taslak silme vs yakit 403 & aktif silme 403', async () => {

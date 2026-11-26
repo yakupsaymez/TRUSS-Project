@@ -6,6 +6,8 @@ const pool = require('./db');
 const { getJwtSecret } = require('./utils/jwtSecret');
 const { parseTrustProxy } = require('./utils/validateEnv');
 const { createSecurityHeadersMiddleware } = require('./middlewares/securityHeaders');
+const { requestIdMiddleware } = require('./middlewares/requestIdMiddleware');
+const { apiNotFoundHandler, errorHandler } = require('./middlewares/errorHandler');
 const userRoutes = require('./routes/userRoutes');
 const aracRoutes = require('./routes/aracRoutes');
 const bakimRoutes = require('./routes/bakimRoutes');
@@ -40,9 +42,10 @@ function createApp({
   app.isShuttingDown = () => shuttingDown;
   app.disable('x-powered-by');
 
-  const parsedProxy = parseTrustProxy(trustProxyRaw);
+  const parsedProxy = parseTrustProxy(trustProxyRaw, { nodeEnv });
   if (parsedProxy.ok && parsedProxy.value !== false) app.set('trust proxy', parsedProxy.value);
 
+  app.use(requestIdMiddleware);
   app.use(createSecurityHeadersMiddleware({ nodeEnv }));
   const corsOrigins = corsOriginRaw
     ? String(corsOriginRaw).split(',').map((o) => o.trim()).filter(Boolean)
@@ -50,10 +53,10 @@ function createApp({
   app.use(cors({
     origin: corsOrigins.length > 0 ? corsOrigins : ['http://localhost:5173'],
     credentials: true,
-    exposedHeaders: ['Retry-After', 'RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset'],
+    exposedHeaders: ['Retry-After', 'RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset', 'X-Request-Id', 'Content-Disposition'],
   }));
 
-  const defaultJsonParser = express.json();
+  const defaultJsonParser = express.json({ limit: '100kb' });
   app.use((req, res, next) => {
     if (
       req.originalUrl
@@ -115,6 +118,9 @@ function createApp({
   app.use('/api/is-emirleri', isEmriRoutes);
   app.use('/api/belgeler', belgeRoutes);
   app.use('/api/zimmetler', zimmetRoutes);
+
+  app.use('/api', apiNotFoundHandler);
+  app.use(errorHandler);
 
   return app;
 }

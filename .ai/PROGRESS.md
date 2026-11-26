@@ -1,8 +1,8 @@
 # TRUSS — Canlı İlerleme & Durum (`PROGRESS.md`)
 
-## 1. Aktif Durum (`main` — `FORGE-D4 / V2.4-SEAL`)
-- **`V2.1..C4` (`ADR-01..32`) — QA PASS:** `radix-luma`, `a.org_id`+`SYSTEM_ADMIN`, TCO/CSV/denetim/arşiv, `*WriteService`+`schema_migrations`+`token_version`+`is_emirleri`, prod zırhı+PG16 CI, `belge_kasasi`, `zimmet_muayeneleri`, `raporController`/`userSettings` slim.
-- **`FORGE-D0..D4` (`ADR-33..37`) — `V2.4-SEAL` (QA BEKLİYOR):** `parcaQuery/WriteService`, `complianceUtils`, 3-katman (`FleetHealthWidget`+`prefillWorkOrder`, `Takvim`, `CreateMemberSheet`, `CostTrendChart`, `Harita`), `is_emirleri` tam finans maskeleme/koruma, `parca`+`parcaIntegrity`+`v24SealMatrix`, `0` ratchet.
+## 1. Aktif Durum (`main` — `FORGE-E1 / V2.5 LAUNCH-FORTRESS`)
+- **`V2.1..V2.4-SEAL` (`ADR-01..37`) — QA PASS:** `radix-luma`, `a.org_id`+`SYSTEM_ADMIN`, `*WriteService`+`schema_migrations`+`token_version`+`is_emirleri`, prod zırhı+PG16 CI, `belge_kasasi`, `zimmet_muayeneleri`, `parca` çekirdeği, `is_emirleri` finans maskeleme.
+- **`FORGE-E0..E1` (`ADR-38..39`) — `V2.5` (QA BEKLİYOR):** `requestIdMiddleware`, steril `errorHandler`+`apiNotFoundHandler`, `parseTrustProxy` (prod `true` yasak, 1..5, IP/CIDR), `100kb` JSON limiti, `CROSS_TENANT_FORBIDDEN`, `DRIVER_ALREADY_ASSIGNED`, 12 vektörlü `securityFortress`+`logicConcurrencyTorture` süitleri.
 
 ## 2. Yol Haritası & Ratchet
-- **`FORGE-C0..C4` [TAMAM]; `FORGE-D0..D4` [V2.4-SEAL]:** Gate 1 **`0` ratchet** (`"files": {}`, `0` BE/FE/uyarı, `vendor-charts <= 228 KB`), PG 16 CI aktif.
+- **`FORGE-C0..D4` [TAMAM]; `FORGE-E0..E1` [V2.5 LAUNCH-FORTRESS]:** Gate 1 **`0` ratchet** (`"files": {}`, `0` BE/FE/uyarı), PG 16 CI aktif.

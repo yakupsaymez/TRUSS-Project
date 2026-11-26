@@ -240,7 +240,9 @@ const notifyWorkOrderRequester = async (notifyCtx) => {
       [notifyCtx.recipientUserId]
     );
     if (res.rowCount === 0) return null;
-    return await dispatchNotificationToUser(res.rows[0], {
+    const recipient = res.rows[0];
+    if (recipient.org_id && notifyCtx.org_id && Number(recipient.org_id) !== Number(notifyCtx.org_id)) return null;
+    return await dispatchNotificationToUser(recipient, {
       org_id: notifyCtx.org_id, arac_id: notifyCtx.arac_id, kategori: 'sistem', seviye: notifyCtx.seviye,
       referans_anahtar: `is_emri:${notifyCtx.is_emri_id}:${notifyCtx.durum}`,
       baslik: notifyCtx.baslik, mesaj: notifyCtx.mesaj, link_url: '/app/is-emirleri',

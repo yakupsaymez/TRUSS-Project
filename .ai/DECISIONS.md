@@ -75,3 +75,7 @@
 - **2026-11-26:** `Harita` (`useHaritaController`+`haritaUtils`+3 yaprak; `(0,0)` & `arsivlendi_mi` koruması, `canManage && !arsivlendi_mi` `prefillWorkOrder`); `gate-baseline.json` `"files": {}` (`0` ratchet).
 ### ADR-37: `V2.4-SEAL` Finans Maskeleme, 0-Uyarı & Çapraz-Kiracı Matrisi (`FORGE-D4`)
 - **2026-11-26:** `workOrderQuery/WriteService` `!hasFinanceAccess` maliyet/belge maskeler & korur; `FleetHealthWidget` `prefillWorkOrder` bağlar; `parca`/`parcaIntegrity`/`v24SealMatrix` (`<= 250`L) `0` uyarı/ratchet mührü.
+### ADR-38: `V2.5` E0 12-Vektör Güvenlik & Eşzamanlılık Röntgeni (`FORGE-E0`)
+- **2026-11-26:** 12 vektörlük E0 röntgeni `X-Request-Id`/steril `500` eksikliği, `TRUST_PROXY=true` prod zafiyeti, `bakim/yakit` `SYSTEM_ADMIN` çapraz-kiracı taşıma, çift sürücü zimmet yarışı ve `notifyWorkOrderRequester` kiracı sızıntısı açıklarını tespit etti.
+### ADR-39: Request-Id, Steril `errorHandler`, `TRUST_PROXY` & Çapraz-Kiracı/Zimmet Kilidi (`FORGE-E1`)
+- **2026-11-26:** `requestIdMiddleware` + steril 4-arg `errorHandler`/`apiNotFoundHandler` + `100kb` JSON; `parseTrustProxy` prod'da `'true'` yasaklar (`1..5`/IP/CIDR); `bakim/yakit` `CROSS_TENANT_FORBIDDEN`; `assignVehicleTx` `DRIVER_ALREADY_ASSIGNED`; `notifyWorkOrderRequester` org eşleşmesi.

@@ -54,9 +54,17 @@ const assignVehicleTx = async (client, actor, input) => {
   const arac = await lockOrgVehicle(client, actor, aracId);
   if (arac.arsivlendi_mi) throw new AppError(409, 'VEHICLE_ARCHIVED', 'Arşivlenmiş araca şoför zimmetlenemez.');
 
-  const drv = await client.query('SELECT user_id, ad_soyad, role FROM users WHERE user_id = $1 AND org_id = $2 FOR UPDATE', [soforId, actor.org_id]);
+  const drv = await client.query('SELECT user_id, ad_soyad, role FROM users WHERE user_id = $1 AND org_id = $2 FOR UPDATE', [soforId, arac.org_id]);
   if (drv.rowCount === 0) throw new AppError(404, 'DRIVER_NOT_FOUND', 'Şoför filonuzda bulunamadı.');
   if (drv.rows[0].role !== 'DRIVER') throw new AppError(422, 'ASSIGNEE_NOT_DRIVER', 'Araç yalnızca Şoför rolündeki kullanıcılara zimmetlenebilir.');
+
+  const activeOther = await client.query(
+    'SELECT atama_id, arac_id FROM arac_sofor_atamalari WHERE sofor_user_id = $1 AND aktif = TRUE AND arac_id <> $2 LIMIT 1',
+    [soforId, aracId]
+  );
+  if (activeOther.rowCount > 0) {
+    throw new AppError(409, 'DRIVER_ALREADY_ASSIGNED', 'Bu şoförün başka bir araçta aktif zimmeti bulunmaktadır.');
+  }
 
   await client.query('UPDATE arac_sofor_atamalari SET aktif = FALSE, teslim_tarihi = NOW() WHERE arac_id = $1 AND aktif = TRUE', [aracId]);
   const ins = await client.query(

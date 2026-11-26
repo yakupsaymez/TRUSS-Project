@@ -1,5 +1,19 @@
+const net = require('node:net');
+
 const ALLOWED_TRUST_PROXY_KEYWORDS = new Set(['loopback', 'linklocal', 'uniquelocal']);
 const S3_REQUIRED_KEYS = ['S3_ENDPOINT', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'];
+
+function isValidIpOrCidr(token) {
+  if (!token) return false;
+  if (token.includes('/')) {
+    const parts = token.split('/');
+    if (parts.length !== 2 || !/^\d+$/.test(parts[1])) return false;
+    const ver = net.isIP(parts[0]);
+    const mask = Number(parts[1]);
+    return (ver === 4 && mask >= 0 && mask <= 32) || (ver === 6 && mask >= 0 && mask <= 128);
+  }
+  return net.isIP(token) !== 0;
+}
 
 /**
  * Belge kasası sürücüsünü ve S3/local yapılandırmasını ortam değişkenlerinden çözümler.
@@ -66,30 +80,28 @@ function resolveDocVaultConfig(env = process.env) {
 /**
  * TRUST_PROXY ortam değişkenini güvenli Express değerine ayrıştırır.
  */
-function parseTrustProxy(raw) {
-  if (raw === undefined || raw === null) {
-    return { ok: true, value: false };
-  }
+function parseTrustProxy(raw, { nodeEnv = 'development' } = {}) {
+  if (raw === undefined || raw === null) return { ok: true, value: false };
   const s = String(raw).trim().toLowerCase();
-  if (s === '' || s === 'false' || s === '0') {
-    return { ok: true, value: false };
-  }
+  if (s === '' || s === 'false' || s === '0') return { ok: true, value: false };
   if (s === 'true') {
+    if (nodeEnv === 'production') {
+      return { ok: false, reason: "Production ortamında TRUST_PROXY='true' yasaktır; hop sayısı (1..5), subnet veya CIDR kullanın." };
+    }
     return { ok: true, value: true };
   }
   if (/^\d+$/.test(s)) {
     const n = Number(s);
-    if (n >= 1 && n <= 10) {
-      return { ok: true, value: n };
-    }
-    return { ok: false, reason: 'TRUST_PROXY tamsayı değeri 1..10 aralığında olmalıdır.' };
+    if (n >= 1 && n <= 5) return { ok: true, value: n };
+    return { ok: false, reason: 'TRUST_PROXY tamsayı değeri 1..5 aralığında olmalıdır.' };
   }
-  if (ALLOWED_TRUST_PROXY_KEYWORDS.has(s)) {
-    return { ok: true, value: s };
+  const parts = s.split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length > 0 && parts.every((p) => ALLOWED_TRUST_PROXY_KEYWORDS.has(p) || isValidIpOrCidr(p))) {
+    return { ok: true, value: parts.length === 1 ? parts[0] : parts.join(', ') };
   }
   return {
     ok: false,
-    reason: 'TRUST_PROXY yalnız false, true, 0..10, loopback, linklocal veya uniquelocal olabilir.',
+    reason: 'TRUST_PROXY yalnız false, 1..5, loopback, linklocal, uniquelocal veya geçerli IP/CIDR olabilir.',
   };
 }
 
@@ -154,7 +166,7 @@ function validateEnv(env = process.env) {
     }
   }
 
-  const trustParsed = parseTrustProxy(env.TRUST_PROXY);
+  const trustParsed = parseTrustProxy(env.TRUST_PROXY, { nodeEnv });
   if (!trustParsed.ok) {
     addError('TRUST_PROXY', trustParsed.reason);
   }
